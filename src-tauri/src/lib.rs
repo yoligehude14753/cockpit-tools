@@ -164,6 +164,7 @@ pub fn run() {
             commands::system::save_general_config,
             commands::system::set_app_path,
             commands::system::detect_app_path,
+            commands::system::redetect_app_path,
             commands::system::set_wakeup_override,
             commands::system::handle_window_close,
             commands::system::open_folder,

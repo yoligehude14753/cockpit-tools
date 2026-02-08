@@ -357,7 +357,7 @@ export function SettingsPage() {
 
   const handleResetAppPath = async (target: 'antigravity' | 'codex' | 'vscode' | 'opencode') => {
     try {
-      const detected = await invoke<string | null>('detect_app_path', { app: target });
+      const detected = await invoke<string | null>('redetect_app_path', { app: target });
       const path = detected || '';
       if (target === 'antigravity') {
         setAntigravityAppPath(path);

@@ -60,7 +60,22 @@ fn normalize_custom_path(value: Option<&str>) -> Option<String> {
     if trimmed.is_empty() {
         None
     } else {
-        Some(trimmed.to_string())
+        let mut normalized = trimmed;
+        // 接受用户粘贴带引号的路径，如 "D:\\...\\Code.exe"
+        while normalized.len() >= 2 {
+            let bytes = normalized.as_bytes();
+            let wrapped_by_double = bytes[0] == b'"' && bytes[normalized.len() - 1] == b'"';
+            let wrapped_by_single = bytes[0] == b'\'' && bytes[normalized.len() - 1] == b'\'';
+            if !wrapped_by_double && !wrapped_by_single {
+                break;
+            }
+            normalized = normalized[1..normalized.len() - 1].trim();
+        }
+        if normalized.is_empty() {
+            None
+        } else {
+            Some(normalized.to_string())
+        }
     }
 }
 
@@ -105,6 +120,121 @@ fn resolve_macos_exec_path(path_str: &str, _binary_name: &str) -> Option<std::pa
     } else {
         None
     }
+}
+
+#[cfg(target_os = "windows")]
+fn expand_windows_env_vars(input: &str) -> String {
+    let chars: Vec<char> = input.chars().collect();
+    let mut result = String::new();
+    let mut index = 0usize;
+
+    while index < chars.len() {
+        if chars[index] == '%' {
+            let mut end = index + 1;
+            while end < chars.len() && chars[end] != '%' {
+                end += 1;
+            }
+            if end < chars.len() && end > index + 1 {
+                let key: String = chars[index + 1..end].iter().collect();
+                if let Ok(value) = std::env::var(&key) {
+                    result.push_str(&value);
+                } else {
+                    result.push('%');
+                    result.push_str(&key);
+                    result.push('%');
+                }
+                index = end + 1;
+                continue;
+            }
+        }
+
+        result.push(chars[index]);
+        index += 1;
+    }
+
+    result
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_registry_app_path(output: &str) -> Option<std::path::PathBuf> {
+    for line in output.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        let marker = if line.contains("REG_EXPAND_SZ") {
+            "REG_EXPAND_SZ"
+        } else if line.contains("REG_SZ") {
+            "REG_SZ"
+        } else {
+            continue;
+        };
+
+        let pos = line.find(marker)?;
+        let raw_value = line[pos + marker.len()..].trim();
+        if raw_value.is_empty() {
+            continue;
+        }
+
+        let expanded = expand_windows_env_vars(raw_value);
+        if let Some(normalized) = normalize_custom_path(Some(&expanded)) {
+            let path = std::path::PathBuf::from(normalized);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn detect_exec_from_windows_app_paths(exe_name: &str) -> Option<std::path::PathBuf> {
+    let roots = [
+        r"HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths",
+        r"HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths",
+        r"HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths",
+    ];
+
+    for root in roots {
+        let key = format!(r"{}\{}", root, exe_name);
+        let output = match Command::new("reg").args(["query", &key, "/ve"]).output() {
+            Ok(out) => out,
+            Err(_) => continue,
+        };
+        if !output.status.success() {
+            continue;
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Some(path) = parse_windows_registry_app_path(&stdout) {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn detect_exec_from_where(executable: &str) -> Option<std::path::PathBuf> {
+    let output = Command::new("where").arg(executable).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(normalized) = normalize_custom_path(Some(line)) {
+            let path = std::path::PathBuf::from(normalized);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+    None
 }
 
 fn update_app_path_in_config(app: &str, path: &Path) {
@@ -285,7 +415,11 @@ fn find_vscode_process_exe() -> Option<std::path::PathBuf> {
         #[cfg(target_os = "macos")]
         let is_vscode = exe_path.contains("visual studio code.app/contents/") && !is_helper;
         #[cfg(target_os = "windows")]
-        let is_vscode = (name == "code.exe" || exe_path.ends_with("\\code.exe")) && !is_helper;
+        let is_vscode = (name == "code.exe"
+            || name == "code-insiders.exe"
+            || exe_path.ends_with("\\code.exe")
+            || exe_path.ends_with("\\code-insiders.exe"))
+            && !is_helper;
         #[cfg(target_os = "linux")]
         let is_vscode = (name == "code" || exe_path.ends_with("/code")) && !is_helper;
 
@@ -363,9 +497,27 @@ fn detect_antigravity_exec_path() -> Option<std::path::PathBuf> {
     #[cfg(target_os = "windows")]
     {
         let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+
+        if let Some(path) = detect_exec_from_windows_app_paths("Antigravity.exe") {
+            return Some(path);
+        }
+        if let Some(path) = detect_exec_from_where("antigravity.exe") {
+            return Some(path);
+        }
+
         if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
             candidates.push(
                 std::path::PathBuf::from(local_appdata)
+                    .join("Programs")
+                    .join("Antigravity")
+                    .join("Antigravity.exe"),
+            );
+        }
+        if let Ok(user_profile) = std::env::var("USERPROFILE") {
+            candidates.push(
+                std::path::PathBuf::from(user_profile)
+                    .join("AppData")
+                    .join("Local")
                     .join("Programs")
                     .join("Antigravity")
                     .join("Antigravity.exe"),
@@ -432,6 +584,20 @@ fn detect_vscode_exec_path() -> Option<std::path::PathBuf> {
     #[cfg(target_os = "windows")]
     {
         let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+
+        if let Some(path) = detect_exec_from_windows_app_paths("Code.exe") {
+            return Some(path);
+        }
+        if let Some(path) = detect_exec_from_windows_app_paths("Code - Insiders.exe") {
+            return Some(path);
+        }
+        if let Some(path) = detect_exec_from_where("code.exe") {
+            return Some(path);
+        }
+        if let Some(path) = detect_exec_from_where("code-insiders.exe") {
+            return Some(path);
+        }
+
         if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
             candidates.push(
                 std::path::PathBuf::from(&local_appdata)
@@ -445,19 +611,53 @@ fn detect_vscode_exec_path() -> Option<std::path::PathBuf> {
                     .join("VSCode")
                     .join("Code.exe"),
             );
+            candidates.push(
+                std::path::PathBuf::from(local_appdata)
+                    .join("Programs")
+                    .join("Microsoft VS Code Insiders")
+                    .join("Code - Insiders.exe"),
+            );
+        }
+        if let Ok(user_profile) = std::env::var("USERPROFILE") {
+            candidates.push(
+                std::path::PathBuf::from(&user_profile)
+                    .join("AppData")
+                    .join("Local")
+                    .join("Programs")
+                    .join("Microsoft VS Code")
+                    .join("Code.exe"),
+            );
+            candidates.push(
+                std::path::PathBuf::from(user_profile)
+                    .join("AppData")
+                    .join("Local")
+                    .join("Programs")
+                    .join("Microsoft VS Code Insiders")
+                    .join("Code - Insiders.exe"),
+            );
         }
         if let Ok(program_files) = std::env::var("PROGRAMFILES") {
             candidates.push(
-                std::path::PathBuf::from(program_files)
+                std::path::PathBuf::from(&program_files)
                     .join("Microsoft VS Code")
                     .join("Code.exe"),
+            );
+            candidates.push(
+                std::path::PathBuf::from(program_files)
+                    .join("Microsoft VS Code Insiders")
+                    .join("Code - Insiders.exe"),
             );
         }
         if let Ok(program_files_x86) = std::env::var("PROGRAMFILES(X86)") {
             candidates.push(
-                std::path::PathBuf::from(program_files_x86)
+                std::path::PathBuf::from(&program_files_x86)
                     .join("Microsoft VS Code")
                     .join("Code.exe"),
+            );
+            candidates.push(
+                std::path::PathBuf::from(program_files_x86)
+                    .join("Microsoft VS Code Insiders")
+                    .join("Code - Insiders.exe"),
             );
         }
         for candidate in candidates {
@@ -597,6 +797,7 @@ fn resolve_vscode_launch_path() -> Result<std::path::PathBuf, String> {
     Err(app_path_missing_error("vscode"))
 }
 
+#[cfg(target_os = "macos")]
 fn resolve_codex_launch_path() -> Result<std::path::PathBuf, String> {
     if let Some(custom) = normalize_custom_path(Some(&config::get_user_config().codex_app_path)) {
         if let Some(exec) = resolve_macos_exec_path(&custom, "Codex") {
@@ -612,48 +813,66 @@ fn resolve_codex_launch_path() -> Result<std::path::PathBuf, String> {
     Err(app_path_missing_error("codex"))
 }
 
-pub fn detect_and_save_app_path(app: &str) -> Option<String> {
+fn read_app_path_from_config(app: &str) -> Option<String> {
     let current = config::get_user_config();
-    match app {
-        "antigravity" => {
-            if !current.antigravity_app_path.trim().is_empty() {
-                return Some(current.antigravity_app_path);
-            }
-            if let Some(detected) = detect_antigravity_exec_path() {
-                update_app_path_in_config("antigravity", &detected);
-                return Some(config::get_user_config().antigravity_app_path);
-            }
-        }
-        "codex" => {
-            if !current.codex_app_path.trim().is_empty() {
-                return Some(current.codex_app_path);
-            }
-            if let Some(detected) = detect_codex_exec_path() {
-                update_app_path_in_config("codex", &detected);
-                return Some(config::get_user_config().codex_app_path);
-            }
-        }
-        "vscode" => {
-            if !current.vscode_app_path.trim().is_empty() {
-                return Some(current.vscode_app_path);
-            }
-            if let Some(detected) = detect_vscode_exec_path() {
-                update_app_path_in_config("vscode", &detected);
-                return Some(config::get_user_config().vscode_app_path);
-            }
-        }
+    let raw = match app {
+        "antigravity" => current.antigravity_app_path,
+        "codex" => current.codex_app_path,
+        "vscode" => current.vscode_app_path,
+        "opencode" => current.opencode_app_path,
+        _ => return None,
+    };
+    normalize_custom_path(Some(&raw))
+}
+
+fn resolve_saved_app_path(app: &str) -> Option<String> {
+    let custom = read_app_path_from_config(app)?;
+    let resolved = match app {
+        "antigravity" => resolve_macos_exec_path(&custom, "Electron"),
+        "codex" => resolve_macos_exec_path(&custom, "Codex"),
+        "vscode" => resolve_macos_exec_path(&custom, "Electron"),
         "opencode" => {
-            if !current.opencode_app_path.trim().is_empty() {
-                return Some(current.opencode_app_path);
-            }
-            if let Some(detected) = detect_opencode_exec_path() {
-                update_app_path_in_config("opencode", &detected);
-                return Some(config::get_user_config().opencode_app_path);
+            let path = std::path::PathBuf::from(&custom);
+            if path.exists() {
+                Some(path)
+            } else {
+                None
             }
         }
-        _ => {}
+        _ => None,
+    }?;
+    update_app_path_in_config(app, &resolved);
+    read_app_path_from_config(app)
+}
+
+fn detect_and_save_app_path_internal(app: &str, force: bool) -> Option<String> {
+    if !force {
+        if let Some(saved) = resolve_saved_app_path(app) {
+            return Some(saved);
+        }
     }
+
+    let detected = match app {
+        "antigravity" => detect_antigravity_exec_path(),
+        "codex" => detect_codex_exec_path(),
+        "vscode" => detect_vscode_exec_path(),
+        "opencode" => detect_opencode_exec_path(),
+        _ => None,
+    };
+    if let Some(path) = detected {
+        update_app_path_in_config(app, &path);
+        return read_app_path_from_config(app);
+    }
+
     None
+}
+
+pub fn detect_and_save_app_path(app: &str) -> Option<String> {
+    detect_and_save_app_path_internal(app, false)
+}
+
+pub fn redetect_and_save_app_path(app: &str) -> Option<String> {
+    detect_and_save_app_path_internal(app, true)
 }
 
 /// 检查 Antigravity 是否在运行
@@ -827,6 +1046,7 @@ fn extract_user_data_dir_from_command_line(command_line: &str) -> Option<String>
     None
 }
 
+#[cfg(target_os = "macos")]
 fn parse_env_value(raw: &str) -> Option<String> {
     let rest = raw.trim_start();
     if rest.is_empty() {
@@ -850,6 +1070,7 @@ fn parse_env_value(raw: &str) -> Option<String> {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn extract_env_value_from_tokens(tokens: &[String], key: &str) -> Option<String> {
     if tokens.is_empty() {
         return None;
@@ -942,6 +1163,7 @@ fn is_env_token(token: &str) -> bool {
     chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
+#[cfg(target_os = "macos")]
 fn extract_env_value(command_line: &str, key: &str) -> Option<String> {
     let needle = format!("{}=", key);
     let pos = command_line.find(&needle)?;
@@ -1650,7 +1872,7 @@ pub fn close_antigravity_instance(user_data_dir: &str, timeout_secs: u64) -> Res
         return Err("实例目录为空，无法关闭".to_string());
     }
 
-    let mut pids = collect_antigravity_pids_by_user_data_dir(user_data_dir);
+    let pids = collect_antigravity_pids_by_user_data_dir(user_data_dir);
     if pids.is_empty() {
         return Ok(());
     }
@@ -1667,6 +1889,7 @@ pub fn close_antigravity_instance(user_data_dir: &str, timeout_secs: u64) -> Res
 
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
+        let mut pids = pids;
         for pid in &pids {
             let _ = Command::new("kill").args(["-15", &pid.to_string()]).output();
         }
@@ -2130,6 +2353,7 @@ pub fn list_codex_home_dirs(default_home: &str) -> Vec<String> {
 }
 
 /// 判断 Codex 是否在运行（仅 macOS）
+#[cfg(target_os = "macos")]
 pub fn is_codex_running() -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -2451,7 +2675,7 @@ fn get_opencode_pids() -> Vec<u32> {
 
     let mut pids = Vec::new();
     let current_pid = std::process::id();
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     let app_lower = OPENCODE_APP_NAME.to_lowercase();
 
     for (pid, process) in system.processes() {
@@ -3028,9 +3252,9 @@ pub fn close_vscode_instance(user_data_dir: &str, timeout_secs: u64) -> Result<(
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-    let mut pids = collect_vscode_pids_by_user_data_dir(user_data_dir);
+    let pids = collect_vscode_pids_by_user_data_dir(user_data_dir);
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    let mut pids: Vec<u32> = Vec::new();
+    let pids: Vec<u32> = Vec::new();
 
     if pids.is_empty() {
         return Ok(());
@@ -3052,6 +3276,7 @@ pub fn close_vscode_instance(user_data_dir: &str, timeout_secs: u64) -> Result<(
 
     #[cfg(target_os = "macos")]
     {
+        let mut pids = pids;
         for pid in &pids {
             let _ = Command::new("kill").args(["-15", &pid.to_string()]).output();
         }
@@ -3081,6 +3306,7 @@ pub fn close_vscode_instance(user_data_dir: &str, timeout_secs: u64) -> Result<(
 
     #[cfg(target_os = "linux")]
     {
+        let mut pids = pids;
         for pid in &pids {
             let _ = Command::new("kill").args(["-15", &pid.to_string()]).output();
         }

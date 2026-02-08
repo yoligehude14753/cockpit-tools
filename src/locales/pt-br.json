@@ -910,6 +910,7 @@
     "panels": {
       "antigravity": "Antigravity",
       "codex": "Codex",
+      "githubCopilot": "GitHub Copilot",
       "planDistribution": "Distribuição de planos",
       "current": "Conta atual",
       "recommended": "Conta recomendada",

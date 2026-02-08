@@ -787,6 +787,7 @@
     "panels": {
       "antigravity": "Antigravity",
       "codex": "Codex",
+      "githubCopilot": "GitHub Copilot",
       "planDistribution": "方案分佈",
       "current": "目前帳號",
       "recommended": "推薦帳號",

@@ -43,6 +43,26 @@ pub struct GeneralConfig {
     pub opencode_sync_on_switch: bool,
 }
 
+fn normalize_app_path_input(path: &str) -> String {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let mut normalized = trimmed;
+    while normalized.len() >= 2 {
+        let bytes = normalized.as_bytes();
+        let wrapped_by_double = bytes[0] == b'"' && bytes[normalized.len() - 1] == b'"';
+        let wrapped_by_single = bytes[0] == b'\'' && bytes[normalized.len() - 1] == b'\'';
+        if !wrapped_by_double && !wrapped_by_single {
+            break;
+        }
+        normalized = normalized[1..normalized.len() - 1].trim();
+    }
+
+    normalized.to_string()
+}
+
 #[tauri::command]
 pub async fn open_data_folder() -> Result<(), String> {
     let path = modules::account::get_data_dir()?;
@@ -173,10 +193,10 @@ pub fn save_general_config(
     opencode_sync_on_switch: bool,
 ) -> Result<(), String> {
     let current = config::get_user_config();
-    let normalized_opencode_path = opencode_app_path.trim().to_string();
-    let normalized_antigravity_path = antigravity_app_path.trim().to_string();
-    let normalized_codex_path = codex_app_path.trim().to_string();
-    let normalized_vscode_path = vscode_app_path.trim().to_string();
+    let normalized_opencode_path = normalize_app_path_input(&opencode_app_path);
+    let normalized_antigravity_path = normalize_app_path_input(&antigravity_app_path);
+    let normalized_codex_path = normalize_app_path_input(&codex_app_path);
+    let normalized_vscode_path = normalize_app_path_input(&vscode_app_path);
     // 标准化语言代码为小写，确保与插件端格式一致
     let normalized_language = language.to_lowercase();
     let language_changed = current.language != normalized_language;
@@ -225,7 +245,7 @@ pub fn save_general_config(
 #[tauri::command]
 pub fn set_app_path(app: String, path: String) -> Result<(), String> {
     let mut current = config::get_user_config();
-    let normalized_path = path.trim().to_string();
+    let normalized_path = normalize_app_path_input(&path);
     match app.as_str() {
         "antigravity" => current.antigravity_app_path = normalized_path,
         "codex" => current.codex_app_path = normalized_path,
@@ -241,6 +261,14 @@ pub fn set_app_path(app: String, path: String) -> Result<(), String> {
 pub fn detect_app_path(app: String) -> Result<Option<String>, String> {
     match app.as_str() {
         "antigravity" | "codex" | "vscode" | "opencode" => Ok(modules::process::detect_and_save_app_path(app.as_str())),
+        _ => Err("未知应用类型".to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn redetect_app_path(app: String) -> Result<Option<String>, String> {
+    match app.as_str() {
+        "antigravity" | "codex" | "vscode" | "opencode" => Ok(modules::process::redetect_and_save_app_path(app.as_str())),
         _ => Err("未知应用类型".to_string()),
     }
 }

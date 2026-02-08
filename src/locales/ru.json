@@ -787,6 +787,7 @@
     "panels": {
       "antigravity": "Antigravity",
       "codex": "Codex",
+      "githubCopilot": "GitHub Copilot",
       "planDistribution": "Распределение планов",
       "current": "Текущий аккаунт",
       "recommended": "Рекомендуемый аккаунт",
