@@ -29,15 +29,9 @@ fn powershell_output(args: &[&str]) -> std::io::Result<std::process::Output> {
 
     Command::new("powershell")
         .creation_flags(CREATE_NO_WINDOW)
+        .args(["-WindowStyle", "Hidden", "-NonInteractive", "-NoProfile"])
         .args(args)
         .output()
-}
-
-#[cfg(target_os = "windows")]
-fn should_use_windows_powershell_process_query() -> bool {
-    std::env::var("COCKPIT_WINDOWS_PROCESS_QUERY")
-        .map(|value| value.trim().eq_ignore_ascii_case("powershell"))
-        .unwrap_or(false)
 }
 
 fn should_detach_child() -> bool {
@@ -1141,12 +1135,9 @@ pub fn collect_antigravity_process_entries() -> Vec<(u32, Option<String>)> {
 
     #[cfg(target_os = "windows")]
     {
-        // Windows 默认使用 sysinfo，避免周期刷新时触发控制台窗口。
-        if should_use_windows_powershell_process_query() {
-            let entries = collect_antigravity_process_entries_from_powershell();
-            if !entries.is_empty() {
-                return entries;
-            }
+        let entries = collect_antigravity_process_entries_from_powershell();
+        if !entries.is_empty() {
+            return entries;
         }
     }
 
@@ -1545,34 +1536,31 @@ pub fn collect_vscode_process_entries() -> Vec<(u32, Option<String>)> {
 
     #[cfg(target_os = "windows")]
     {
-        // Windows 默认使用 sysinfo；仅在显式配置时启用 PowerShell 回退。
-        if should_use_windows_powershell_process_query() {
-            let output = powershell_output(&[
-                "-NoProfile",
-                "-Command",
-                "Get-CimInstance Win32_Process -Filter \"Name='Code.exe'\" | ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }",
-            ]);
-            if let Ok(output) = output {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                for line in stdout.lines() {
-                    let line = line.trim();
-                    if line.is_empty() {
-                        continue;
-                    }
-                    let mut parts = line.splitn(2, '|');
-                    let pid_str = parts.next().unwrap_or("").trim();
-                    let cmdline = parts.next().unwrap_or("").trim();
-                    let pid = match pid_str.parse::<u32>() {
-                        Ok(value) => value,
-                        Err(_) => continue,
-                    };
-                    let lower = cmdline.to_lowercase();
-                    if is_helper_command_line(&lower) {
-                        continue;
-                    }
-                    let dir = extract_user_data_dir_from_command_line(cmdline);
-                    entries.push((pid, dir));
+        let output = powershell_output(&[
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process -Filter \"Name='Code.exe'\" | ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }",
+        ]);
+        if let Ok(output) = output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
                 }
+                let mut parts = line.splitn(2, '|');
+                let pid_str = parts.next().unwrap_or("").trim();
+                let cmdline = parts.next().unwrap_or("").trim();
+                let pid = match pid_str.parse::<u32>() {
+                    Ok(value) => value,
+                    Err(_) => continue,
+                };
+                let lower = cmdline.to_lowercase();
+                if is_helper_command_line(&lower) {
+                    continue;
+                }
+                let dir = extract_user_data_dir_from_command_line(cmdline);
+                entries.push((pid, dir));
             }
         }
     }
@@ -2559,8 +2547,14 @@ fn send_close_signal(pid: u32) {
 
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+
         let _ = Command::new("taskkill")
             .args(["/PID", &pid.to_string()])
+            .creation_flags(CREATE_NO_WINDOW)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .output();
     }
 
@@ -3643,33 +3637,30 @@ fn get_vscode_pids() -> Vec<u32> {
 
     #[cfg(target_os = "windows")]
     {
-        // Windows 默认使用 sysinfo；仅在显式配置时启用 PowerShell 回退。
-        if should_use_windows_powershell_process_query() {
-            let output = powershell_output(&[
-                "-NoProfile",
-                "-Command",
-                "Get-CimInstance Win32_Process -Filter \"Name='Code.exe'\" | ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }",
-            ]);
-            if let Ok(output) = output {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                for line in stdout.lines() {
-                    let line = line.trim();
-                    if line.is_empty() {
-                        continue;
-                    }
-                    let mut parts = line.splitn(2, '|');
-                    let pid_str = parts.next().unwrap_or("").trim();
-                    let cmdline = parts.next().unwrap_or("").trim();
-                    let pid = match pid_str.parse::<u32>() {
-                        Ok(value) => value,
-                        Err(_) => continue,
-                    };
-                    let lower = cmdline.to_lowercase();
-                    if is_helper_command_line(&lower) {
-                        continue;
-                    }
-                    result.push(pid);
+        let output = powershell_output(&[
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process -Filter \"Name='Code.exe'\" | ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }",
+        ]);
+        if let Ok(output) = output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
                 }
+                let mut parts = line.splitn(2, '|');
+                let pid_str = parts.next().unwrap_or("").trim();
+                let cmdline = parts.next().unwrap_or("").trim();
+                let pid = match pid_str.parse::<u32>() {
+                    Ok(value) => value,
+                    Err(_) => continue,
+                };
+                let lower = cmdline.to_lowercase();
+                if is_helper_command_line(&lower) {
+                    continue;
+                }
+                result.push(pid);
             }
         }
     }
