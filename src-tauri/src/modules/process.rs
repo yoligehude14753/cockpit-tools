@@ -2550,7 +2550,7 @@ fn send_close_signal(pid: u32) {
         use std::os::windows::process::CommandExt;
 
         let _ = Command::new("taskkill")
-            .args(["/PID", &pid.to_string()])
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
             .creation_flags(CREATE_NO_WINDOW)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
