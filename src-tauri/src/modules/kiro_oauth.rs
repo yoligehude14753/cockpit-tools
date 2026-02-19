@@ -164,6 +164,9 @@ fn parse_timestamp(value: Option<&Value>) -> Option<i64> {
         if let Ok(parsed) = chrono::NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%d %H:%M:%S") {
             return Some(parsed.and_utc().timestamp());
         }
+        if let Ok(parsed) = chrono::NaiveDateTime::parse_from_str(trimmed, "%Y/%m/%d %H:%M:%S") {
+            return Some(parsed.and_utc().timestamp());
+        }
     }
     None
 }
@@ -900,6 +903,11 @@ fn extract_usage_payload(
             days_until(parse_timestamp(
                 free_trial.and_then(|value| get_path_value(value, &["expiryDate"])),
             ))
+        })
+        .or_else(|| {
+            days_until(parse_timestamp(
+                free_trial.and_then(|value| get_path_value(value, &["freeTrialExpiry"])),
+            ))
         });
     }
 
@@ -941,7 +949,7 @@ fn extract_profile_name(auth_token: Option<&Value>, profile: Option<&Value>) -> 
     .or_else(|| pick_string(auth_token, &[&["provider"], &["loginProvider"]]))
 }
 
-fn build_payload_from_snapshot(
+pub(crate) fn build_payload_from_snapshot(
     auth_token: Value,
     profile: Option<Value>,
     usage: Option<Value>,
@@ -1892,4 +1900,83 @@ pub async fn build_payload_from_token(token: &str) -> Result<KiroOAuthCompletePa
 
     let payload = build_payload_from_snapshot(snapshot, None, None)?;
     Ok(enrich_payload_with_runtime_usage(payload).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn build_payload_from_snapshot_supports_kiro_raw_json_shape() {
+        let auth_token = json!({
+            "email": "3493729266@qq.com",
+            "accessToken": "test_access_token",
+            "refreshToken": "test_refresh_token",
+            "expiresAt": "2026/02/19 02:01:47",
+            "provider": "Github",
+            "userId": "user-123",
+            "profileArn": "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK"
+        });
+        let usage = json!({
+            "nextDateReset": 1772323200,
+            "subscriptionInfo": {
+                "subscriptionTitle": "KIRO FREE",
+                "type": "Q_DEVELOPER_STANDALONE_FREE"
+            },
+            "usageBreakdownList": [
+                {
+                    "usageLimitWithPrecision": 50,
+                    "currentUsageWithPrecision": 0,
+                    "freeTrialInfo": {
+                        "currentUsageWithPrecision": 189.24,
+                        "usageLimitWithPrecision": 500,
+                        "freeTrialExpiry": 4_102_444_800_i64
+                    }
+                }
+            ],
+            "userInfo": {
+                "email": "3493729266@qq.com",
+                "userId": "user-123"
+            }
+        });
+
+        let payload =
+            build_payload_from_snapshot(auth_token, None, Some(usage)).expect("payload should parse");
+
+        let expected_expires_at = chrono::NaiveDateTime::parse_from_str(
+            "2026/02/19 02:01:47",
+            "%Y/%m/%d %H:%M:%S",
+        )
+        .expect("valid datetime")
+        .and_utc()
+        .timestamp();
+
+        assert_eq!(payload.email, "3493729266@qq.com");
+        assert_eq!(payload.user_id.as_deref(), Some("user-123"));
+        assert_eq!(payload.login_provider.as_deref(), Some("Github"));
+        assert_eq!(payload.access_token, "test_access_token");
+        assert_eq!(payload.refresh_token.as_deref(), Some("test_refresh_token"));
+        assert_eq!(payload.expires_at, Some(expected_expires_at));
+        assert_eq!(payload.plan_name.as_deref(), Some("KIRO FREE"));
+        assert_eq!(
+            payload.plan_tier.as_deref(),
+            Some("Q_DEVELOPER_STANDALONE_FREE")
+        );
+        assert_eq!(payload.credits_total, Some(50.0));
+        assert_eq!(payload.credits_used, Some(0.0));
+        assert_eq!(payload.bonus_total, Some(500.0));
+        assert!(
+            payload
+                .bonus_used
+                .map(|value| (value - 189.24).abs() < 0.0001)
+                .unwrap_or(false),
+            "bonus_used should parse from freeTrialInfo.currentUsageWithPrecision"
+        );
+        assert_eq!(payload.usage_reset_at, Some(1772323200));
+        assert!(
+            payload.bonus_expire_days.unwrap_or(-1) > 0,
+            "bonus_expire_days should derive from freeTrialExpiry"
+        );
+    }
 }

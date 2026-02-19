@@ -753,6 +753,186 @@ pub fn update_account_tags(account_id: &str, tags: Vec<String>) -> Result<KiroAc
     Ok(updated)
 }
 
+fn clone_object_value(value: Option<&Value>) -> Option<Value> {
+    value.and_then(|raw| if raw.is_object() { Some(raw.clone()) } else { None })
+}
+
+fn is_non_empty_json_value(value: &Value) -> bool {
+    !value.is_null()
+        && !value
+            .as_str()
+            .map(|text| text.trim().is_empty())
+            .unwrap_or(false)
+}
+
+fn pick_import_usage(raw: &Value) -> Option<Value> {
+    let obj = raw.as_object()?;
+    for key in [
+        "usageData",
+        "usage_data",
+        "usage",
+        "usageState",
+        "usage_state",
+        "kiro_usage_raw",
+    ] {
+        if let Some(value) = obj.get(key).filter(|value| is_non_empty_json_value(value)) {
+            return Some(value.clone());
+        }
+    }
+    None
+}
+
+fn pick_import_profile(raw: &Value) -> Option<Value> {
+    let obj = raw.as_object()?;
+    for key in ["profile", "profileData", "profile_data", "kiro_profile_raw"] {
+        if let Some(value) = clone_object_value(obj.get(key)) {
+            return Some(value);
+        }
+    }
+
+    let mut profile = serde_json::Map::new();
+    for key in ["profileArn", "profile_arn", "arn"] {
+        if let Some(value) = obj.get(key).filter(|value| is_non_empty_json_value(value)) {
+            profile.insert("arn".to_string(), value.clone());
+            break;
+        }
+    }
+    for key in ["provider", "loginProvider"] {
+        if let Some(value) = obj.get(key).filter(|value| is_non_empty_json_value(value)) {
+            profile.insert("name".to_string(), value.clone());
+            break;
+        }
+    }
+    for key in ["email", "userEmail"] {
+        if let Some(value) = obj.get(key).filter(|value| is_non_empty_json_value(value)) {
+            profile.insert("email".to_string(), value.clone());
+            break;
+        }
+    }
+
+    if profile.is_empty() {
+        None
+    } else {
+        Some(Value::Object(profile))
+    }
+}
+
+fn build_import_auth_token(raw: &Value) -> Result<Value, String> {
+    let raw_obj = raw
+        .as_object()
+        .ok_or_else(|| "Kiro 导入 JSON 必须是对象".to_string())?;
+
+    let base = clone_object_value(raw_obj.get("kiro_auth_token_raw"))
+        .or_else(|| clone_object_value(raw_obj.get("authToken")))
+        .or_else(|| clone_object_value(raw_obj.get("token")))
+        .or_else(|| clone_object_value(raw_obj.get("auth")))
+        .unwrap_or_else(|| raw.clone());
+
+    let mut auth_obj = match base {
+        Value::Object(obj) => obj,
+        _ => serde_json::Map::new(),
+    };
+
+    for key in [
+        "accessToken",
+        "access_token",
+        "token",
+        "idToken",
+        "id_token",
+        "refreshToken",
+        "refresh_token",
+        "expiresAt",
+        "expires_at",
+        "expiry",
+        "expiration",
+        "email",
+        "userEmail",
+        "userId",
+        "user_id",
+        "provider",
+        "loginProvider",
+        "profileArn",
+        "profile_arn",
+        "arn",
+        "login_hint",
+        "loginHint",
+        "idc_region",
+        "idcRegion",
+        "region",
+        "issuer_url",
+        "issuerUrl",
+        "issuer",
+        "client_id",
+        "clientId",
+        "scope",
+        "scopes",
+    ] {
+        if auth_obj.contains_key(key) {
+            continue;
+        }
+        if let Some(value) = raw_obj.get(key).filter(|value| is_non_empty_json_value(value)) {
+            auth_obj.insert(key.to_string(), value.clone());
+        }
+    }
+
+    Ok(Value::Object(auth_obj))
+}
+
+fn payload_from_import_value(raw: Value) -> Result<KiroOAuthCompletePayload, String> {
+    if !raw.is_object() {
+        return Err("Kiro 导入 JSON 必须是对象".to_string());
+    }
+
+    let usage = pick_import_usage(&raw);
+    let profile = pick_import_profile(&raw);
+    let auth_token = build_import_auth_token(&raw)?;
+    kiro_oauth::build_payload_from_snapshot(auth_token, profile, usage)
+}
+
+fn payloads_from_import_json_value(value: Value) -> Result<Vec<KiroOAuthCompletePayload>, String> {
+    match value {
+        Value::Array(items) => {
+            if items.is_empty() {
+                return Err("导入数组为空".to_string());
+            }
+
+            let mut payloads = Vec::with_capacity(items.len());
+            for (idx, item) in items.into_iter().enumerate() {
+                let payload = payload_from_import_value(item)
+                    .map_err(|e| format!("第 {} 条 Kiro 账号解析失败: {}", idx + 1, e))?;
+                payloads.push(payload);
+            }
+            Ok(payloads)
+        }
+        Value::Object(mut obj) => {
+            let object_value = Value::Object(obj.clone());
+            if let Ok(payload) = payload_from_import_value(object_value.clone()) {
+                return Ok(vec![payload]);
+            }
+
+            if let Some(accounts) = obj
+                .remove("accounts")
+                .or_else(|| obj.remove("items"))
+                .and_then(|raw| raw.as_array().cloned())
+            {
+                if accounts.is_empty() {
+                    return Err("导入数组为空".to_string());
+                }
+                let mut payloads = Vec::with_capacity(accounts.len());
+                for (idx, item) in accounts.into_iter().enumerate() {
+                    let payload = payload_from_import_value(item)
+                        .map_err(|e| format!("第 {} 条 Kiro 账号解析失败: {}", idx + 1, e))?;
+                    payloads.push(payload);
+                }
+                return Ok(payloads);
+            }
+
+            Err("无法解析 Kiro 导入对象".to_string())
+        }
+        _ => Err("Kiro 导入 JSON 必须是对象或数组".to_string()),
+    }
+}
+
 pub fn import_from_json(json_content: &str) -> Result<Vec<KiroAccount>, String> {
     if let Ok(account) = serde_json::from_str::<KiroAccount>(json_content) {
         let saved = upsert_account_record(account)?;
@@ -766,6 +946,17 @@ pub fn import_from_json(json_content: &str) -> Result<Vec<KiroAccount>, String> 
             result.push(saved);
         }
         return Ok(result);
+    }
+
+    if let Ok(value) = serde_json::from_str::<Value>(json_content) {
+        if let Ok(payloads) = payloads_from_import_json_value(value) {
+            let mut result = Vec::with_capacity(payloads.len());
+            for payload in payloads {
+                let saved = upsert_account(payload)?;
+                result.push(saved);
+            }
+            return Ok(result);
+        }
     }
 
     Err("无法解析 JSON 内容".to_string())

@@ -7,6 +7,17 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
 ---
+## [0.8.4] - 2026-02-19
+
+### 变更
+- **Kiro JSON 导入支持原始快照格式**：导入链路现已支持 Kiro 风格原始 JSON 对象/数组（如 `accessToken`、`refreshToken`、`expiresAt`、`provider`、`profileArn`、`usageData` 等字段），并自动映射为本地标准账号结构。
+- **Kiro 导入解析与 OAuth 快照逻辑对齐**：JSON 导入改为复用 OAuth/本地导入同一套快照解析路径，提升邮箱、用户标识、登录来源、套餐与额度字段的解析一致性。
+
+### 修复
+- **导入时间格式兼容增强**：Kiro 导入时可正确解析 `YYYY/MM/DD HH:mm:ss` 格式的过期时间（例如 `2026/02/19 02:01:47`）。
+- **加赠额度到期天数回退补齐**：新增 `freeTrialExpiry` 字段回退解析，用于推导 Kiro Add-on 到期天数。
+
+---
 ## [0.8.3] - 2026-02-18
 
 ### 变更

@@ -7,6 +7,17 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [0.8.4] - 2026-02-19
+
+### Changed
+- **Kiro JSON import now supports raw account snapshots**: The import pipeline now accepts Kiro-style raw JSON objects (and arrays) with fields like `accessToken`, `refreshToken`, `expiresAt`, `provider`, `profileArn`, and `usageData`, then maps them into normalized local accounts.
+- **Kiro import parser is unified with OAuth snapshot mapping**: JSON import now reuses the same snapshot-to-payload extraction path as OAuth/local import, improving consistency of email/user/provider/plan/quota field parsing.
+
+### Fixed
+- **Slash datetime parsing for imported expiry**: Kiro token expiry values in `YYYY/MM/DD HH:mm:ss` format (e.g. `2026/02/19 02:01:47`) are now parsed correctly during import.
+- **Bonus expiry fallback coverage**: `freeTrialExpiry` is now recognized as a fallback source when deriving Kiro add-on expiry days.
+
+---
 ## [0.8.3] - 2026-02-18
 
 ### Changed
