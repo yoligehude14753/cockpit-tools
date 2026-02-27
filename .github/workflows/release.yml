@@ -134,7 +134,7 @@ jobs:
           fi
 
           {
-            echo "body<<'EOF'"
+            echo "body<<EOF"
             echo "## 更新日志（中文）"
             echo
             printf '%s\n' "$zh_section"
