@@ -547,9 +547,24 @@
   min-width: 220px;
 }
 
+.ghcp-accounts-page .account-sub-line {
+  min-width: 0;
+}
+
 .ghcp-accounts-page .kiro-table-subline {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   font-size: 11px;
   color: var(--text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ghcp-accounts-page.kiro-accounts-page .kiro-table-subline {
+  width: 100%;
 }
 
 .ghcp-accounts-page .kiro-table-bonus,

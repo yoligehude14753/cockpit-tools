@@ -391,6 +391,7 @@ export function CursorAccountsPage() {
         const haystacks = [
           getCursorAccountDisplayEmail(account),
           account.id,
+          account.auth_id ?? '',
           account.membership_type ?? '',
           account.subscription_status ?? '',
         ];
@@ -452,6 +453,8 @@ export function CursorAccountsPage() {
     items.map((account) => {
       const displayEmail = resolveDisplayEmail(account);
       const emailText = displayEmail || account.id;
+      const authIdText = (account.auth_id || '').trim();
+      const maskedAuthIdText = authIdText ? maskAccountText(authIdText) : '--';
       const planLabel = resolvePlanLabel(account);
       const total = resolveTotalQuota(account);
       const auto = resolveAutoQuota(account);
@@ -496,6 +499,12 @@ export function CursorAccountsPage() {
               </span>
             )}
             <span className={`tier-badge ${resolvePlanBadgeClass(account)}`}>{planLabel}</span>
+          </div>
+
+          <div className="account-sub-line">
+            <span className="kiro-table-subline" title={`Auth ID: ${maskedAuthIdText}`}>
+              Auth ID: {maskedAuthIdText}
+            </span>
           </div>
 
           {accountTags.length > 0 && (
@@ -597,6 +606,8 @@ export function CursorAccountsPage() {
     items.map((account) => {
       const displayEmail = resolveDisplayEmail(account);
       const emailText = displayEmail || account.id;
+      const authIdText = (account.auth_id || '').trim();
+      const maskedAuthIdText = authIdText ? maskAccountText(authIdText) : '--';
       const planLabel = resolvePlanLabel(account);
       const total = resolveTotalQuota(account);
       const auto = resolveAutoQuota(account);
@@ -629,6 +640,9 @@ export function CursorAccountsPage() {
                   {isBanned && (<span className="status-pill forbidden" title={bannedTitle}><Lock size={12} />{t('accounts.status.forbidden')}</span>)}
                 </div>
               )}
+              <div className="account-sub-line">
+                <span className="kiro-table-subline">Auth ID: {maskedAuthIdText}</span>
+              </div>
               {accountTags.length > 0 && (
                 <div className="account-tags-inline">
                   {visibleTags.map((tag, idx) => (<span key={`${account.id}-inline-${tag}-${idx}`} className="tag-pill">{tag}</span>))}
@@ -832,7 +846,6 @@ export function CursorAccountsPage() {
           </button>
         </div>
         <div className="toolbar-right">
-          <QuickSettingsPopover type="cursor" />
           <button className="btn btn-primary icon-only" onClick={() => openAddModal('oauth')} title={t('common.shared.addAccount', '添加账号')} aria-label={t('common.shared.addAccount', '添加账号')}><Plus size={14} /></button>
           <button className="btn btn-secondary icon-only" onClick={handleRefreshAll} disabled={refreshingAll || accounts.length === 0} title={t('common.shared.refreshAll', '刷新全部')} aria-label={t('common.shared.refreshAll', '刷新全部')}>
             <RefreshCw size={14} className={refreshingAll ? 'loading-spinner' : ''} />
@@ -853,6 +866,7 @@ export function CursorAccountsPage() {
               <Trash2 size={14} />
             </button>
           )}
+          <QuickSettingsPopover type="cursor" />
         </div>
       </div>
 

@@ -689,7 +689,7 @@ export function KiroAccountsPage() {
     });
 
   return (
-    <div className="ghcp-accounts-page">
+    <div className="ghcp-accounts-page kiro-accounts-page">
       <KiroOverviewTabsHeader active={activeTab} onTabChange={setActiveTab} />
       <div className={`ghcp-flow-notice ${isFlowNoticeCollapsed ? 'collapsed' : ''}`} role="note" aria-live="polite">
         <button type="button" className="ghcp-flow-notice-toggle" onClick={() => setIsFlowNoticeCollapsed((prev) => !prev)} aria-expanded={!isFlowNoticeCollapsed}>

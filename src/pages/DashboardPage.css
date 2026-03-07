@@ -316,6 +316,16 @@
   flex: 0 1 auto; /* Allow shrinking but not growing infinitely */
 }
 
+.account-mini-subline {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Ensure tag stays visible and doesn't shrink */
 .tier-tag {
   flex-shrink: 0; 

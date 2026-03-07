@@ -1208,6 +1208,8 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     if (!account) return <div className="empty-slot">{t('dashboard.noAccount', '无账号')}</div>;
 
     const presentation = buildCursorAccountPresentation(account, t);
+    const authIdText = (account.auth_id || '').trim();
+    const maskedAuthIdText = authIdText ? maskAccountText(authIdText) : '--';
     const totalMetric = presentation.quotaItems.find((item) => item.key === 'total') || null;
     const secondaryMetrics = presentation.quotaItems.filter((item) =>
       item.key === 'auto' || item.key === 'api' || item.key === 'on_demand',
@@ -1224,6 +1226,9 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
             </span>
             <span className={`tier-tag ${presentation.planClass}`}>{presentation.planLabel}</span>
           </div>
+        </div>
+        <div className="account-mini-subline" title={`Auth ID: ${maskedAuthIdText}`}>
+          Auth ID: {maskedAuthIdText}
         </div>
 
         <div className="account-mini-quotas">
