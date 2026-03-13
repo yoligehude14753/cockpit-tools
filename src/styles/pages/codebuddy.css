@@ -1,109 +1,3 @@
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-index {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-title {
-  flex: 1;
-  font-size: 13px;
-  color: var(--text-primary);
-  line-height: 1.4;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-retry {
-  border: 1px solid var(--border);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-retry:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-retry:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.45;
-  padding-left: 28px;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-running {
-  border-color: rgba(59, 130, 246, 0.35);
-  background: rgba(59, 130, 246, 0.08);
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-running .webview-flow-step-icon {
-  color: var(--primary);
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-success {
-  border-color: rgba(34, 197, 94, 0.35);
-  background: rgba(34, 197, 94, 0.08);
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-success .webview-flow-step-icon {
-  color: #15803d;
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-error {
-  border-color: rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.08);
-}
-
-.codebuddy-accounts-page .ghcp-add-modal .webview-flow-step-error .webview-flow-step-icon {
-  color: #b91c1c;
-}
-
 .codebuddy-accounts-page .codebuddy-quota-item {
   gap: 8px;
   padding-top: 2px;
@@ -112,6 +6,18 @@
 .codebuddy-accounts-page .codebuddy-quota-header {
   justify-content: space-between;
   align-items: center;
+}
+
+.codebuddy-accounts-page .quota-query-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.codebuddy-accounts-page .quota-query-failed-inline {
+  font-size: 11px;
+  line-height: 1;
 }
 
 .codebuddy-accounts-page .quota-query-btn {
@@ -135,11 +41,75 @@
   gap: 6px;
 }
 
+.codebuddy-accounts-page .codebuddy-official-quota-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-card {
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.codebuddy-accounts-page .codebuddy-official-extra-card {
+  grid-column: 1 / -1;
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-card .quota-header {
+  min-width: 0;
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-card .quota-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-meta {
+  font-size: 11px;
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-meta-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-used {
+  color: var(--text-secondary);
+}
+
+.codebuddy-accounts-page .codebuddy-official-quota-remain {
+  font-weight: 600;
+}
+
 .codebuddy-accounts-page .codebuddy-table-usage {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+}
+
+.codebuddy-accounts-page .quota-error-detail {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .codebuddy-accounts-page .codebuddy-quota-query-modal {
@@ -252,10 +222,6 @@
   padding: 10px 12px;
 }
 
-.codebuddy-accounts-page .codebuddy-oauth-feature-card.webview {
-  border-color: rgba(37, 99, 235, 0.25);
-}
-
 .codebuddy-accounts-page .codebuddy-oauth-feature-card.oauth {
   border-color: rgba(59, 130, 246, 0.2);
 }
@@ -280,6 +246,10 @@
 }
 
 @media (max-width: 720px) {
+  .codebuddy-accounts-page .codebuddy-official-quota-grid {
+    grid-template-columns: 1fr;
+  }
+
   .codebuddy-accounts-page .codebuddy-quota-grid {
     grid-template-columns: 1fr;
   }

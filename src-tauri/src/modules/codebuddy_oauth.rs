@@ -11,7 +11,6 @@ const CODEBUDDY_API_PREFIX: &str = "/v2/plugin";
 const CODEBUDDY_PLATFORM: &str = "ide";
 const OAUTH_TIMEOUT_SECONDS: u64 = 600;
 const OAUTH_POLL_INTERVAL_MS: u64 = 1500;
-pub const PRE_AUTH_SNAPSHOT_WAIT_SECONDS: u64 = 90;
 
 #[derive(Clone)]
 struct PendingOAuthState {
@@ -19,9 +18,6 @@ struct PendingOAuthState {
     expires_at: i64,
     state: String,
     cancelled: bool,
-    wait_pre_auth_snapshot: bool,
-    pre_auth_quota_snapshot: Option<Value>,
-    quota_bind_decision: Option<String>,
 }
 
 lazy_static::lazy_static! {
@@ -52,64 +48,6 @@ fn build_client() -> Result<reqwest::Client, String> {
         .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))
 }
 
-pub fn set_wait_pre_auth_snapshot_by_state(
-    state: Option<&str>,
-    enabled: bool,
-) -> Result<(), String> {
-    let mut pending = PENDING_OAUTH_STATE
-        .lock()
-        .map_err(|_| "获取锁失败".to_string())?;
-    let Some(current) = pending.as_mut() else {
-        return Ok(());
-    };
-    if let Some(expected_state) = state {
-        if current.state != expected_state {
-            return Ok(());
-        }
-    }
-    current.wait_pre_auth_snapshot = enabled;
-    Ok(())
-}
-
-fn should_wait_for_pre_auth_snapshot(login_id: &str) -> Result<bool, String> {
-    let pending = PENDING_OAUTH_STATE
-        .lock()
-        .map_err(|_| "获取锁失败".to_string())?;
-    Ok(pending
-        .as_ref()
-        .map(|s| s.login_id == login_id && s.wait_pre_auth_snapshot)
-        .unwrap_or(false))
-}
-
-async fn wait_and_take_pre_auth_snapshot(
-    login_id: &str,
-    timeout_seconds: u64,
-) -> Result<Option<Value>, String> {
-    let started = std::time::Instant::now();
-    loop {
-        {
-            let mut pending = PENDING_OAUTH_STATE
-                .lock()
-                .map_err(|_| "获取锁失败".to_string())?;
-            match pending.as_mut() {
-                None => return Ok(None),
-                Some(s) => {
-                    if s.login_id != login_id || s.cancelled {
-                        return Ok(None);
-                    }
-                    if let Some(snapshot) = s.pre_auth_quota_snapshot.take() {
-                        return Ok(Some(snapshot));
-                    }
-                }
-            }
-        }
-        if started.elapsed().as_secs() >= timeout_seconds {
-            return Ok(None);
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
-    }
-}
-
 fn clear_pending_login(login_id: &str) -> Result<(), String> {
     let mut pending = PENDING_OAUTH_STATE
         .lock()
@@ -122,64 +60,6 @@ fn clear_pending_login(login_id: &str) -> Result<(), String> {
         *pending = None;
     }
     Ok(())
-}
-
-pub fn should_wait_pre_auth_snapshot(login_id: &str) -> Result<bool, String> {
-    should_wait_for_pre_auth_snapshot(login_id)
-}
-
-pub async fn wait_pre_auth_snapshot(
-    login_id: &str,
-    timeout_seconds: u64,
-) -> Result<Option<Value>, String> {
-    wait_and_take_pre_auth_snapshot(login_id, timeout_seconds).await
-}
-
-pub fn set_quota_bind_decision(action: &str) -> Result<(), String> {
-    let normalized = action.trim().to_lowercase();
-    if normalized != "quota_retry" && normalized != "quota_skip" {
-        return Err(format!("未知配额绑定决策: {}", action));
-    }
-    let mut pending = PENDING_OAUTH_STATE
-        .lock()
-        .map_err(|_| "获取锁失败".to_string())?;
-    let state = pending
-        .as_mut()
-        .ok_or_else(|| "当前没有待处理的 OAuth 会话".to_string())?;
-    if state.cancelled {
-        return Err("OAuth 会话已取消".to_string());
-    }
-    state.quota_bind_decision = Some(normalized);
-    Ok(())
-}
-
-pub async fn wait_quota_bind_decision(
-    login_id: &str,
-    timeout_seconds: u64,
-) -> Result<Option<String>, String> {
-    let started = std::time::Instant::now();
-    loop {
-        {
-            let mut pending = PENDING_OAUTH_STATE
-                .lock()
-                .map_err(|_| "获取锁失败".to_string())?;
-            match pending.as_mut() {
-                None => return Ok(None),
-                Some(s) => {
-                    if s.login_id != login_id || s.cancelled {
-                        return Ok(None);
-                    }
-                    if let Some(decision) = s.quota_bind_decision.take() {
-                        return Ok(Some(decision));
-                    }
-                }
-            }
-        }
-        if started.elapsed().as_secs() >= timeout_seconds {
-            return Ok(None);
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
-    }
 }
 
 pub fn clear_pending_oauth_login(login_id: &str) -> Result<(), String> {
@@ -242,9 +122,6 @@ pub async fn start_login() -> Result<CodebuddyOAuthStartResponse, String> {
             expires_at: now_timestamp() + OAUTH_TIMEOUT_SECONDS as i64,
             state: state.clone(),
             cancelled: false,
-            wait_pre_auth_snapshot: false,
-            pre_auth_quota_snapshot: None,
-            quota_bind_decision: None,
         });
     }
 
@@ -416,27 +293,6 @@ pub fn cancel_login(login_id: Option<&str>) -> Result<(), String> {
             *pending = None;
         }
     }
-    Ok(())
-}
-
-pub fn cache_pre_auth_quota_snapshot(raw_json: &str) -> Result<(), String> {
-    let parsed: Value =
-        serde_json::from_str(raw_json).map_err(|e| format!("解析预拉取配额结果失败: {}", e))?;
-
-    let mut pending = PENDING_OAUTH_STATE
-        .lock()
-        .map_err(|_| "获取锁失败".to_string())?;
-    let state = pending
-        .as_mut()
-        .ok_or_else(|| "当前没有待处理的 OAuth 会话".to_string())?;
-    if state.cancelled {
-        return Err("OAuth 会话已取消".to_string());
-    }
-    state.pre_auth_quota_snapshot = Some(parsed);
-    logger::log_info(&format!(
-        "[CodeBuddy OAuth] 已缓存预拉取配额结果: login_id={}",
-        state.login_id
-    ));
     Ok(())
 }
 
@@ -976,7 +832,7 @@ async fn refresh_payload_for_account_inner(
                     .to_string(),
             );
         }
-        logger::log_warn("[CodeBuddy] 未配置查询配额绑定参数，跳过 user_resource 刷新（请先完成一次 WebView 配额自动绑定）");
+        logger::log_warn("[CodeBuddy] 未配置查询配额绑定参数，跳过 user_resource 刷新（请先完成一次配额绑定）");
         None
     };
 

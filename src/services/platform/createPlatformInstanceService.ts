@@ -10,6 +10,7 @@ type PlatformInstanceCommandPrefix =
   | 'cursor'
   | 'gemini'
   | 'codebuddy'
+  | 'codebuddy_cn'
   | 'qoder'
   | 'trae';
 

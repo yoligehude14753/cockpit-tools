@@ -227,6 +227,29 @@ export interface CodebuddyResourceSummary {
   boundUpdatedAt: number | null;
 }
 
+export interface CodebuddyOfficialQuotaResource {
+  packageCode: string | null;
+  packageName: string | null;
+  cycleStartTime: string | null;
+  cycleEndTime: string | null;
+  deductionEndTime: number | null;
+  expiredTime: string | null;
+  total: number;
+  remain: number;
+  used: number;
+  usedPercent: number;
+  remainPercent: number | null;
+  refreshAt: number | null;
+  expireAt: number | null;
+  isBasePackage: boolean;
+}
+
+export interface CodebuddyOfficialQuotaModel {
+  resources: CodebuddyOfficialQuotaResource[];
+  extra: CodebuddyOfficialQuotaResource;
+  updatedAt: number | null;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 }
@@ -247,6 +270,160 @@ function isExtraPackage(a: Record<string, unknown>): boolean {
 function isActiveResource(a: Record<string, unknown>): boolean {
   const s = typeof a.Status === 'number' ? a.Status : -1;
   return s === CB_RESOURCE_STATUS.valid || s === CB_RESOURCE_STATUS.usedUp;
+}
+
+function parseDateTimeToEpoch(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!text) return null;
+  const isoText = text.includes('T') ? text : text.replace(' ', 'T');
+  const parsed = Date.parse(isoText);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseCycleTotal(a: Record<string, unknown>): number {
+  return (
+    parseNumeric(a.CycleCapacitySizePrecise) ??
+    parseNumeric(a.CycleCapacitySize) ??
+    parseNumeric(a.CapacitySizePrecise) ??
+    parseNumeric(a.CapacitySize) ??
+    0
+  );
+}
+
+function parseCycleRemain(a: Record<string, unknown>): number {
+  return (
+    parseNumeric(a.CycleCapacityRemainPrecise) ??
+    parseNumeric(a.CycleCapacityRemain) ??
+    parseNumeric(a.CapacityRemainPrecise) ??
+    parseNumeric(a.CapacityRemain) ??
+    0
+  );
+}
+
+function isTrialOrFreeMonPackage(a: Record<string, unknown>): boolean {
+  const code = typeof a.PackageCode === 'string' ? a.PackageCode : '';
+  return code === CB_PACKAGE_CODE.gift || code === CB_PACKAGE_CODE.freeMon;
+}
+
+function isProPackage(a: Record<string, unknown>): boolean {
+  if (isTrialOrFreeMonPackage(a)) return false;
+  const code = typeof a.PackageCode === 'string' ? a.PackageCode : '';
+  return code === CB_PACKAGE_CODE.proMon || code === CB_PACKAGE_CODE.proYear;
+}
+
+function aggregateCycleResources(list: Array<Record<string, unknown>>): Record<string, unknown> | null {
+  if (list.length === 0) return null;
+  const first = list[0];
+  const totals = list.reduce(
+    (acc: { total: number; remain: number }, item) => {
+      acc.total += parseCycleTotal(item);
+      acc.remain += parseCycleRemain(item);
+      return acc;
+    },
+    { total: 0, remain: 0 },
+  );
+  return {
+    ...first,
+    CycleCapacitySizePrecise: String(totals.total),
+    CycleCapacityRemainPrecise: String(totals.remain),
+  };
+}
+
+function toOfficialQuotaResource(raw: Record<string, unknown>): CodebuddyOfficialQuotaResource {
+  const packageCode = typeof raw.PackageCode === 'string' ? raw.PackageCode : null;
+  const packageName = typeof raw.PackageName === 'string' ? raw.PackageName : null;
+  const cycleStartTime = typeof raw.CycleStartTime === 'string' ? raw.CycleStartTime : null;
+  const cycleEndTime = typeof raw.CycleEndTime === 'string' ? raw.CycleEndTime : null;
+  const deductionEndTime = parseNumeric(raw.DeductionEndTime);
+  const expiredTime = typeof raw.ExpiredTime === 'string' ? raw.ExpiredTime : null;
+
+  const total = parseCycleTotal(raw);
+  const remain = parseCycleRemain(raw);
+  const used = Math.max(0, total - remain);
+  const usedPercent = total > 0 ? Math.max(0, Math.min(100, (used / total) * 100)) : 0;
+  const remainPercent = total > 0 ? Math.max(0, Math.min(100, (remain / total) * 100)) : null;
+
+  const cycleEndAt = parseDateTimeToEpoch(cycleEndTime);
+  const expireAt = deductionEndTime ?? parseDateTimeToEpoch(expiredTime) ?? cycleEndAt;
+  const refreshAt =
+    cycleEndAt != null && expireAt != null && cycleEndAt !== expireAt
+      ? cycleEndAt + 1000
+      : null;
+
+  const isBasePackage =
+    packageCode === CB_PACKAGE_CODE.free ||
+    packageCode === CB_PACKAGE_CODE.freeMon;
+
+  return {
+    packageCode,
+    packageName,
+    cycleStartTime,
+    cycleEndTime,
+    deductionEndTime,
+    expiredTime,
+    total,
+    remain,
+    used,
+    usedPercent,
+    remainPercent,
+    refreshAt,
+    expireAt,
+    isBasePackage,
+  };
+}
+
+/**
+ * Build quota model aligned with official CodeBuddy web user-center logic:
+ * resources = [merge(gift+freeMon), ...pro, ...activity, merge(free)],
+ * extra is aggregated from extra packages.
+ */
+export function getCodebuddyOfficialQuotaModel(account: CodebuddyAccount): CodebuddyOfficialQuotaModel {
+  const updatedAt = account.quota_binding?.updated_at ?? null;
+  const empty: CodebuddyOfficialQuotaResource = {
+    packageCode: CB_PACKAGE_CODE.extra,
+    packageName: null,
+    cycleStartTime: null,
+    cycleEndTime: null,
+    deductionEndTime: null,
+    expiredTime: null,
+    total: 0,
+    remain: 0,
+    used: 0,
+    usedPercent: 0,
+    remainPercent: null,
+    refreshAt: null,
+    expireAt: null,
+    isBasePackage: false,
+  };
+
+  const all = extractResourceAccounts(account).filter((a) => isActiveResource(a));
+  if (all.length === 0) {
+    return { resources: [], extra: empty, updatedAt };
+  }
+
+  const pro = all.filter((a) => isProPackage(a));
+  const extras = all.filter((a) => isExtraPackage(a));
+  const trialOrFreeMon = all.filter((a) => isTrialOrFreeMonPackage(a));
+  const free = all.filter((a) => {
+    const code = typeof a.PackageCode === 'string' ? a.PackageCode : '';
+    return code === CB_PACKAGE_CODE.free;
+  });
+  const activity = all.filter((a) => {
+    const code = typeof a.PackageCode === 'string' ? a.PackageCode : '';
+    return code === CB_PACKAGE_CODE.activity;
+  });
+
+  const mergedTrialOrFreeMon = aggregateCycleResources(trialOrFreeMon);
+  const mergedFree = aggregateCycleResources(free);
+  const ordered = [mergedTrialOrFreeMon, ...pro, ...activity, mergedFree].filter(
+    (item): item is Record<string, unknown> => item != null && !!item.PackageCode,
+  );
+  const resources = ordered.map((item) => toOfficialQuotaResource(item));
+
+  const mergedExtra = aggregateCycleResources(extras);
+  const extra = mergedExtra ? toOfficialQuotaResource(mergedExtra) : empty;
+  return { resources, extra, updatedAt };
 }
 
 /**
@@ -308,6 +485,8 @@ export function getCodebuddyResourceSummary(account: CodebuddyAccount): Codebudd
 export interface CodebuddyExtraCreditSummary {
   remain: number;
   total: number;
+  used: number;
+  usedPercent: number;
   remainPercent: number | null;
 }
 
@@ -327,6 +506,8 @@ export function getCodebuddyExtraCreditSummary(account: CodebuddyAccount): Codeb
     remainAgg += parseNumeric(a.CapacityRemainPrecise) ?? parseNumeric(a.CapacityRemain) ?? 0;
   }
 
+  const usedAgg = Math.max(0, totalAgg - remainAgg);
+  const usedPercent = totalAgg > 0 ? Math.max(0, Math.min(100, (usedAgg / totalAgg) * 100)) : 0;
   const remainPercent = totalAgg > 0 ? Math.max(0, Math.min(100, (remainAgg / totalAgg) * 100)) : null;
-  return { remain: remainAgg, total: totalAgg, remainPercent };
+  return { remain: remainAgg, total: totalAgg, used: usedAgg, usedPercent, remainPercent };
 }

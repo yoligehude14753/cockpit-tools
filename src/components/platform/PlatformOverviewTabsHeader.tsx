@@ -18,6 +18,7 @@ export type PlatformOverviewHeaderId =
   | 'cursor'
   | 'gemini'
   | 'codebuddy'
+  | 'codebuddy_cn'
   | 'qoder'
   | 'trae';
 
@@ -28,8 +29,7 @@ interface PlatformOverviewTabsHeaderProps {
 }
 
 interface PlatformOverviewConfig {
-  titleKey: string;
-  titleDefault: string;
+  platformLabel: string;
   overviewIcon: ReactNode;
 }
 
@@ -41,48 +41,43 @@ interface TabSpec {
 
 const CONFIGS: Record<PlatformOverviewHeaderId, PlatformOverviewConfig> = {
   codex: {
-    titleKey: 'codex.title',
-    titleDefault: 'Codex 账号管理',
+    platformLabel: 'Codex',
     overviewIcon: <CodexIcon className="tab-icon" />,
   },
   'github-copilot': {
-    titleKey: 'githubCopilot.title',
-    titleDefault: 'GitHub Copilot 账号管理',
+    platformLabel: 'GitHub Copilot',
     overviewIcon: <Github className="tab-icon" />,
   },
   windsurf: {
-    titleKey: 'windsurf.title',
-    titleDefault: 'Windsurf 账号管理',
+    platformLabel: 'Windsurf',
     overviewIcon: <WindsurfIcon className="tab-icon" />,
   },
   kiro: {
-    titleKey: 'kiro.title',
-    titleDefault: 'Kiro 账号管理',
+    platformLabel: 'Kiro',
     overviewIcon: <KiroIcon className="tab-icon" />,
   },
   cursor: {
-    titleKey: 'cursor.title',
-    titleDefault: 'Cursor 账号管理',
+    platformLabel: 'Cursor',
     overviewIcon: <CursorIcon className="tab-icon" />,
   },
   gemini: {
-    titleKey: 'gemini.title',
-    titleDefault: 'Gemini Cli 账号管理',
+    platformLabel: 'Gemini Cli',
     overviewIcon: <GeminiIcon className="tab-icon" />,
   },
   codebuddy: {
-    titleKey: 'codebuddy.title',
-    titleDefault: 'CodeBuddy 账号管理',
+    platformLabel: 'CodeBuddy',
+    overviewIcon: <CodebuddyIcon className="tab-icon" />,
+  },
+  codebuddy_cn: {
+    platformLabel: 'CodeBuddy CN',
     overviewIcon: <CodebuddyIcon className="tab-icon" />,
   },
   qoder: {
-    titleKey: 'qoder.title',
-    titleDefault: 'Qoder 账号管理',
+    platformLabel: 'Qoder',
     overviewIcon: <QoderIcon className="tab-icon" />,
   },
   trae: {
-    titleKey: 'trae.title',
-    titleDefault: 'Trae 账号管理',
+    platformLabel: 'Trae',
     overviewIcon: <Bot className="tab-icon" />,
   },
 };
@@ -118,7 +113,7 @@ export function PlatformOverviewTabsHeader({
     <>
       <div className="page-header">
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {t(config.titleKey, config.titleDefault)}
+          {`${config.platformLabel} ${t('settings.general.accountManagement', '账号管理')}`}
           <button
             className="btn btn-secondary icon-only"
             onClick={() => window.dispatchEvent(new CustomEvent('app-request-navigate', { detail: 'manual' }))}

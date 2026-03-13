@@ -7,6 +7,22 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [0.14.0] - 2026-03-13
+
+### Added
+- **CodeBuddy CN platform full integration**: Added CodeBuddy CN models, commands, modules, OAuth flow, account pages, services, stores, icons, navigation, dashboard/tray wiring, and multi-instance management support.
+- **CodeBuddy CN account lifecycle support**: Added browser-based OAuth login, Token/JSON import, local client import, account switching with local credential injection, tag management, and account export.
+- **Manual OAuth callback URL input**: OAuth flows that rely on a local callback port now support manual callback URL input when automatic callback capture is unavailable, improving authorization success in restricted network environments.
+
+### Changed
+- **CodeBuddy/CodeBuddy CN quota display simplified**: Quota information is now viewed on the web page; removed complex in-app quota query form for a cleaner account page experience.
+- **Shared runtime surfaces now cover eleven platforms**: Dashboard, tray, settings, quick settings, auto-refresh scheduling, quota-alert preferences, navigation, and README/docs now include CodeBuddy CN consistently.
+
+### Fixed
+- **Qoder import now refreshes account list**: JSON and Token import on Qoder platform now correctly refresh account data after successful import, fixing display issues where imported accounts were not shown immediately.
+- **Local import now refreshes tray summaries across multiple platforms**: Antigravity, Codex, Cursor, Kiro, Windsurf, Trae, and Qoder now update the tray menu immediately after successful local import, preventing shared-runtime summaries from staying stale after import.
+
+---
 ## [0.13.0] - 2026-03-12
 
 ### Added

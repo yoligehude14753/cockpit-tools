@@ -177,6 +177,14 @@ pub async fn prepare_oauth_url(app_handle: AppHandle) -> Result<String, String> 
 }
 
 #[tauri::command]
+pub async fn submit_oauth_callback_url(
+    app_handle: AppHandle,
+    callback_url: String,
+) -> Result<(), String> {
+    modules::oauth_server::submit_oauth_callback_url(app_handle, callback_url.as_str()).await
+}
+
+#[tauri::command]
 pub async fn cancel_oauth_login() -> Result<(), String> {
     modules::oauth_server::cancel_oauth_flow();
     Ok(())

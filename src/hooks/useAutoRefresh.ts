@@ -8,6 +8,7 @@ import { useKiroAccountStore } from '../stores/useKiroAccountStore';
 import { useCursorAccountStore } from '../stores/useCursorAccountStore';
 import { useGeminiAccountStore } from '../stores/useGeminiAccountStore';
 import { useCodebuddyAccountStore } from '../stores/useCodebuddyAccountStore';
+import { useCodebuddyCnAccountStore } from '../stores/useCodebuddyCnAccountStore';
 import { useQoderAccountStore } from '../stores/useQoderAccountStore';
 import { useTraeAccountStore } from '../stores/useTraeAccountStore';
 
@@ -22,6 +23,7 @@ interface GeneralConfig {
   cursor_auto_refresh_minutes: number;
   gemini_auto_refresh_minutes: number;
   codebuddy_auto_refresh_minutes: number;
+  codebuddy_cn_auto_refresh_minutes: number;
   qoder_auto_refresh_minutes: number;
   trae_auto_refresh_minutes: number;
   auto_switch_enabled: boolean;
@@ -33,6 +35,8 @@ interface GeneralConfig {
   windsurf_app_path?: string;
   kiro_app_path?: string;
   cursor_app_path?: string;
+  codebuddy_app_path?: string;
+  codebuddy_cn_app_path?: string;
   qoder_app_path?: string;
   trae_app_path?: string;
   opencode_sync_on_switch?: boolean;
@@ -57,6 +61,7 @@ export function useAutoRefresh() {
   const refreshAllCursorTokens = useCursorAccountStore((state) => state.refreshAllTokens);
   const refreshAllGeminiTokens = useGeminiAccountStore((state) => state.refreshAllTokens);
   const refreshAllCodebuddyTokens = useCodebuddyAccountStore((state) => state.refreshAllTokens);
+  const refreshAllCodebuddyCnTokens = useCodebuddyCnAccountStore((state) => state.refreshAllTokens);
   const refreshAllQoderTokens = useQoderAccountStore((state) => state.refreshAllTokens);
   const refreshAllTraeTokens = useTraeAccountStore((state) => state.refreshAllTokens);
 
@@ -69,6 +74,7 @@ export function useAutoRefresh() {
   const cursorIntervalRef = useRef<number | null>(null);
   const geminiIntervalRef = useRef<number | null>(null);
   const codebuddyIntervalRef = useRef<number | null>(null);
+  const codebuddyCnIntervalRef = useRef<number | null>(null);
   const qoderIntervalRef = useRef<number | null>(null);
   const traeIntervalRef = useRef<number | null>(null);
 
@@ -80,6 +86,7 @@ export function useAutoRefresh() {
   const cursorRefreshingRef = useRef(false);
   const geminiRefreshingRef = useRef(false);
   const codebuddyRefreshingRef = useRef(false);
+  const codebuddyCnRefreshingRef = useRef(false);
   const qoderRefreshingRef = useRef(false);
   const traeRefreshingRef = useRef(false);
   const autoSwitchRefreshingRef = useRef(false);
@@ -124,6 +131,10 @@ export function useAutoRefresh() {
     if (codebuddyIntervalRef.current) {
       window.clearInterval(codebuddyIntervalRef.current);
       codebuddyIntervalRef.current = null;
+    }
+    if (codebuddyCnIntervalRef.current) {
+      window.clearInterval(codebuddyCnIntervalRef.current);
+      codebuddyCnIntervalRef.current = null;
     }
     if (qoderIntervalRef.current) {
       window.clearInterval(qoderIntervalRef.current);
@@ -190,6 +201,8 @@ export function useAutoRefresh() {
                     kiroAutoRefreshMinutes: config.kiro_auto_refresh_minutes,
                     cursorAutoRefreshMinutes: config.cursor_auto_refresh_minutes,
                     geminiAutoRefreshMinutes: config.gemini_auto_refresh_minutes,
+                    codebuddyAutoRefreshMinutes: config.codebuddy_auto_refresh_minutes,
+                    codebuddyCnAutoRefreshMinutes: config.codebuddy_cn_auto_refresh_minutes,
                     qoderAutoRefreshMinutes: config.qoder_auto_refresh_minutes,
                     traeAutoRefreshMinutes: config.trae_auto_refresh_minutes,
                     closeBehavior: config.close_behavior || 'ask',
@@ -200,6 +213,8 @@ export function useAutoRefresh() {
                     windsurfAppPath: config.windsurf_app_path ?? '',
                     kiroAppPath: config.kiro_app_path ?? '',
                     cursorAppPath: config.cursor_app_path ?? '',
+                    codebuddyAppPath: config.codebuddy_app_path ?? '',
+                    codebuddyCnAppPath: config.codebuddy_cn_app_path ?? '',
                     qoderAppPath: config.qoder_app_path ?? '',
                     traeAppPath: config.trae_app_path ?? '',
                     opencodeSyncOnSwitch: config.opencode_sync_on_switch ?? true,
@@ -410,6 +425,31 @@ export function useAutoRefresh() {
             console.log('[AutoRefresh] CodeBuddy 已禁用');
           }
 
+          if (config.codebuddy_cn_auto_refresh_minutes > 0) {
+            console.log(
+              `[AutoRefresh] CodeBuddy CN 已启用: 每 ${config.codebuddy_cn_auto_refresh_minutes} 分钟`,
+            );
+            const codebuddyCnMs = config.codebuddy_cn_auto_refresh_minutes * 60 * 1000;
+
+            codebuddyCnIntervalRef.current = window.setInterval(async () => {
+              if (codebuddyCnRefreshingRef.current) {
+                return;
+              }
+              codebuddyCnRefreshingRef.current = true;
+
+              try {
+                console.log('[AutoRefresh] 触发 CodeBuddy CN 配额刷新...');
+                await refreshAllCodebuddyCnTokens();
+              } catch (e) {
+                console.error('[AutoRefresh] CodeBuddy CN 刷新失败:', e);
+              } finally {
+                codebuddyCnRefreshingRef.current = false;
+              }
+            }, codebuddyCnMs);
+          } else {
+            console.log('[AutoRefresh] CodeBuddy CN 已禁用');
+          }
+
           if (config.qoder_auto_refresh_minutes > 0) {
             console.log(`[AutoRefresh] Qoder 已启用: 每 ${config.qoder_auto_refresh_minutes} 分钟`);
             const qoderMs = config.qoder_auto_refresh_minutes * 60 * 1000;
@@ -496,6 +536,7 @@ export function useAutoRefresh() {
     refreshAllGhcpTokens,
     refreshAllKiroTokens,
     refreshAllCodebuddyTokens,
+    refreshAllCodebuddyCnTokens,
     refreshAllQoderTokens,
     refreshAllTraeTokens,
     refreshAllQuotas,

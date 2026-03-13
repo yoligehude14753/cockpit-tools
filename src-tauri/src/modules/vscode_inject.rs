@@ -60,6 +60,7 @@ enum SafeStorageReadMode {
     Default,
     AntigravityOnly,
     CodeBuddyOnly,
+    CodeBuddyCnOnly,
     QoderOnly,
 }
 
@@ -367,10 +368,36 @@ fn build_macos_safe_storage_candidates(
                 "CodeBuddy Safe Storage".to_string(),
                 Some("codebuddy".to_string()),
             ),
+            (
+                "CodeBuddy Safe Storage".to_string(),
+                Some("CodeBuddy Key".to_string()),
+            ),
             ("CodeBuddy Safe Storage".to_string(), None),
             (
                 "CodeBuddy Safe Storage".to_string(),
                 Some("CodeBuddy Safe Storage".to_string()),
+            ),
+        ];
+    }
+
+    if matches!(mode, SafeStorageReadMode::CodeBuddyCnOnly) {
+        return vec![
+            (
+                "CodeBuddy CN Safe Storage".to_string(),
+                Some("CodeBuddy CN".to_string()),
+            ),
+            (
+                "CodeBuddy CN Safe Storage".to_string(),
+                Some("codebuddy cn".to_string()),
+            ),
+            (
+                "CodeBuddy CN Safe Storage".to_string(),
+                Some("CodeBuddy CN Key".to_string()),
+            ),
+            ("CodeBuddy CN Safe Storage".to_string(), None),
+            (
+                "CodeBuddy CN Safe Storage".to_string(),
+                Some("CodeBuddy CN Safe Storage".to_string()),
             ),
         ];
     }
@@ -475,6 +502,12 @@ fn run_command_get_trimmed(program: &str, args: &[&str]) -> Option<String> {
 fn get_linux_v11_key(mode: SafeStorageReadMode) -> Option<[u8; 16]> {
     let app_names: &[&str] = match mode {
         SafeStorageReadMode::CodeBuddyOnly => &["CodeBuddy", "codebuddy"],
+        SafeStorageReadMode::CodeBuddyCnOnly => &[
+            "CodeBuddy CN",
+            "codebuddy cn",
+            "codebuddy-cn",
+            "codebuddycn",
+        ],
         SafeStorageReadMode::QoderOnly => &["Qoder", "qoder"],
         _ => &["code", "Code", "code-oss", "Code - OSS", "VSCodium"],
     };
@@ -828,6 +861,20 @@ pub fn read_codebuddy_secret_storage_value(
     )
 }
 
+pub fn read_codebuddy_cn_secret_storage_value(
+    extension_id: &str,
+    key: &str,
+    user_data_dir: Option<&str>,
+) -> Result<Option<String>, String> {
+    let data_root = resolve_vscode_data_root(user_data_dir)?;
+    read_secret_storage_value_with_data_root_and_mode(
+        &data_root,
+        extension_id,
+        key,
+        SafeStorageReadMode::CodeBuddyCnOnly,
+    )
+}
+
 fn resolve_data_root_from_state_db_path(db_path: &Path) -> Result<&Path, String> {
     db_path
         .parent()
@@ -989,6 +1036,19 @@ pub fn inject_secret_to_state_db_for_codebuddy(
         db_key,
         plaintext,
         SafeStorageReadMode::CodeBuddyOnly,
+    )
+}
+
+pub fn inject_secret_to_state_db_for_codebuddy_cn(
+    db_path: &std::path::Path,
+    db_key: &str,
+    plaintext: &str,
+) -> Result<(), String> {
+    inject_secret_to_state_db_with_mode(
+        db_path,
+        db_key,
+        plaintext,
+        SafeStorageReadMode::CodeBuddyCnOnly,
     )
 }
 

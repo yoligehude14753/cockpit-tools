@@ -9,6 +9,7 @@ export type PlatformId =
   | 'cursor'
   | 'gemini'
   | 'codebuddy'
+  | 'codebuddy_cn'
   | 'qoder'
   | 'trae';
 
@@ -21,6 +22,7 @@ export const ALL_PLATFORM_IDS: PlatformId[] = [
   'cursor',
   'gemini',
   'codebuddy',
+  'codebuddy_cn',
   'qoder',
   'trae',
 ];
@@ -34,6 +36,7 @@ export const PLATFORM_PAGE_MAP: Record<PlatformId, Page> = {
   cursor: 'cursor',
   gemini: 'gemini',
   codebuddy: 'codebuddy',
+  codebuddy_cn: 'codebuddy-cn',
   qoder: 'qoder',
   trae: 'trae',
 };

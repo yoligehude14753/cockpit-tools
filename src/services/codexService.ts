@@ -86,6 +86,14 @@ export async function cancelCodexOAuthLogin(loginId?: string): Promise<void> {
   return await invoke('codex_oauth_login_cancel', { loginId: loginId ?? null });
 }
 
+/** 新 OAuth 流程：手动提交回调链接 */
+export async function submitCodexOAuthCallbackUrl(
+  loginId: string,
+  callbackUrl: string,
+): Promise<void> {
+  return await invoke('codex_oauth_submit_callback_url', { loginId, callbackUrl });
+}
+
 /** 通过 Token 添加账号 */
 export async function addCodexAccountWithToken(
   idToken: string,

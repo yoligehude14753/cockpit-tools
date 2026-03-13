@@ -30,6 +30,8 @@ export function getPlatformLabel(platformId: PlatformId, _t: TFunction): string 
       return 'Gemini Cli';
     case 'codebuddy':
       return 'CodeBuddy';
+    case 'codebuddy_cn':
+      return _t('nav.codebuddyCn', 'CodeBuddy CN');
     case 'qoder':
       return _t('nav.qoder', 'Qoder');
     case 'trae':
@@ -56,6 +58,8 @@ export function renderPlatformIcon(platformId: PlatformId, size = 20): ReactNode
     case 'gemini':
       return <GeminiIcon style={{ width: size, height: size }} />;
     case 'codebuddy':
+      return <CodebuddyIcon style={{ width: size, height: size }} />;
+    case 'codebuddy_cn':
       return <CodebuddyIcon style={{ width: size, height: size }} />;
     case 'qoder':
       return <QoderIcon style={{ width: size, height: size }} />;

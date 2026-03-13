@@ -79,7 +79,9 @@
         "preparing": "Przygotowywanie linku autoryzacji...",
         "retry": "Wygeneruj ponownie dane autoryzacji",
         "timeoutRetry": "Odśwież link autoryzacji",
-        "waiting": "Oczekiwanie na autoryzację..."
+        "waiting": "Oczekiwanie na autoryzację...",
+        "manualCallbackLabel": "Wprowadź ręcznie URL callback",
+        "manualCallbackPlaceholder": "Wklej pełny URL callback, np. http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Odśwież wszystko",
       "refreshQuota": "Odśwież limit",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Konto Antigravity",
+    "overview": "Antigravity",
     "accounts": "Konta",
     "wakeup": "Zadania wybudzania",
     "fingerprints": "Odciski palca",
     "settings": "Ustawienia",
-    "codex": "Konta Codex",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "Panel",
@@ -169,10 +171,11 @@
       "restart": "Uruchom ponownie",
       "installing": "Instalowanie"
     },
-    "gemini": "Konta Gemini Cli",
-    "codebuddy": "Konta CodeBuddy",
-    "qoder": "Konta Qoder",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Układ platform",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Ustawienia Trae",
       "appPath": "Ścieżka Trae"
+    },
+    "codebuddyCn": {
+      "appPath": "Ścieżka CodeBuddy CN"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Nieprawidłowy format Status. Użyj liczb oddzielonych przecinkami.",
         "pageInvalid": "Nieprawidłowe wartości stronicowania. Wprowadź liczby większe od 0.",
         "fullCurlRequired": "Obsługiwane jest tylko pełne polecenie cURL. W Network dla get-user-resource użyj „Copy as cURL (bash)” i wklej bez zmian."
-      }
+      },
+      "webOnlyHint": "Sprawdź limit na stronie internetowej"
     },
     "extraCredit": {
       "title": "Pakiet kredytów"
@@ -2224,6 +2231,29 @@
       "desc": "Obsluguje oficjalne logowanie OAuth, import lokalny, import JSON oraz przelaczanie kont przez lokalna iniekcje. Podczas przelaczania dane sa zapisywane zgodnie z rzeczywistymi zasadami zapisu klienta Trae.",
       "permission": "Zakres uprawnien: odczytuje i zapisuje pola zwiazane z logowaniem w lokalnym pliku Trae storage.json na potrzeby importu konta, iniekcji przelaczenia konta i wyswietlania planu. Wszystkie dane sa przetwarzane lokalnie na Twoim urzadzeniu.",
       "network": "Zakres sieci: logowanie OAuth, odswiezanie tokenu i zapytania o plan wywoluja oficjalne API Trae. Lokalne pliki kont i surowa zawartosc magazynu nie sa przesylane do uslug zewnetrznych."
+    }
+  },
+  "codebuddyCn": {
+    "title": "Zarządzanie kontami CodeBuddy CN",
+    "noAccounts": "Brak kont CodeBuddy CN",
+    "addAccount": "Dodaj konto CodeBuddy CN",
+    "search": "Szukaj kont CodeBuddy CN...",
+    "oauthDesc": "Kliknij przycisk poniżej, aby otworzyć stronę autoryzacji CodeBuddy CN w przeglądarce.",
+    "tokenDesc": "Wklej token dostępu CodeBuddy CN:",
+    "flowNotice": {
+      "title": "Informacje o zarządzaniu kontami CodeBuddy CN (kliknij, aby rozwinąć/zwinąć)",
+      "desc": "Przełączanie kont wymaga odczytu lokalnego magazynu uwierzytelniania CodeBuddy CN oraz wywołania systemowych usług poświadczeń do odszyfrowania/ponownego zaszyfrowania. Dane są przetwarzane wyłącznie lokalnie.",
+      "permission": "Zakres uprawnień: odczyt bazy uwierzytelniania CodeBuddy CN (state.vscdb), wywołanie systemowych mechanizmów poświadczeń (macOS Keychain / Windows DPAPI / Linux Secret Service) do odszyfrowania i zapisu zwrotnego.",
+      "network": "Zakres sieci: logowanie OAuth i odświeżanie tokenu wymagają żądań do codebuddy.cn / copilot.tencent.com; zapytania o limity wywołują API rozliczeń. Żadne lokalne klucze ani poświadczenia nie są wysyłane."
+    },
+    "import": {
+      "localDesc": "Importuj dane konta z lokalnego klienta CodeBuddy CN lub z pliku JSON.",
+      "localClient": "Importuj z lokalnego CodeBuddy CN"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "Wiele instancji CodeBuddy CN jest obsługiwane tylko na macOS, Windows i Linux."
+      }
     }
   }
 }

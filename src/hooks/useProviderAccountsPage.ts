@@ -39,6 +39,7 @@ export interface OAuthService {
   startLogin: () => Promise<OAuthStartResponse>;
   completeLogin: (loginId: string) => Promise<unknown>;
   cancelLogin: (loginId?: string) => Promise<void>;
+  submitCallbackUrl?: (loginId: string, callbackUrl: string) => Promise<void>;
   openAuthUrl?: (url: string) => Promise<void>;
 }
 
@@ -240,6 +241,7 @@ export interface UseProviderAccountsPageReturn {
 
   // OAuth (device flow style: Kiro / Windsurf / GHCP)
   oauthUrl: string | null;
+  oauthCallbackUrl: string | null;
   oauthUrlCopied: boolean;
   oauthUserCode: string | null;
   oauthUserCodeCopied: boolean;
@@ -248,11 +250,17 @@ export interface UseProviderAccountsPageReturn {
   oauthCompleteError: string | null;
   oauthPolling: boolean;
   oauthTimedOut: boolean;
+  oauthManualCallbackInput: string;
+  setOauthManualCallbackInput: (value: string) => void;
+  oauthManualCallbackSubmitting: boolean;
+  oauthManualCallbackError: string | null;
+  oauthSupportsManualCallback: boolean;
   handleCopyOauthUrl: () => Promise<void>;
   handleCopyOauthUserCode: () => Promise<void>;
   handleRetryOauth: () => void;
   handleRetryOauthComplete: () => void;
   handleOpenOauthUrl: () => Promise<void>;
+  handleSubmitOauthCallbackUrl: () => Promise<void>;
 
   // Inject / Switch
   handleInjectToVSCode: ((accountId: string) => Promise<void>) | null;
@@ -639,6 +647,7 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     setAddMessage('');
     setTokenInput('');
     setOauthUrl(null);
+    setOauthCallbackUrl(null);
     setOauthUrlCopied(false);
     setOauthUserCode(null);
     setOauthUserCodeCopied(false);
@@ -647,6 +656,9 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     setOauthCompleteError(null);
     setOauthTimedOut(false);
     setOauthPolling(false);
+    setOauthManualCallbackInput('');
+    setOauthManualCallbackSubmitting(false);
+    setOauthManualCallbackError(null);
     oauthActiveRef.current = false;
     oauthCompletingRef.current = false;
     oauthLoginIdRef.current = null;
@@ -795,6 +807,7 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
 
   // ─── OAuth (Device Flow) ──────────────────────────────────────────────
   const [oauthUrl, setOauthUrl] = useState<string | null>(null);
+  const [oauthCallbackUrl, setOauthCallbackUrl] = useState<string | null>(null);
   const [oauthUrlCopied, setOauthUrlCopied] = useState(false);
   const [oauthUserCode, setOauthUserCode] = useState<string | null>(null);
   const [oauthUserCodeCopied, setOauthUserCodeCopied] = useState(false);
@@ -806,6 +819,9 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
   const [oauthCompleteError, setOauthCompleteError] = useState<string | null>(null);
   const [oauthPolling, setOauthPolling] = useState(false);
   const [oauthTimedOut, setOauthTimedOut] = useState(false);
+  const [oauthManualCallbackInput, setOauthManualCallbackInput] = useState('');
+  const [oauthManualCallbackSubmitting, setOauthManualCallbackSubmitting] = useState(false);
+  const [oauthManualCallbackError, setOauthManualCallbackError] = useState<string | null>(null);
 
   const oauthActiveRef = useRef(false);
   const oauthLoginIdRef = useRef<string | null>(null);
@@ -826,6 +842,9 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
       oauthActiveRef.current = false;
       oauthCompletingRef.current = false;
       setOauthPolling(false);
+      setOauthCallbackUrl(null);
+      setOauthManualCallbackSubmitting(false);
+      setOauthManualCallbackError(null);
       setOauthPrepareError(t('common.shared.oauth.failed', '授权失败') + ': ' + msg);
     },
     [oauthLogPrefix, t],
@@ -838,11 +857,13 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     await fetchAccounts();
     setAddStatus('success');
     setAddMessage(t('common.shared.oauth.success', '授权成功'));
-    // 授权完成后不再触发 cancelLogin，避免误关仍需用户手动关闭的 WebView
+    // 授权完成后不再触发 cancelLogin，避免误关仍需用户手动确认的授权页
     oauthLoginIdRef.current = null;
     oauthActiveRef.current = false;
     oauthCompletingRef.current = false;
     setOauthPolling(false);
+    setOauthManualCallbackSubmitting(false);
+    setOauthManualCallbackError(null);
     setTimeout(() => {
       setShowAddModal(false);
       resetAddModalState();
@@ -855,6 +876,7 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
       setOauthCompleteError(msg);
       setOauthTimedOut(/超时|过期|expired|timeout/i.test(msg));
       setOauthPolling(false);
+      setOauthManualCallbackSubmitting(false);
       oauthCompletingRef.current = false;
       oauthActiveRef.current = false;
       oauthLog(`${platformKey} OAuth 授权失败`, {
@@ -880,6 +902,10 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     setOauthUserCodeCopied(false);
     setOauthMeta(null);
     setOauthUserCode(null);
+    setOauthCallbackUrl(null);
+    setOauthManualCallbackSubmitting(false);
+    setOauthManualCallbackError(null);
+    setOauthManualCallbackInput('');
     oauthLog(`开始准备 ${platformKey} OAuth 授权信息`);
 
     let started = false;
@@ -900,6 +926,7 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
         const url =
           resp.verificationUriComplete || resp.verificationUri || resp.authUrl || '';
         setOauthUrl(url);
+        setOauthCallbackUrl(resp.callbackUrl ?? null);
         setOauthUserCode(resp.userCode ?? null);
         if (resp.expiresIn || resp.intervalSeconds) {
           setOauthMeta({
@@ -981,6 +1008,7 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     oauthLoginIdRef.current = null;
     oauthCompletingRef.current = false;
     setOauthUrl(null);
+    setOauthCallbackUrl(null);
     setOauthUrlCopied(false);
     setOauthUserCode(null);
     setOauthUserCodeCopied(false);
@@ -989,6 +1017,9 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     setOauthCompleteError(null);
     setOauthTimedOut(false);
     setOauthPolling(false);
+    setOauthManualCallbackInput('');
+    setOauthManualCallbackSubmitting(false);
+    setOauthManualCallbackError(null);
   }, [showAddModal, addTab, oauthLog, oauthService, oauthTabKeys]);
 
   useEffect(
@@ -1053,9 +1084,13 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     setOauthPolling(false);
     setOauthMeta(null);
     setOauthUrl(null);
+    setOauthCallbackUrl(null);
     setOauthUrlCopied(false);
     setOauthUserCode(null);
     setOauthUserCodeCopied(false);
+    setOauthManualCallbackInput('');
+    setOauthManualCallbackSubmitting(false);
+    setOauthManualCallbackError(null);
     prepareOauthUrl();
   }, [oauthCompleteError, oauthTimedOut, oauthLog, oauthService, prepareOauthUrl]);
 
@@ -1077,6 +1112,7 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     setOauthCompleteError(null);
     setOauthTimedOut(false);
     setOauthPolling(true);
+    setOauthManualCallbackError(null);
     oauthCompletingRef.current = true;
     oauthActiveRef.current = false;
 
@@ -1130,6 +1166,41 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
       setTimeout(() => setOauthUrlCopied(false), 1200);
     }
   }, [oauthUrl, oauthLog, oauthService]);
+
+  const oauthSupportsManualCallback = useMemo(
+    () => Boolean(oauthService?.submitCallbackUrl && oauthCallbackUrl),
+    [oauthService, oauthCallbackUrl],
+  );
+
+  const handleSubmitOauthCallbackUrl = useCallback(async () => {
+    if (!oauthService?.submitCallbackUrl) return;
+    const loginId = oauthLoginIdRef.current;
+    const callbackUrl = oauthManualCallbackInput.trim();
+    if (!callbackUrl) return;
+    if (!loginId) {
+      setOauthManualCallbackError(t('common.shared.oauth.failed', '授权失败'));
+      return;
+    }
+
+    setOauthManualCallbackSubmitting(true);
+    setOauthManualCallbackError(null);
+    try {
+      await oauthService.submitCallbackUrl(loginId, callbackUrl);
+      if (!oauthCompletingRef.current) {
+        handleRetryOauthComplete();
+      }
+    } catch (e) {
+      const msg = String(e).replace(/^Error:\s*/, '');
+      setOauthManualCallbackError(msg);
+    } finally {
+      setOauthManualCallbackSubmitting(false);
+    }
+  }, [
+    oauthService,
+    oauthManualCallbackInput,
+    t,
+    handleRetryOauthComplete,
+  ]);
 
   // ─── Flow Notice ──────────────────────────────────────────────────────
   const [isFlowNoticeCollapsed, setIsFlowNoticeCollapsed] = useState<boolean>(() => {
@@ -1289,6 +1360,7 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     handlePickImportFile,
     importFileInputRef,
     oauthUrl,
+    oauthCallbackUrl,
     oauthUrlCopied,
     oauthUserCode,
     oauthUserCodeCopied,
@@ -1297,11 +1369,17 @@ export function useProviderAccountsPage<TAccount extends ProviderAccountBase>(
     oauthCompleteError,
     oauthPolling,
     oauthTimedOut,
+    oauthManualCallbackInput,
+    setOauthManualCallbackInput,
+    oauthManualCallbackSubmitting,
+    oauthManualCallbackError,
+    oauthSupportsManualCallback,
     handleCopyOauthUrl,
     handleCopyOauthUserCode,
     handleRetryOauth,
     handleRetryOauthComplete,
     handleOpenOauthUrl,
+    handleSubmitOauthCallbackUrl,
     handleInjectToVSCode,
     isFlowNoticeCollapsed,
     setIsFlowNoticeCollapsed,

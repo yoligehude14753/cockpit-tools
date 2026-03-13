@@ -66,6 +66,14 @@ export async function cancelKiroOAuthLogin(loginId?: string): Promise<void> {
   return await invoke('kiro_oauth_login_cancel', { loginId: loginId ?? null });
 }
 
+/** Kiro OAuth：手动提交回调链接 */
+export async function submitKiroOAuthCallbackUrl(
+  loginId: string,
+  callbackUrl: string,
+): Promise<void> {
+  return await invoke('kiro_oauth_submit_callback_url', { loginId, callbackUrl });
+}
+
 /** 通过 Kiro access token 添加账号 */
 export async function addKiroAccountWithToken(accessToken: string): Promise<KiroAccount> {
   return await invoke('add_kiro_account_with_token', {

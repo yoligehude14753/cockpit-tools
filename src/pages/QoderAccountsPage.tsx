@@ -693,6 +693,7 @@ export function QoderAccountsPage() {
       try {
         const content = await file.text();
         await store.importFromJson(content);
+        await store.fetchAccounts();
         setAddStatus('success');
         setAddMessage(t('accounts.importJsonSuccess', 'JSON 导入成功'));
       } catch (error) {
@@ -715,6 +716,7 @@ export function QoderAccountsPage() {
     setAddMessage(null);
     try {
       const imported = await store.importFromJson(payload);
+      await store.fetchAccounts();
       setAddStatus('success');
       setAddMessage(
         t('common.shared.token.importSuccessMsg', '成功导入 {{count}} 个账号', {

@@ -79,7 +79,9 @@
         "preparing": "Подготовка ссылки авторизации...",
         "retry": "Сгенерировать данные авторизации заново",
         "timeoutRetry": "Обновить ссылку авторизации",
-        "waiting": "Ожидание авторизации..."
+        "waiting": "Ожидание авторизации...",
+        "manualCallbackLabel": "Ввести URL callback вручную",
+        "manualCallbackPlaceholder": "Вставьте полный URL callback, например: http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Обновить все",
       "refreshQuota": "Обновить квоту",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Аккаунт Antigravity",
+    "overview": "Antigravity",
     "accounts": "Аккаунты",
     "wakeup": "Задачи пробуждения",
     "fingerprints": "Отпечатки",
     "settings": "Настройки",
-    "codex": "Аккаунты Codex",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "Панель",
@@ -169,10 +171,11 @@
       "restart": "Перезапустить",
       "installing": "Установка"
     },
-    "gemini": "Аккаунты Gemini Cli",
-    "codebuddy": "Аккаунты CodeBuddy",
-    "qoder": "Аккаунты Qoder",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Макет платформ",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Настройки Trae",
       "appPath": "Путь Trae"
+    },
+    "codebuddyCn": {
+      "appPath": "Путь CodeBuddy CN"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Неверный формат Status. Используйте числа, разделенные запятыми.",
         "pageInvalid": "Неверные параметры пагинации. Введите числа больше 0.",
         "fullCurlRequired": "Поддерживается только полный cURL-запрос. В Network для get-user-resource выберите «Copy as cURL (bash)» и вставьте без изменений."
-      }
+      },
+      "webOnlyHint": "Проверяйте квоту на веб-странице"
     },
     "extraCredit": {
       "title": "Пакет кредитов"
@@ -2224,6 +2231,29 @@
       "desc": "Поддерживает официальный вход через OAuth, локальный импорт, импорт JSON и переключение аккаунта через локальную инъекцию. При переключении данные записываются по реальным правилам хранения клиента Trae.",
       "permission": "Область разрешений: читает и записывает поля, связанные со входом, в локальном Trae storage.json для импорта аккаунта, инъекции переключения аккаунта и отображения плана. Все данные обрабатываются только локально на вашем устройстве.",
       "network": "Сетевой диапазон: вход OAuth, обновление токена и запросы плана вызывают официальные API Trae. Локальные файлы аккаунтов и сырое содержимое хранилища не загружаются в сторонние сервисы."
+    }
+  },
+  "codebuddyCn": {
+    "title": "Управление аккаунтами CodeBuddy CN",
+    "noAccounts": "Нет аккаунтов CodeBuddy CN",
+    "addAccount": "Добавить аккаунт CodeBuddy CN",
+    "search": "Поиск аккаунтов CodeBuddy CN...",
+    "oauthDesc": "Нажмите кнопку ниже, чтобы открыть страницу авторизации CodeBuddy CN в браузере.",
+    "tokenDesc": "Вставьте токен доступа CodeBuddy CN:",
+    "flowNotice": {
+      "title": "Информация об управлении аккаунтами CodeBuddy CN (нажмите, чтобы развернуть/свернуть)",
+      "desc": "Переключение аккаунтов требует чтения локального хранилища аутентификации CodeBuddy CN и вызова системных сервисов учетных данных для расшифровки и повторного шифрования. Данные обрабатываются только локально.",
+      "permission": "Область доступа: чтение базы аутентификации CodeBuddy CN (state.vscdb), вызов системных возможностей хранения учетных данных (macOS Keychain / Windows DPAPI / Linux Secret Service) для расшифровки и обратной записи.",
+      "network": "Сетевой доступ: вход по OAuth и обновление токена требуют запросов к codebuddy.cn / copilot.tencent.com; запросы квоты обращаются к billing API. Никакие локальные ключи или учетные данные не загружаются."
+    },
+    "import": {
+      "localDesc": "Импортируйте данные аккаунта из локального клиента CodeBuddy CN или из JSON-файла.",
+      "localClient": "Импорт из локального CodeBuddy CN"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "Мультиэкземпляр CodeBuddy CN поддерживается только в macOS, Windows и Linux."
+      }
     }
   }
 }

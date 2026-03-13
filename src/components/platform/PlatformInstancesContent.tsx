@@ -19,6 +19,7 @@ type InstancesAppType =
   | 'cursor'
   | 'gemini'
   | 'codebuddy'
+  | 'codebuddy_cn'
   | 'qoder'
   | 'trae';
 

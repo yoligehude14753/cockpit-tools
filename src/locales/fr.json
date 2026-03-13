@@ -79,7 +79,9 @@
         "preparing": "Préparation du lien d'autorisation...",
         "retry": "Régénérer les informations d'autorisation",
         "timeoutRetry": "Actualiser le lien d'autorisation",
-        "waiting": "En attente d'autorisation..."
+        "waiting": "En attente d'autorisation...",
+        "manualCallbackLabel": "Saisir l'URL de callback manuellement",
+        "manualCallbackPlaceholder": "Collez l'URL de callback complète, par ex. http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Tout rafraîchir",
       "refreshQuota": "Rafraîchir le quota",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Compte Antigravity",
+    "overview": "Antigravity",
     "accounts": "Comptes",
     "wakeup": "Tâches de réveil",
     "fingerprints": "Empreintes",
     "settings": "Paramètres",
-    "codex": "Comptes Codex",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "Tableau de bord",
@@ -169,10 +171,11 @@
       "restart": "Redémarrer",
       "installing": "Installation"
     },
-    "gemini": "Comptes Gemini Cli",
-    "codebuddy": "Comptes CodeBuddy",
-    "qoder": "Comptes Qoder",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Disposition des plateformes",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Parametres Trae",
       "appPath": "Chemin Trae"
+    },
+    "codebuddyCn": {
+      "appPath": "Chemin CodeBuddy CN"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Format de Status invalide. Utilisez des nombres separes par des virgules.",
         "pageInvalid": "Valeurs de pagination invalides. Veuillez saisir des nombres superieurs a 0.",
         "fullCurlRequired": "Seule la commande cURL complète est prise en charge. Utilisez « Copy as cURL (bash) » sur get-user-resource dans Network et collez-la telle quelle."
-      }
+      },
+      "webOnlyHint": "Veuillez consulter le quota sur la page web"
     },
     "extraCredit": {
       "title": "Pack de credit"
@@ -2224,6 +2231,29 @@
       "desc": "Prend en charge la connexion OAuth officielle, l'import local, l'import JSON et le changement de compte par injection locale. Lors du changement, les donnees sont reecrites selon les regles reelles de stockage du client Trae.",
       "permission": "Portee des autorisations : lit et ecrit les champs lies a la connexion dans le storage.json local de Trae pour l'import de compte, l'injection de changement de compte et l'affichage du forfait. Toutes les donnees sont traitees localement sur votre machine.",
       "network": "Portee reseau : la connexion OAuth, l'actualisation du jeton et les requetes de forfait appellent les API officielles de Trae. Les fichiers de compte locaux et le contenu brut du stockage ne sont pas televerses vers des services tiers."
+    }
+  },
+  "codebuddyCn": {
+    "title": "Gestion des comptes CodeBuddy CN",
+    "noAccounts": "Aucun compte CodeBuddy CN",
+    "addAccount": "Ajouter un compte CodeBuddy CN",
+    "search": "Rechercher des comptes CodeBuddy CN...",
+    "oauthDesc": "Cliquez sur le bouton ci-dessous pour ouvrir la page d'autorisation CodeBuddy CN dans votre navigateur.",
+    "tokenDesc": "Collez votre jeton d'acces CodeBuddy CN :",
+    "flowNotice": {
+      "title": "Informations sur la gestion des comptes CodeBuddy CN (cliquer pour developper/reduire)",
+      "desc": "Le changement de compte necessite la lecture du stockage d'authentification local de CodeBuddy CN et l'appel aux services d'identifiants du systeme pour dechiffrer/rechiffrer. Les donnees sont traitees uniquement en local.",
+      "permission": "Portee des autorisations : lire la base d'authentification CodeBuddy CN (state.vscdb), appeler les capacites d'identifiants du systeme (Trousseau macOS / DPAPI Windows / Secret Service Linux) pour le dechiffrement et la reecriture.",
+      "network": "Portee reseau : la connexion OAuth et l'actualisation du jeton necessitent des requetes vers codebuddy.cn / copilot.tencent.com ; les requetes de quota appellent les API de facturation. Aucune cle locale ni information d'identification n'est televersee."
+    },
+    "import": {
+      "localDesc": "Importez les donnees de compte depuis le client CodeBuddy CN local ou depuis un fichier JSON.",
+      "localClient": "Importer depuis CodeBuddy CN local"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "Le mode multi-instances CodeBuddy CN est pris en charge uniquement sur macOS, Windows et Linux."
+      }
     }
   }
 }

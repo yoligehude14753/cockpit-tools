@@ -79,7 +79,9 @@
         "preparing": "인증 링크 준비 중...",
         "retry": "인증 정보 다시 생성",
         "timeoutRetry": "인증 링크 새로고침",
-        "waiting": "인증 대기 중..."
+        "waiting": "인증 대기 중...",
+        "manualCallbackLabel": "수동으로 콜백 URL 입력",
+        "manualCallbackPlaceholder": "전체 콜백 URL을 붙여넣으세요. 예: http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "전체 새로고침",
       "refreshQuota": "쿼터 새로고침",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Antigravity 계정",
+    "overview": "Antigravity",
     "accounts": "계정 관리",
     "wakeup": "깨우기 작업",
     "fingerprints": "기기 지문",
     "settings": "설정",
-    "codex": "Codex 계정",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "대시보드",
@@ -169,10 +171,11 @@
       "restart": "재시작",
       "installing": "설치 중"
     },
-    "gemini": "Gemini Cli 계정",
-    "codebuddy": "CodeBuddy 계정",
-    "qoder": "Qoder 계정",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "플랫폼 레이아웃",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Trae 설정",
       "appPath": "Trae 경로"
+    },
+    "codebuddyCn": {
+      "appPath": "CodeBuddy CN 경로"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Status 형식이 올바르지 않습니다. 쉼표로 구분된 숫자를 사용하세요.",
         "pageInvalid": "페이지 값이 올바르지 않습니다. 0보다 큰 숫자를 입력하세요.",
         "fullCurlRequired": "전체 cURL 명령만 지원합니다. Network의 get-user-resource에서 \"Copy as cURL (bash)\"을 사용해 원문 그대로 붙여 넣어 주세요."
-      }
+      },
+      "webOnlyHint": "할당량은 웹페이지에서 확인하세요"
     },
     "extraCredit": {
       "title": "추가 크레딧"
@@ -2224,6 +2231,29 @@
       "desc": "공식 OAuth 로그인, 로컬 가져오기, JSON 가져오기, 로컬 주입 방식의 계정 전환을 지원합니다. 계정 전환 시 Trae 클라이언트의 실제 디스크 기록 규칙에 따라 다시 저장합니다.",
       "permission": "권한 범위: 로컬 Trae storage.json 의 로그인 관련 필드를 읽고 써서 계정 가져오기, 계정 전환 주입, 요금제 표시에 사용합니다. 모든 데이터는 사용자 기기에서만 처리됩니다.",
       "network": "네트워크 범위: OAuth 로그인, 토큰 갱신, 요금제 조회는 Trae 공식 API 를 호출합니다. 로컬 계정 파일이나 원본 저장 데이터는 제3자 서비스로 업로드되지 않습니다."
+    }
+  },
+  "codebuddyCn": {
+    "title": "CodeBuddy CN 계정 관리",
+    "noAccounts": "CodeBuddy CN 계정이 없습니다",
+    "addAccount": "CodeBuddy CN 계정 추가",
+    "search": "CodeBuddy CN 계정 검색...",
+    "oauthDesc": "아래 버튼을 클릭하면 브라우저에서 CodeBuddy CN 인증 페이지를 엽니다.",
+    "tokenDesc": "CodeBuddy CN access token을 붙여 넣으세요:",
+    "flowNotice": {
+      "title": "CodeBuddy CN 계정 관리 안내 (클릭하여 펼치기/접기)",
+      "desc": "계정 전환 시 CodeBuddy CN 로컬 인증 저장소를 읽고 시스템 자격 증명 서비스를 호출해 복호화 및 재암호화를 수행해야 합니다. 데이터는 로컬에서만 처리됩니다.",
+      "permission": "권한 범위: CodeBuddy CN 인증 데이터베이스(state.vscdb)를 읽고, 시스템 자격 증명 기능(macOS Keychain / Windows DPAPI / Linux Secret Service)을 호출하여 복호화 및 다시 쓰기를 수행합니다.",
+      "network": "네트워크 범위: OAuth 로그인과 Token 갱신은 codebuddy.cn / copilot.tencent.com 요청이 필요하고, 할당량 조회는 과금 API를 호출합니다. 로컬 키나 자격 증명은 업로드되지 않습니다."
+    },
+    "import": {
+      "localDesc": "로컬 CodeBuddy CN 클라이언트 또는 JSON 파일에서 계정 데이터를 가져올 수 있습니다.",
+      "localClient": "로컬 CodeBuddy CN에서 가져오기"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "CodeBuddy CN 다중 인스턴스는 macOS, Windows, Linux에서만 지원됩니다."
+      }
     }
   }
 }

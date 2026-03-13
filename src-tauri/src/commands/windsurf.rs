@@ -39,7 +39,7 @@ pub fn import_windsurf_from_json(json_content: String) -> Result<Vec<WindsurfAcc
 }
 
 #[tauri::command]
-pub async fn import_windsurf_from_local() -> Result<Vec<WindsurfAccount>, String> {
+pub async fn import_windsurf_from_local(app: AppHandle) -> Result<Vec<WindsurfAccount>, String> {
     let auth_status = windsurf_account::read_local_auth_status()?.ok_or_else(|| {
         "未在本机 Windsurf 客户端中找到登录信息（windsurfAuthStatus）".to_string()
     })?;
@@ -50,6 +50,7 @@ pub async fn import_windsurf_from_local() -> Result<Vec<WindsurfAccount>, String
         }
     }
     let account = windsurf_account::upsert_account(payload)?;
+    let _ = crate::modules::tray::update_tray_menu(&app);
     Ok(vec![account])
 }
 
@@ -164,6 +165,14 @@ pub fn windsurf_oauth_login_cancel(login_id: Option<String>) -> Result<(), Strin
         login_id.as_deref().unwrap_or("<none>")
     ));
     windsurf_oauth::cancel_login(login_id.as_deref())
+}
+
+#[tauri::command]
+pub fn windsurf_oauth_submit_callback_url(
+    login_id: String,
+    callback_url: String,
+) -> Result<(), String> {
+    windsurf_oauth::submit_callback_url(login_id.as_str(), callback_url.as_str())
 }
 
 #[tauri::command]

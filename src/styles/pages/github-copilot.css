@@ -1710,6 +1710,10 @@
   gap: 8px;
 }
 
+.ghcp-add-modal .oauth-manual-input input {
+  font-family: var(--font-mono);
+}
+
 .ghcp-add-modal .oauth-url-box input {
   flex: 1;
   padding: 10px 14px;
@@ -1736,6 +1740,10 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+}
+
+.ghcp-add-modal .oauth-manual-input button {
+  min-width: 132px;
 }
 
 .ghcp-add-modal .oauth-url-box button:hover {

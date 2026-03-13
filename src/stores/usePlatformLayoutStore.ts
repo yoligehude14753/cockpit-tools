@@ -3,6 +3,16 @@ import { invoke } from '@tauri-apps/api/core';
 import { ALL_PLATFORM_IDS, PlatformId } from '../types/platform';
 
 const PLATFORM_LAYOUT_STORAGE_KEY = 'agtools.platform_layout.v1';
+const LEGACY_TRAY_CORE_IDS: PlatformId[] = ['antigravity', 'codex', 'github-copilot', 'windsurf'];
+const TRAY_MIGRATED_PLATFORM_IDS: PlatformId[] = [
+  'kiro',
+  'cursor',
+  'gemini',
+  'codebuddy',
+  'codebuddy_cn',
+  'qoder',
+  'trae',
+];
 
 type PersistedPlatformLayout = {
   orderedPlatformIds?: PlatformId[];
@@ -89,8 +99,24 @@ function normalizeSidebar(sidebar: PlatformId[], hidden: PlatformId[]): Platform
   return normalized.slice(0, 2);
 }
 
-function normalizeTray(tray: PlatformId[]): PlatformId[] {
-  return sanitizePlatformIds(tray);
+function normalizeTray(tray: PlatformId[], rawOrder: PlatformId[] = []): PlatformId[] {
+  const normalized = sanitizePlatformIds(tray);
+  const rawOrderSet = new Set(sanitizePlatformIds(rawOrder));
+  const hasLegacyDefault = LEGACY_TRAY_CORE_IDS.every((id) => normalized.includes(id))
+    && normalized.length <= ALL_PLATFORM_IDS.length - 1;
+
+  if (!hasLegacyDefault) {
+    return normalized;
+  }
+
+  const next = [...normalized];
+  for (const id of TRAY_MIGRATED_PLATFORM_IDS) {
+    if (next.includes(id) || rawOrderSet.has(id)) {
+      continue;
+    }
+    next.push(id);
+  }
+  return next;
 }
 
 function normalizeTraySortMode(mode: unknown): 'auto' | 'manual' {
@@ -116,7 +142,10 @@ function loadPersistedState(): Pick<
     const hiddenPlatformIds = normalizeHidden(parsed.hiddenPlatformIds ?? []);
     const orderedPlatformIds = normalizeOrder(parsed.orderedPlatformIds ?? ALL_PLATFORM_IDS);
     const sidebarPlatformIds = normalizeSidebar(parsed.sidebarPlatformIds ?? ['antigravity', 'codex'], hiddenPlatformIds);
-    const trayPlatformIds = normalizeTray(parsed.trayPlatformIds ?? ALL_PLATFORM_IDS);
+    const trayPlatformIds = normalizeTray(
+      parsed.trayPlatformIds ?? ALL_PLATFORM_IDS,
+      sanitizePlatformIds(parsed.orderedPlatformIds ?? []),
+    );
     const traySortMode = normalizeTraySortMode(parsed.traySortMode);
     return {
       orderedPlatformIds,

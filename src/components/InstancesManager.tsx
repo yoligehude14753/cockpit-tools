@@ -50,6 +50,7 @@ interface InstancesManagerProps<TAccount extends AccountLike> {
     | 'cursor'
     | 'gemini'
     | 'codebuddy'
+    | 'codebuddy_cn'
     | 'qoder'
     | 'trae';
   onInstanceStarted?: (instance: InstanceProfile) => void | Promise<void>;
@@ -488,6 +489,7 @@ export function InstancesManager<TAccount extends AccountLike>({
       rawApp === 'cursor' ||
       rawApp === 'gemini' ||
       rawApp === 'codebuddy' ||
+      rawApp === 'codebuddy_cn' ||
       rawApp === 'qoder'
         ? rawApp
         : appType;

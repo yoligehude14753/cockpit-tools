@@ -74,6 +74,7 @@ export function KiroAccountsPage() {
       startLogin: kiroService.startKiroOAuthLogin,
       completeLogin: kiroService.completeKiroOAuthLogin,
       cancelLogin: kiroService.cancelKiroOAuthLogin,
+      submitCallbackUrl: kiroService.submitKiroOAuthCallbackUrl,
     },
     dataService: {
       importFromJson: kiroService.importKiroFromJson,
@@ -109,7 +110,10 @@ export function KiroAccountsPage() {
     handleTokenImport, handleImportJsonFile, handleImportFromLocal, handlePickImportFile, importFileInputRef,
     oauthUrl, oauthUrlCopied, oauthUserCode, oauthUserCodeCopied, oauthMeta,
     oauthPrepareError, oauthCompleteError, oauthPolling, oauthTimedOut,
+    oauthManualCallbackInput, setOauthManualCallbackInput,
+    oauthManualCallbackSubmitting, oauthManualCallbackError, oauthSupportsManualCallback,
     handleCopyOauthUrl, handleCopyOauthUserCode, handleRetryOauth, handleOpenOauthUrl,
+    handleSubmitOauthCallbackUrl,
     handleInjectToVSCode,
     isFlowNoticeCollapsed, setIsFlowNoticeCollapsed,
     currentAccountId,
@@ -940,9 +944,12 @@ export function KiroAccountsPage() {
                     </div>
                   ) : oauthUrl ? (
                     <div className="oauth-url-section">
-                      <div className="oauth-url-box">
-                        <input type="text" value={oauthUrl} readOnly />
-                        <button onClick={handleCopyOauthUrl}>{oauthUrlCopied ? <Check size={16} /> : <Copy size={16} />}</button>
+                      <div className="oauth-link">
+                        <label>{t('accounts.oauth.linkLabel', '授权链接')}</label>
+                        <div className="oauth-url-box">
+                          <input type="text" value={oauthUrl} readOnly />
+                          <button onClick={handleCopyOauthUrl}>{oauthUrlCopied ? <Check size={16} /> : <Copy size={16} />}</button>
+                        </div>
                       </div>
                       {!oauthUrl.includes('user_code=') && oauthUserCode && (
                         <div className="oauth-url-box">
@@ -954,6 +961,30 @@ export function KiroAccountsPage() {
                         <p className="oauth-hint">{t('common.shared.oauth.meta', '授权有效期：{{expires}}s；轮询间隔：{{interval}}s', { expires: oauthMeta.expiresIn, interval: oauthMeta.intervalSeconds })}</p>
                       )}
                       <button className="btn btn-primary btn-full" onClick={handleOpenOauthUrl}><Globe size={16} />{t('common.shared.oauth.openBrowser', '在浏览器中打开')}</button>
+                      {oauthSupportsManualCallback && (
+                        <div className="oauth-link">
+                          <label>{t('common.shared.oauth.manualCallbackLabel', '手动输入回调地址')}</label>
+                          <div className="oauth-url-box oauth-manual-input">
+                            <input
+                              type="text"
+                              value={oauthManualCallbackInput}
+                              onChange={(e) => setOauthManualCallbackInput(e.target.value)}
+                              placeholder={t('common.shared.oauth.manualCallbackPlaceholder', '粘贴完整回调地址，例如：http://localhost:1455/auth/callback?code=...&state=...')}
+                            />
+                            <button
+                              className="oauth-copy-button"
+                              onClick={() => void handleSubmitOauthCallbackUrl()}
+                              disabled={oauthManualCallbackSubmitting || !oauthManualCallbackInput.trim()}
+                            >
+                              {oauthManualCallbackSubmitting ? <RefreshCw size={16} className="loading-spinner" /> : <Check size={16} />}
+                              {t('accounts.oauth.continue', '我已授权，继续')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {oauthManualCallbackError && (
+                        <div className="add-status error"><CircleAlert size={16} /><span>{oauthManualCallbackError}</span></div>
+                      )}
                       {oauthPolling && (
                         <div className="add-status loading"><RefreshCw size={16} className="loading-spinner" /><span>{t('common.shared.oauth.waiting', '等待授权完成...')}</span></div>
                       )}

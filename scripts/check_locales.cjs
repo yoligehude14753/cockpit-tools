@@ -148,6 +148,17 @@ function isAllowedEnglishReuse(key, value) {
   const normalized = value.trim();
   if (!normalized) return true;
 
+  const allowedBrandKeys = new Set([
+    'nav.codebuddy',
+    'nav.codebuddyCn',
+    'nav.gemini',
+    'nav.qoder',
+  ]);
+
+  if (allowedBrandKeys.has(key)) {
+    return true;
+  }
+
   const allowedExactValues = new Set([
     'OAuth',
     'Token / JSON',

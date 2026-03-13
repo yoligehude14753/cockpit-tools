@@ -39,10 +39,11 @@ pub fn import_kiro_from_json(json_content: String) -> Result<Vec<KiroAccount>, S
 }
 
 #[tauri::command]
-pub async fn import_kiro_from_local() -> Result<Vec<KiroAccount>, String> {
+pub async fn import_kiro_from_local(app: AppHandle) -> Result<Vec<KiroAccount>, String> {
     let payload = kiro_oauth::build_payload_from_local_files()?;
     let payload = kiro_oauth::enrich_payload_with_runtime_usage(payload).await;
     let account = kiro_account::upsert_account(payload)?;
+    let _ = crate::modules::tray::update_tray_menu(&app);
     Ok(vec![account])
 }
 
@@ -144,6 +145,14 @@ pub fn kiro_oauth_login_cancel(login_id: Option<String>) -> Result<(), String> {
         login_id.as_deref().unwrap_or("<none>")
     ));
     kiro_oauth::cancel_login(login_id.as_deref())
+}
+
+#[tauri::command]
+pub fn kiro_oauth_submit_callback_url(
+    login_id: String,
+    callback_url: String,
+) -> Result<(), String> {
+    kiro_oauth::submit_callback_url(login_id.as_str(), callback_url.as_str())
 }
 
 #[tauri::command]

@@ -58,6 +58,10 @@ export async function completeOAuthLogin(): Promise<Account> {
     return await invoke('complete_oauth_login');
 }
 
+export async function submitOAuthCallbackUrl(callbackUrl: string): Promise<void> {
+    return await invoke('submit_oauth_callback_url', { callbackUrl });
+}
+
 export async function cancelOAuthLogin(): Promise<void> {
     return await invoke('cancel_oauth_login');
 }

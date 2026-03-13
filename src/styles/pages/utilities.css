@@ -970,6 +970,19 @@
   gap: 8px;
 }
 
+.oauth-manual-input input {
+  font-family: var(--font-mono);
+}
+
+.oauth-manual-input button {
+  min-width: 132px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
 .oauth-link-row input {
   flex: 1;
   height: 32px;

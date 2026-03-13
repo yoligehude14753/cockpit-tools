@@ -79,7 +79,9 @@
         "preparing": "正在准备授权信息...",
         "retry": "重新生成授权信息",
         "timeoutRetry": "刷新授权链接",
-        "waiting": "等待授权完成..."
+        "waiting": "等待授权完成...",
+        "manualCallbackLabel": "手动输入回调地址",
+        "manualCallbackPlaceholder": "粘贴完整回调地址，例如：http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "刷新全部",
       "refreshQuota": "刷新配额",
@@ -152,16 +154,16 @@
     }
   },
   "nav": {
-    "overview": "Antigravity 账号",
+    "overview": "Antigravity",
     "accounts": "账号管理",
     "wakeup": "唤醒任务",
     "fingerprints": "设备指纹",
     "settings": "设置",
-    "codex": "Codex 账号",
-    "codebuddy": "CodeBuddy 账号",
+    "codex": "Codex",
+    "codebuddy": "CodeBuddy",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
-    "gemini": "Gemini Cli 账号",
+    "gemini": "Gemini Cli",
     "dashboard": "仪表盘",
     "morePlatforms": "更多平台",
     "instances": "多开实例",
@@ -172,7 +174,8 @@
       "installing": "安装中"
     },
     "qoder": "Qoder",
-    "trae": "Trae"
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "平台布局",
@@ -1272,7 +1275,7 @@
         "title": "仅授权 IDE 登录信息",
         "item1": "在浏览器完成 OAuth 后即可添加账号并用于 IDE 切换。",
         "item2": "不会自动绑定配额查询参数。",
-        "item3": "如需配额显示，请在账号卡片中手动执行“查询配额”绑定。"
+        "item3": "如需查看配额，请在账号卡片点击“查询配额”并在网页查看。"
       }
     },
     "oauthWebviewTab": "WebView 授权",
@@ -1327,10 +1330,11 @@
       "success": "配额查询成功，已绑定查询参数。",
       "failed": "配额查询失败：{{error}}",
       "failedCompact": "查询失败",
-      "failedRefreshCompact": "刷新配额失败",
+      "failedRefreshCompact": "配额查询失败",
       "failedReasonLabel": "原因：{{reason}}",
       "failedReasonAt": "失败时间：{{time}}",
       "sectionTitle": "配额查询",
+      "webOnlyHint": "配额请在网页中查看",
       "empty": "暂无绑定配额查询信息",
       "packageUnknown": "套餐信息未知",
       "quotaLabel": "剩余配额",
@@ -1593,6 +1597,9 @@
     "trae": {
       "title": "Trae 设置",
       "appPath": "Trae 路径"
+    },
+    "codebuddyCn": {
+      "appPath": "CodeBuddy CN 路径"
     }
   },
   "quotaAlert": {
@@ -2224,6 +2231,29 @@
       "desc": "支持官方 OAuth 授权、本机导入、JSON 导入与本地注入切号；切号过程按 Trae 客户端真实落盘规则写回。",
       "permission": "权限范围：读取并写入本机 Trae 配置目录中的 storage.json 登录相关字段，用于账号导入、切号注入与套餐信息展示；所有数据仅在本机处理。",
       "network": "网络范围：OAuth 登录、令牌刷新和套餐查询会请求 Trae 官方接口；不会向第三方服务上传本地账号文件或原始存储内容。"
+    }
+  },
+  "codebuddyCn": {
+    "title": "CodeBuddy CN 账号管理",
+    "noAccounts": "暂无 CodeBuddy CN 账号",
+    "addAccount": "添加 CodeBuddy CN 账号",
+    "search": "搜索 CodeBuddy CN 账号...",
+    "oauthDesc": "点击下方按钮将在浏览器中打开 CodeBuddy CN 授权页面。",
+    "tokenDesc": "粘贴 CodeBuddy CN 的 access token：",
+    "flowNotice": {
+      "title": "CodeBuddy CN 账号管理说明（点击展开/收起）",
+      "desc": "切换账号需读取 CodeBuddy CN 本地认证存储并调用系统凭据服务进行加解密，数据仅在本地处理。",
+      "permission": "权限范围：读取 CodeBuddy CN 认证数据库 (state.vscdb)，调用系统凭据能力（macOS Keychain / Windows DPAPI / Linux Secret Service）进行解密/回写。",
+      "network": "网络范围：OAuth 授权登录与 Token 刷新需联网请求 codebuddy.cn 与 copilot.tencent.com；配额查询需调用计费 API。不上传本地密钥或凭证。"
+    },
+    "import": {
+      "localDesc": "支持从本机 CodeBuddy CN 客户端或 JSON 文件导入账号数据。",
+      "localClient": "从本机 CodeBuddy CN 导入"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "CodeBuddy CN 多开实例仅支持 macOS、Windows 和 Linux。"
+      }
     }
   }
 }

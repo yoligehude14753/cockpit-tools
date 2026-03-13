@@ -125,8 +125,10 @@ pub fn delete_codex_accounts(account_ids: Vec<String>) -> Result<(), String> {
 
 /// 从本地 auth.json 导入账号
 #[tauri::command]
-pub fn import_codex_from_local() -> Result<CodexAccount, String> {
-    codex_account::import_from_local()
+pub fn import_codex_from_local(app: AppHandle) -> Result<CodexAccount, String> {
+    let account = codex_account::import_from_local()?;
+    let _ = crate::modules::tray::update_tray_menu(&app);
+    Ok(account)
 }
 
 /// 从 JSON 字符串导入账号
@@ -275,6 +277,20 @@ pub fn codex_oauth_login_cancel(login_id: Option<String>) -> Result<(), String> 
         result.as_ref().map(|_| "ok").map_err(|e| e)
     ));
     result
+}
+
+/// OAuth：手动提交回调链接（用于本地端口不可达时）
+#[tauri::command]
+pub fn codex_oauth_submit_callback_url(
+    app_handle: AppHandle,
+    login_id: String,
+    callback_url: String,
+) -> Result<(), String> {
+    codex_oauth::submit_callback_url(login_id.as_str(), callback_url.as_str())?;
+    let payload = serde_json::json!({ "loginId": login_id });
+    let _ = app_handle.emit("codex-oauth-login-completed", payload.clone());
+    let _ = app_handle.emit("ghcp-oauth-login-completed", payload);
+    Ok(())
 }
 
 /// 通过 Token 添加账号

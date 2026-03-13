@@ -79,7 +79,9 @@
         "preparing": "Autorisierungslink wird vorbereitet...",
         "retry": "Autorisierungsinfos neu generieren",
         "timeoutRetry": "Autorisierungslink aktualisieren",
-        "waiting": "Warte auf Autorisierung..."
+        "waiting": "Warte auf Autorisierung...",
+        "manualCallbackLabel": "Callback-URL manuell eingeben",
+        "manualCallbackPlaceholder": "Vollständige Callback-URL einfügen, z. B. http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Alle aktualisieren",
       "refreshQuota": "Kontingent aktualisieren",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Antigravity Konto",
+    "overview": "Antigravity",
     "accounts": "Konten",
     "wakeup": "Weckaufgaben",
     "fingerprints": "Fingerabdrücke",
     "settings": "Einstellungen",
-    "codex": "Codex-Konten",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "Armaturenbrett",
@@ -169,10 +171,11 @@
       "restart": "Neustart",
       "installing": "Installation"
     },
-    "gemini": "Gemini Cli-Konten",
-    "codebuddy": "CodeBuddy-Konten",
-    "qoder": "Qoder-Konten",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Plattformlayout",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Trae-Einstellungen",
       "appPath": "Trae-Pfad"
+    },
+    "codebuddyCn": {
+      "appPath": "CodeBuddy CN-Pfad"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Ungültiges Status-Format. Verwenden Sie kommagetrennte Zahlen.",
         "pageInvalid": "Ungültige Paginierungswerte. Bitte Zahlen größer als 0 eingeben.",
         "fullCurlRequired": "Es wird nur ein vollständiger cURL-Befehl unterstützt. Bitte bei get-user-resource im Network „Copy as cURL (bash)“ verwenden und unverändert einfügen."
-      }
+      },
+      "webOnlyHint": "Bitte die Quote auf der Webseite ansehen"
     },
     "extraCredit": {
       "title": "Zusatzpaket"
@@ -2224,6 +2231,29 @@
       "desc": "Unterstutzt offizielle OAuth-Anmeldung, lokalen Import, JSON-Import und kontowechsel per lokaler Injektion. Beim Wechsel wird gemaess den realen Speicherregeln des Trae-Clients zuruckgeschrieben.",
       "permission": "Berechtigungsumfang: liest und schreibt anmeldungsbezogene Felder in der lokalen Trae-storage.json fur Kontoimport, Kontowechsel-Injektion und Tarifanzeige. Alle Daten werden ausschliesslich lokal auf Ihrem Gerat verarbeitet.",
       "network": "Netzwerkumfang: OAuth-Anmeldung, Token-Aktualisierung und Tarifabfragen rufen offizielle Trae-APIs auf. Lokale Kontodateien und rohe Speicherinhalte werden nicht an Drittanbieter hochgeladen."
+    }
+  },
+  "codebuddyCn": {
+    "title": "CodeBuddy CN-Kontenverwaltung",
+    "noAccounts": "Keine CodeBuddy CN-Konten",
+    "addAccount": "CodeBuddy CN-Konto hinzufügen",
+    "search": "CodeBuddy CN-Konten durchsuchen...",
+    "oauthDesc": "Klicken Sie auf die Schaltfläche unten, um die CodeBuddy CN-Autorisierungsseite im Browser zu öffnen.",
+    "tokenDesc": "Access Token von CodeBuddy CN einfügen:",
+    "flowNotice": {
+      "title": "Hinweise zur CodeBuddy CN-Kontoverwaltung (zum Ein-/Ausklappen klicken)",
+      "desc": "Zum Wechseln von Konten muss der lokale Auth-Speicher von CodeBuddy CN gelesen und der System-Zugangsdienst zum Entschlüsseln/Verschlüsseln verwendet werden. Die Daten werden nur lokal verarbeitet.",
+      "permission": "Berechtigungsumfang: Lesen der CodeBuddy CN-Authentifizierungsdatenbank (state.vscdb) und Nutzung der System-Zugangsdienste (macOS Keychain / Windows DPAPI / Linux Secret Service) zum Entschlüsseln und Zurückschreiben.",
+      "network": "Netzwerkumfang: OAuth-Anmeldung und Token-Aktualisierung senden Anfragen an codebuddy.cn / copilot.tencent.com; Kontingentabfragen nutzen Billing-APIs. Lokale Schlüssel oder Zugangsdaten werden nicht hochgeladen."
+    },
+    "import": {
+      "localDesc": "Kontodaten können aus dem lokalen CodeBuddy CN-Client oder aus einer JSON-Datei importiert werden.",
+      "localClient": "Aus lokalem CodeBuddy CN importieren"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "CodeBuddy CN-Mehrinstanzen werden nur unter macOS, Windows und Linux unterstützt."
+      }
     }
   }
 }

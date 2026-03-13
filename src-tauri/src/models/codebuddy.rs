@@ -46,10 +46,10 @@ pub struct CodebuddyQuotaBinding {
     pub page_number: i32,
     pub page_size: i32,
     pub updated_at: i64,
-    /// WebView 的真实 User-Agent，用于 reqwest 重放时保持一致
+    /// 采集到的真实 User-Agent，用于 reqwest 重放时保持一致
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_agent: Option<String>,
-    /// WebView 采集到的请求头快照（用于重放关键鉴权头）
+    /// 采集到的请求头快照（用于重放关键鉴权头）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_headers: Option<CodebuddyQuotaRequestHeaders>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -79,7 +79,9 @@
         "preparing": "Yetkilendirme bağlantısı hazırlanıyor...",
         "retry": "Yetkilendirme bilgisini yeniden oluştur",
         "timeoutRetry": "Yetkilendirme bağlantısını yenile",
-        "waiting": "Yetkilendirme bekleniyor..."
+        "waiting": "Yetkilendirme bekleniyor...",
+        "manualCallbackLabel": "Geri çağrı URL'sini manuel gir",
+        "manualCallbackPlaceholder": "Tam geri çağrı URL'sini yapıştırın, örn: http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Tümünü yenile",
       "refreshQuota": "Kotayı yenile",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Antigravity Hesabı",
+    "overview": "Antigravity",
     "accounts": "Hesaplar",
     "wakeup": "Uyandırma Görevleri",
     "fingerprints": "Parmak İzleri",
     "settings": "Ayarlar",
-    "codex": "Codex Hesapları",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "Gösterge Paneli",
@@ -169,10 +171,11 @@
       "restart": "Yeniden başlat",
       "installing": "Yükleniyor"
     },
-    "gemini": "Gemini Cli hesapları",
-    "codebuddy": "CodeBuddy Hesapları",
-    "qoder": "Qoder Hesapları",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Platform Düzeni",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Trae Ayarları",
       "appPath": "Trae Yolu"
+    },
+    "codebuddyCn": {
+      "appPath": "CodeBuddy CN Yolu"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Status biçimi geçersiz. Virgülle ayrılmış sayılar kullanın.",
         "pageInvalid": "Sayfalama değerleri geçersiz. Lütfen 0'dan büyük sayılar girin.",
         "fullCurlRequired": "Yalnızca tam cURL komutu desteklenir. Network’te get-user-resource isteğinde \"Copy as cURL (bash)\" kullanıp olduğu gibi yapıştırın."
-      }
+      },
+      "webOnlyHint": "Kotayı web sayfasında görüntüleyin"
     },
     "extraCredit": {
       "title": "Kredi Paketi"
@@ -2224,6 +2231,29 @@
       "desc": "Resmi OAuth girisini, yerel ice aktarmayi, JSON ice aktarmayi ve yerel enjeksiyonla hesap degistirmeyi destekler. Hesap degisiminde veriler Trae istemcisinin gercek disk kurallarina gore yeniden yazilir.",
       "permission": "Izin kapsami: hesap ice aktarma, hesap degistirme enjeksiyonu ve plan gosterimi icin yerel Trae storage.json icindeki girisle ilgili alanlari okur ve yazar. Tum veriler cihazinizda yerel olarak islenir.",
       "network": "Ag kapsami: OAuth girisi, belirtec yenileme ve plan sorgulari resmi Trae API'lerini cagirir. Yerel hesap dosyalari ve ham depolama icerigi ucuncu taraf hizmetlere yuklenmez."
+    }
+  },
+  "codebuddyCn": {
+    "title": "CodeBuddy CN Hesap Yönetimi",
+    "noAccounts": "CodeBuddy CN hesabı yok",
+    "addAccount": "CodeBuddy CN Hesabı Ekle",
+    "search": "CodeBuddy CN hesaplarını ara...",
+    "oauthDesc": "Tarayıcınızda CodeBuddy CN yetkilendirme sayfasını açmak için aşağıdaki düğmeye tıklayın.",
+    "tokenDesc": "CodeBuddy CN erişim belirtecinizi yapıştırın:",
+    "flowNotice": {
+      "title": "CodeBuddy CN hesap yönetimi bilgisi (genişlet/daralt için tıklayın)",
+      "desc": "Hesap değiştirme için CodeBuddy CN yerel kimlik doğrulama deposu okunur ve şifre çözme/yeniden şifreleme için sistem kimlik bilgisi servisleri çağrılır. Veriler yalnızca yerelde işlenir.",
+      "permission": "İzin kapsamı: CodeBuddy CN kimlik veritabanını (state.vscdb) okuma; şifre çözme/geri yazma için sistem kimlik yeteneklerini çağırma (macOS Keychain / Windows DPAPI / Linux Secret Service).",
+      "network": "Ağ kapsamı: OAuth girişi ve belirteç yenileme için codebuddy.cn / copilot.tencent.com'ye ağ istekleri gerekir; kota sorguları faturalama API'lerini çağırır. Yerel anahtarlar veya kimlik bilgileri yüklenmez."
+    },
+    "import": {
+      "localDesc": "Hesap verilerini yerel CodeBuddy CN istemcisinden veya bir JSON dosyasından içe aktarın.",
+      "localClient": "Yerel CodeBuddy CN'den içe aktar"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "CodeBuddy CN çoklu örneği yalnızca macOS, Windows ve Linux'ta desteklenir."
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 use base64::Engine;
 use rand::Rng;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -21,6 +21,7 @@ const OAUTH_TIMEOUT_SECONDS: i64 = 300;
 const OAUTH_CALLBACK_PATH: &str = "/oauth2callback";
 const OAUTH_POLL_INTERVAL_SECONDS: u64 = 1;
 const HTTP_REDIRECT_STATUS: u16 = 301;
+const OAUTH_STATE_FILE: &str = "gemini_oauth_pending.json";
 const SIGN_IN_SUCCESS_URL: &str =
     "https://developers.google.com/gemini-code-assist/auth_success_gemini";
 const SIGN_IN_FAILURE_URL: &str =
@@ -32,7 +33,7 @@ const OAUTH_SCOPES: [&str; 3] = [
     "https://www.googleapis.com/auth/userinfo.profile",
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct PendingOAuthState {
     login_id: String,
     callback_port: u16,
@@ -41,6 +42,7 @@ struct PendingOAuthState {
     state_token: String,
     expires_at: i64,
     cancelled: bool,
+    manual_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -127,6 +129,7 @@ fn build_auth_url(callback_url: &str, state_token: &str) -> Result<String, Strin
 }
 
 fn get_pending_login() -> Option<PendingOAuthState> {
+    hydrate_pending_login_if_missing();
     PENDING_OAUTH_STATE
         .lock()
         .ok()
@@ -135,11 +138,52 @@ fn get_pending_login() -> Option<PendingOAuthState> {
 
 fn set_pending_login(state: Option<PendingOAuthState>) {
     if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
-        *guard = state;
+        *guard = state.clone();
+    }
+    let result = match state.as_ref() {
+        Some(value) => crate::modules::oauth_pending_state::save(OAUTH_STATE_FILE, value),
+        None => crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE),
+    };
+    if let Err(err) = result {
+        logger::log_warn(&format!(
+            "[Gemini OAuth] 持久化登录状态失败，已忽略: {}",
+            err
+        ));
+    }
+}
+
+fn load_pending_login_from_disk() -> Option<PendingOAuthState> {
+    match crate::modules::oauth_pending_state::load::<PendingOAuthState>(OAUTH_STATE_FILE) {
+        Ok(Some(state)) => {
+            if state.cancelled || now_timestamp() > state.expires_at {
+                let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+                None
+            } else {
+                Some(state)
+            }
+        }
+        Ok(None) => None,
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Gemini OAuth] 读取持久化登录状态失败，已忽略: {}",
+                err
+            ));
+            let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+            None
+        }
+    }
+}
+
+fn hydrate_pending_login_if_missing() {
+    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+        if guard.is_none() {
+            *guard = load_pending_login_from_disk();
+        }
     }
 }
 
 fn get_pending_login_for(login_id: &str) -> Result<PendingOAuthState, String> {
+    hydrate_pending_login_if_missing();
     let state =
         get_pending_login().ok_or_else(|| "Gemini OAuth 登录流程不存在，请重新发起".to_string())?;
     if state.login_id != login_id {
@@ -155,10 +199,17 @@ fn get_pending_login_for(login_id: &str) -> Result<PendingOAuthState, String> {
 }
 
 fn clear_pending_login_if_matches(login_id: &str) {
-    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
-        if guard.as_ref().map(|state| state.login_id.as_str()) == Some(login_id) {
-            *guard = None;
-        }
+    let should_clear = if let Ok(guard) = PENDING_OAUTH_STATE.lock() {
+        guard
+            .as_ref()
+            .map(|state| state.login_id.as_str())
+            .map(|id| id == login_id)
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    if should_clear {
+        set_pending_login(None);
     }
 }
 
@@ -166,6 +217,33 @@ fn parse_query_pairs(url: &Url) -> HashMap<String, String> {
     url.query_pairs()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
+}
+
+fn parse_callback_url(raw_callback_url: &str, callback_port: u16) -> Result<Url, String> {
+    let trimmed = raw_callback_url.trim();
+    if trimmed.is_empty() {
+        return Err("回调链接不能为空".to_string());
+    }
+
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return Url::parse(trimmed).map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    if trimmed.starts_with('/') {
+        return Url::parse(format!("http://127.0.0.1:{}{}", callback_port, trimmed).as_str())
+            .map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    Url::parse(
+        format!(
+            "http://127.0.0.1:{}{}?{}",
+            callback_port,
+            OAUTH_CALLBACK_PATH,
+            trimmed.trim_start_matches('?')
+        )
+        .as_str(),
+    )
+    .map_err(|e| format!("回调链接格式无效: {}", e))
 }
 
 fn parse_jwt_claim_string(token: &str, key: &str) -> Option<String> {
@@ -224,7 +302,15 @@ fn wait_for_oauth_code_blocking(
 
         if let Ok(guard) = PENDING_OAUTH_STATE.lock() {
             match guard.as_ref() {
-                Some(state) if state.login_id == login_id && !state.cancelled => {}
+                Some(state) if state.login_id == login_id && !state.cancelled => {
+                    if let Some(code) = state
+                        .manual_code
+                        .as_deref()
+                        .and_then(|value| normalize_non_empty(Some(value)))
+                    {
+                        return Ok(code);
+                    }
+                }
                 Some(_) => return Err("Gemini OAuth 登录会话已变更，请重试".to_string()),
                 None => return Err("Gemini OAuth 登录已取消".to_string()),
             }
@@ -347,6 +433,7 @@ async fn fetch_google_userinfo(access_token: &str) -> Option<GoogleUserInfoRespo
 }
 
 pub async fn start_login() -> Result<GeminiOAuthStartResponse, String> {
+    hydrate_pending_login_if_missing();
     if let Some(existing) = get_pending_login() {
         if existing.expires_at > now_timestamp() && !existing.cancelled {
             logger::log_info(&format!(
@@ -362,6 +449,7 @@ pub async fn start_login() -> Result<GeminiOAuthStartResponse, String> {
             });
         }
     }
+    set_pending_login(None);
 
     let callback_port = find_available_callback_port()?;
     let callback_url = format!("http://127.0.0.1:{}{}", callback_port, OAUTH_CALLBACK_PATH);
@@ -377,6 +465,7 @@ pub async fn start_login() -> Result<GeminiOAuthStartResponse, String> {
         state_token,
         expires_at: now_timestamp() + OAUTH_TIMEOUT_SECONDS,
         cancelled: false,
+        manual_code: None,
     };
 
     set_pending_login(Some(pending));
@@ -503,13 +592,85 @@ pub async fn complete_login(login_id: &str) -> Result<GeminiOAuthCompletePayload
 }
 
 pub fn cancel_login(login_id: Option<&str>) -> Result<(), String> {
-    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
-        if let Some(ref mut state) = *guard {
-            if login_id.is_none() || login_id == Some(state.login_id.as_str()) {
-                state.cancelled = true;
-            }
+    hydrate_pending_login_if_missing();
+    if let Some(state) = get_pending_login() {
+        if login_id.is_none() || login_id == Some(state.login_id.as_str()) {
+            set_pending_login(None);
         }
-        *guard = None;
     }
     Ok(())
+}
+
+pub fn submit_callback_url(login_id: &str, callback_url: &str) -> Result<(), String> {
+    hydrate_pending_login_if_missing();
+    let (state_token, callback_port, expires_at) = {
+        let guard = PENDING_OAUTH_STATE
+            .lock()
+            .map_err(|_| "Gemini OAuth 状态锁不可用".to_string())?;
+        let state = guard
+            .as_ref()
+            .ok_or_else(|| "Gemini OAuth 登录流程不存在，请重新发起".to_string())?;
+        if state.login_id != login_id {
+            return Err("Gemini OAuth 登录会话已变更，请重新发起".to_string());
+        }
+        if state.cancelled {
+            return Err("Gemini OAuth 登录已取消".to_string());
+        }
+        (
+            state.state_token.clone(),
+            state.callback_port,
+            state.expires_at,
+        )
+    };
+
+    if now_timestamp() > expires_at {
+        return Err("Gemini OAuth 登录已超时，请重试".to_string());
+    }
+
+    let parsed = parse_callback_url(callback_url, callback_port)?;
+    if parsed.path() != OAUTH_CALLBACK_PATH {
+        return Err(format!("回调链接路径无效，必须为 {}", OAUTH_CALLBACK_PATH));
+    }
+
+    let params = parse_query_pairs(&parsed);
+    if let Some(error) = params.get("error") {
+        let desc = params
+            .get("error_description")
+            .cloned()
+            .unwrap_or_else(|| "No details".to_string());
+        return Err(format!("Google OAuth 错误: {} ({})", error, desc));
+    }
+
+    if params.get("state").map(String::as_str) != Some(state_token.as_str()) {
+        return Err("Gemini OAuth state 校验失败，可能存在 CSRF 风险".to_string());
+    }
+
+    let code = params
+        .get("code")
+        .and_then(|value| normalize_non_empty(Some(value.as_str())))
+        .ok_or_else(|| "Google OAuth 回调缺少 code 参数".to_string())?;
+
+    let mut guard = PENDING_OAUTH_STATE
+        .lock()
+        .map_err(|_| "Gemini OAuth 状态锁不可用".to_string())?;
+    let state = guard
+        .as_mut()
+        .ok_or_else(|| "Gemini OAuth 登录流程不存在，请重新发起".to_string())?;
+    if state.login_id != login_id {
+        return Err("Gemini OAuth 登录会话已变更，请重新发起".to_string());
+    }
+    state.manual_code = Some(code);
+    let snapshot = state.clone();
+    drop(guard);
+    set_pending_login(Some(snapshot));
+
+    logger::log_info(&format!(
+        "[Gemini OAuth] 已接收手动回调链接: login_id={}",
+        login_id
+    ));
+    Ok(())
+}
+
+pub fn restore_pending_oauth_state() {
+    hydrate_pending_login_if_missing();
 }

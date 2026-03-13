@@ -9,6 +9,7 @@ export type Page =
   | 'cursor'
   | 'gemini'
   | 'codebuddy'
+  | 'codebuddy-cn'
   | 'qoder'
   | 'trae'
   | 'codex-instances'

@@ -15,10 +15,11 @@ pub const PLATFORM_KIRO: &str = "kiro";
 pub const PLATFORM_CURSOR: &str = "cursor";
 pub const PLATFORM_GEMINI: &str = "gemini";
 pub const PLATFORM_CODEBUDDY: &str = "codebuddy";
+pub const PLATFORM_CODEBUDDY_CN: &str = "codebuddy_cn";
 pub const PLATFORM_QODER: &str = "qoder";
 pub const PLATFORM_TRAE: &str = "trae";
 
-pub const SUPPORTED_PLATFORM_IDS: [&str; 10] = [
+pub const SUPPORTED_PLATFORM_IDS: [&str; 11] = [
     PLATFORM_ANTIGRAVITY,
     PLATFORM_CODEX,
     PLATFORM_GITHUB_COPILOT,
@@ -27,6 +28,7 @@ pub const SUPPORTED_PLATFORM_IDS: [&str; 10] = [
     PLATFORM_CURSOR,
     PLATFORM_GEMINI,
     PLATFORM_CODEBUDDY,
+    PLATFORM_CODEBUDDY_CN,
     PLATFORM_QODER,
     PLATFORM_TRAE,
 ];
@@ -119,6 +121,8 @@ fn normalize_tray_platforms(ids: &[String], raw_order_has_new: &[&str]) -> Vec<S
         PLATFORM_KIRO,
         PLATFORM_CURSOR,
         PLATFORM_GEMINI,
+        PLATFORM_CODEBUDDY,
+        PLATFORM_CODEBUDDY_CN,
         PLATFORM_QODER,
         PLATFORM_TRAE,
     ] {
@@ -148,6 +152,8 @@ fn normalize_config(config: TrayLayoutConfig) -> TrayLayoutConfig {
         PLATFORM_KIRO,
         PLATFORM_CURSOR,
         PLATFORM_GEMINI,
+        PLATFORM_CODEBUDDY,
+        PLATFORM_CODEBUDDY_CN,
         PLATFORM_QODER,
         PLATFORM_TRAE,
     ]

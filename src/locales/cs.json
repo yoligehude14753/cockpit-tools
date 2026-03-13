@@ -79,7 +79,9 @@
         "preparing": "Připravuje se autorizační odkaz...",
         "retry": "Znovu vygenerovat autorizační údaje",
         "timeoutRetry": "Obnovit autorizační odkaz",
-        "waiting": "Čekání na autorizaci..."
+        "waiting": "Čekání na autorizaci...",
+        "manualCallbackLabel": "Ručně zadat callback URL",
+        "manualCallbackPlaceholder": "Vložte celý callback URL, např.: http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Obnovit vše",
       "refreshQuota": "Obnovit kvótu",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Účet Antigravity",
+    "overview": "Antigravity",
     "accounts": "Účty",
     "wakeup": "Úlohy probuzení",
     "fingerprints": "Otisky",
     "settings": "Nastavení",
-    "codex": "Účty Codex",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "Dashboard",
@@ -169,10 +171,11 @@
       "restart": "Restartovat",
       "installing": "Instalace"
     },
-    "gemini": "Účty Gemini Cli",
-    "codebuddy": "Účty CodeBuddy",
-    "qoder": "Účty Qoder",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Rozložení platforem",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Nastavení Trae",
       "appPath": "Cesta Trae"
+    },
+    "codebuddyCn": {
+      "appPath": "Cesta CodeBuddy CN"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Neplatný formát Status. Použijte čísla oddělená čárkou.",
         "pageInvalid": "Neplatné hodnoty stránkování. Zadejte čísla větší než 0.",
         "fullCurlRequired": "Podporován je pouze kompletní příkaz cURL. V Network u požadavku get-user-resource použijte „Copy as cURL (bash)“ a vložte jej beze změn."
-      }
+      },
+      "webOnlyHint": "Kvótu zobrazíte na webové stránce"
     },
     "extraCredit": {
       "title": "Kreditní balíček"
@@ -2224,6 +2231,29 @@
       "desc": "Podporuje oficialni prihlaseni OAuth, mistni import, import JSON a prepinani uctu pomoci lokalni injekce. Pri prepnuti zapisuje data podle skutecnych pravidel klienta Trae.",
       "permission": "Rozsah opravneni: cte a zapisuje prihlasovaci pole v mistnim souboru Trae storage.json pro import uctu, injekci prepnuti uctu a zobrazeni tarifu. Vsechna data se zpracovavaji pouze lokalne na vasem zarizeni.",
       "network": "Sitovy rozsah: prihlaseni OAuth, obnoveni tokenu a dotazy na tarif volaji oficialni API Trae. Mistni soubory uctu ani puvodni obsah uloziste se neodesilaji sluzbam tretich stran."
+    }
+  },
+  "codebuddyCn": {
+    "title": "Správa účtů CodeBuddy CN",
+    "noAccounts": "Žádné účty CodeBuddy CN",
+    "addAccount": "Přidat účet CodeBuddy CN",
+    "search": "Hledat účty CodeBuddy CN...",
+    "oauthDesc": "Klikněte na tlačítko níže a otevřete autorizační stránku CodeBuddy CN v prohlížeči.",
+    "tokenDesc": "Vložte přístupový token CodeBuddy CN:",
+    "flowNotice": {
+      "title": "Informace o správě účtů CodeBuddy CN (kliknutím rozbalíte/sbalíte)",
+      "desc": "Přepínání účtů vyžaduje čtení místního úložiště autentizace CodeBuddy CN a volání systémových služeb přihlašovacích údajů pro dešifrování/opětovné zašifrování. Data se zpracovávají pouze lokálně.",
+      "permission": "Rozsah oprávnění: čtení databáze autentizace CodeBuddy CN (state.vscdb), volání systémových schopností pro přihlašovací údaje (macOS Keychain / Windows DPAPI / Linux Secret Service) pro dešifrování/zápis zpět.",
+      "network": "Rozsah sítě: přihlášení OAuth a obnovení tokenu vyžadují síťové požadavky na codebuddy.cn / copilot.tencent.com; dotazy na kvótu volají billing API. Žádné místní klíče ani přihlašovací údaje se neodesílají."
+    },
+    "import": {
+      "localDesc": "Importujte data účtu z místního klienta CodeBuddy CN nebo ze souboru JSON.",
+      "localClient": "Importovat z místního CodeBuddy CN"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "Více instancí CodeBuddy CN je podporováno pouze na macOS, Windows a Linuxu."
+      }
     }
   }
 }

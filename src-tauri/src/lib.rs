@@ -117,6 +117,17 @@ pub fn run() {
                 modules::websocket::start_server().await;
             });
 
+            {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    modules::codex_oauth::restore_pending_oauth_listener(app_handle);
+                    modules::windsurf_oauth::restore_pending_oauth_listener();
+                    modules::kiro_oauth::restore_pending_oauth_listener();
+                    modules::trae_oauth::restore_pending_oauth_listener();
+                    modules::gemini_oauth::restore_pending_oauth_state();
+                });
+            }
+
             #[cfg(target_os = "macos")]
             apply_macos_activation_policy(&app.handle());
 
@@ -204,6 +215,7 @@ pub fn run() {
             commands::oauth::start_oauth_login,
             commands::oauth::prepare_oauth_url,
             commands::oauth::complete_oauth_login,
+            commands::oauth::submit_oauth_callback_url,
             commands::oauth::cancel_oauth_login,
             // Import/Export Commands
             commands::import::import_from_old_tools,
@@ -280,6 +292,7 @@ pub fn run() {
             commands::codex::refresh_current_codex_quota,
             commands::codex::codex_oauth_login_start,
             commands::codex::codex_oauth_login_completed,
+            commands::codex::codex_oauth_submit_callback_url,
             commands::codex::codex_oauth_login_cancel,
             commands::codex::add_codex_account_with_token,
             commands::codex::is_codex_oauth_port_in_use,
@@ -321,6 +334,7 @@ pub fn run() {
             commands::windsurf::refresh_all_windsurf_tokens,
             commands::windsurf::windsurf_oauth_login_start,
             commands::windsurf::windsurf_oauth_login_complete,
+            commands::windsurf::windsurf_oauth_submit_callback_url,
             commands::windsurf::windsurf_oauth_login_cancel,
             commands::windsurf::add_windsurf_account_with_token,
             commands::windsurf::add_windsurf_account_with_password,
@@ -338,6 +352,7 @@ pub fn run() {
             commands::kiro::refresh_all_kiro_tokens,
             commands::kiro::kiro_oauth_login_start,
             commands::kiro::kiro_oauth_login_complete,
+            commands::kiro::kiro_oauth_submit_callback_url,
             commands::kiro::kiro_oauth_login_cancel,
             commands::kiro::add_kiro_account_with_token,
             commands::kiro::update_kiro_account_tags,
@@ -354,11 +369,6 @@ pub fn run() {
             commands::codebuddy::refresh_all_codebuddy_tokens,
             commands::codebuddy::query_codebuddy_quota_with_binding,
             commands::codebuddy::clear_codebuddy_quota_binding,
-            commands::codebuddy::open_codebuddy_quota_webview,
-            commands::codebuddy::open_codebuddy_oauth_webview,
-            commands::codebuddy::codebuddy_oauth_webview_action,
-            commands::codebuddy::codebuddy_oauth_webview_submit_snapshot,
-            commands::codebuddy::codebuddy_quota_webview_submit_snapshot,
             commands::codebuddy::codebuddy_oauth_login_start,
             commands::codebuddy::codebuddy_oauth_login_complete,
             commands::codebuddy::codebuddy_oauth_login_cancel,
@@ -366,6 +376,24 @@ pub fn run() {
             commands::codebuddy::update_codebuddy_account_tags,
             commands::codebuddy::get_codebuddy_accounts_index_path,
             commands::codebuddy::inject_codebuddy_to_vscode,
+            // CodeBuddy CN Commands
+            commands::codebuddy_cn::list_codebuddy_cn_accounts,
+            commands::codebuddy_cn::delete_codebuddy_cn_account,
+            commands::codebuddy_cn::delete_codebuddy_cn_accounts,
+            commands::codebuddy_cn::import_codebuddy_cn_from_json,
+            commands::codebuddy_cn::import_codebuddy_cn_from_local,
+            commands::codebuddy_cn::export_codebuddy_cn_accounts,
+            commands::codebuddy_cn::refresh_codebuddy_cn_token,
+            commands::codebuddy_cn::refresh_all_codebuddy_cn_tokens,
+            commands::codebuddy_cn::query_codebuddy_cn_quota_with_binding,
+            commands::codebuddy_cn::clear_codebuddy_cn_quota_binding,
+            commands::codebuddy_cn::codebuddy_cn_oauth_login_start,
+            commands::codebuddy_cn::codebuddy_cn_oauth_login_complete,
+            commands::codebuddy_cn::codebuddy_cn_oauth_login_cancel,
+            commands::codebuddy_cn::add_codebuddy_cn_account_with_token,
+            commands::codebuddy_cn::update_codebuddy_cn_account_tags,
+            commands::codebuddy_cn::get_codebuddy_cn_accounts_index_path,
+            commands::codebuddy_cn::inject_codebuddy_cn_to_vscode,
             // CodeBuddy Instance Commands
             commands::codebuddy_instance::codebuddy_get_instance_defaults,
             commands::codebuddy_instance::codebuddy_list_instances,
@@ -376,6 +404,16 @@ pub fn run() {
             commands::codebuddy_instance::codebuddy_stop_instance,
             commands::codebuddy_instance::codebuddy_open_instance_window,
             commands::codebuddy_instance::codebuddy_close_all_instances,
+            // CodeBuddy CN Instance Commands
+            commands::codebuddy_cn_instance::codebuddy_cn_get_instance_defaults,
+            commands::codebuddy_cn_instance::codebuddy_cn_list_instances,
+            commands::codebuddy_cn_instance::codebuddy_cn_create_instance,
+            commands::codebuddy_cn_instance::codebuddy_cn_update_instance,
+            commands::codebuddy_cn_instance::codebuddy_cn_delete_instance,
+            commands::codebuddy_cn_instance::codebuddy_cn_start_instance,
+            commands::codebuddy_cn_instance::codebuddy_cn_stop_instance,
+            commands::codebuddy_cn_instance::codebuddy_cn_open_instance_window,
+            commands::codebuddy_cn_instance::codebuddy_cn_close_all_instances,
             // Qoder Commands
             commands::qoder::list_qoder_accounts,
             commands::qoder::delete_qoder_account,
@@ -410,6 +448,7 @@ pub fn run() {
             commands::trae::import_trae_from_local,
             commands::trae::trae_oauth_login_start,
             commands::trae::trae_oauth_login_complete,
+            commands::trae::trae_oauth_submit_callback_url,
             commands::trae::trae_oauth_login_cancel,
             commands::trae::export_trae_accounts,
             commands::trae::refresh_trae_token,
@@ -455,6 +494,7 @@ pub fn run() {
             commands::gemini::refresh_all_gemini_tokens,
             commands::gemini::gemini_oauth_login_start,
             commands::gemini::gemini_oauth_login_complete,
+            commands::gemini::gemini_oauth_submit_callback_url,
             commands::gemini::gemini_oauth_login_cancel,
             commands::gemini::add_gemini_account_with_token,
             commands::gemini::update_gemini_account_tags,

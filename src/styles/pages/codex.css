@@ -913,6 +913,10 @@
   gap: 8px;
 }
 
+.codex-add-modal .oauth-manual-input input {
+  font-family: var(--font-mono);
+}
+
 .codex-add-modal .oauth-url-box input {
   flex: 1;
   padding: 10px 14px;
@@ -937,6 +941,10 @@
 .codex-add-modal .oauth-url-box button:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.codex-add-modal .oauth-manual-input button {
+  min-width: 132px;
 }
 
 .codex-add-modal .oauth-hint {

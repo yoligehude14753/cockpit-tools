@@ -70,6 +70,13 @@ export async function traeOauthLoginCancel(loginId?: string): Promise<void> {
   return await invoke('trae_oauth_login_cancel', { loginId: loginId ?? null });
 }
 
+export async function traeOauthSubmitCallbackUrl(
+  loginId: string,
+  callbackUrl: string,
+): Promise<void> {
+  return await invoke('trae_oauth_submit_callback_url', { loginId, callbackUrl });
+}
+
 export async function exportTraeAccounts(accountIds: string[]): Promise<string> {
   return await invoke('export_trae_accounts', { accountIds });
 }

@@ -101,8 +101,9 @@ const FALLBACK_PLATFORM_SETTINGS_ORDER: Record<PlatformId, number> = {
   cursor: 5,
   gemini: 6,
   codebuddy: 7,
-  qoder: 8,
-  trae: 9,
+  codebuddy_cn: 8,
+  qoder: 9,
+  trae: 10,
 };
 type UpdateCheckSource = 'auto' | 'manual';
 type UpdateCheckFinishedDetail = {

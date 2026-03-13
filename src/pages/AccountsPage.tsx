@@ -298,6 +298,9 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
   const [addMessage, setAddMessage] = useState('')
   const [oauthUrl, setOauthUrl] = useState('')
   const [oauthUrlCopied, setOauthUrlCopied] = useState(false)
+  const [oauthCallbackInput, setOauthCallbackInput] = useState('')
+  const [oauthCallbackSubmitting, setOauthCallbackSubmitting] = useState(false)
+  const [oauthCallbackError, setOauthCallbackError] = useState<string | null>(null)
   const [tokenInput, setTokenInput] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<{
     ids: string[]
@@ -842,6 +845,8 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
       if (addStatusRef.current === 'loading') return
       if (!oauthUrlRef.current) return
 
+      setOauthCallbackSubmitting(false)
+      setOauthCallbackError(null)
       setAddStatus('loading')
       setAddMessage(t('accounts.oauth.authorizing'))
       try {
@@ -877,6 +882,7 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
       .then((url) => {
         if (typeof url === 'string' && url.length > 0) {
           setOauthUrl(url)
+          setOauthCallbackError(null)
         }
       })
       .catch((e) => {
@@ -974,6 +980,9 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
     setAddMessage('')
     setTokenInput('')
     setOauthUrlCopied(false)
+    setOauthCallbackInput('')
+    setOauthCallbackSubmitting(false)
+    setOauthCallbackError(null)
   }
 
   const openAddModal = (tab: 'oauth' | 'token' | 'import') => {
@@ -1322,6 +1331,20 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
       window.setTimeout(() => setOauthUrlCopied(false), 1200)
     } catch (e) {
       console.error('复制失败:', e)
+    }
+  }
+
+  const handleSubmitOauthCallbackUrl = async () => {
+    const callbackUrl = oauthCallbackInput.trim()
+    if (!callbackUrl) return
+
+    setOauthCallbackSubmitting(true)
+    setOauthCallbackError(null)
+    try {
+      await accountService.submitOAuthCallbackUrl(callbackUrl)
+    } catch (e) {
+      setOauthCallbackError(String(e).replace(/^Error:\s*/, ''))
+      setOauthCallbackSubmitting(false)
     }
   }
 
@@ -2887,6 +2910,35 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
                       </button>
                     </div>
                   </div>
+                  <div className="oauth-link">
+                    <label>{t('common.shared.oauth.manualCallbackLabel', '手动输入回调地址')}</label>
+                    <div className="oauth-link-row oauth-manual-input">
+                      <input
+                        type="text"
+                        value={oauthCallbackInput}
+                        onChange={(e) => setOauthCallbackInput(e.target.value)}
+                        placeholder={t('common.shared.oauth.manualCallbackPlaceholder', '粘贴完整回调地址，例如：http://localhost:1455/auth/callback?code=...&state=...')}
+                      />
+                      <button
+                        className="btn btn-secondary"
+                        onClick={handleSubmitOauthCallbackUrl}
+                        disabled={!oauthCallbackInput.trim() || oauthCallbackSubmitting}
+                      >
+                        {oauthCallbackSubmitting ? (
+                          <RefreshCw size={16} className="loading-spinner" />
+                        ) : (
+                          <Check size={16} />
+                        )}{' '}
+                        {t('accounts.oauth.continue')}
+                      </button>
+                    </div>
+                  </div>
+                  {oauthCallbackError && (
+                    <div className="add-status error">
+                      <CircleAlert size={16} />
+                      <span>{oauthCallbackError}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

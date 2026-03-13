@@ -142,6 +142,9 @@ export function CodexAccountsPage() {
   const [oauthPrepareError, setOauthPrepareError] = useState<string | null>(null);
   const [oauthPortInUse, setOauthPortInUse] = useState<number | null>(null);
   const [oauthTimeoutInfo, setOauthTimeoutInfo] = useState<{ loginId?: string; callbackUrl?: string; timeoutSeconds?: number } | null>(null);
+  const [oauthCallbackInput, setOauthCallbackInput] = useState('');
+  const [oauthCallbackSubmitting, setOauthCallbackSubmitting] = useState(false);
+  const [oauthCallbackError, setOauthCallbackError] = useState<string | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
   const [showCodeReviewQuota, setShowCodeReviewQuota] = useState<boolean>(
     isCodexCodeReviewQuotaVisibleByDefault,
@@ -195,6 +198,8 @@ export function CodexAccountsPage() {
     console.error('[CodexOAuth] 准备授权链接失败', { error: String(e) });
     oauthActiveRef.current = false;
     setOauthTimeoutInfo(null);
+    setOauthCallbackSubmitting(false);
+    setOauthCallbackError(null);
     const match = String(e).match(/CODEX_OAUTH_PORT_IN_USE:(\d+)/);
     if (match) {
       const port = Number(match[1]);
@@ -214,6 +219,9 @@ export function CodexAccountsPage() {
     oauthActiveRef.current = false;
     oauthCompletingRef.current = false;
     oauthLoginIdRef.current = null;
+    setOauthCallbackInput('');
+    setOauthCallbackSubmitting(false);
+    setOauthCallbackError(null);
     setTimeout(() => {
       setShowAddModal(false);
       resetAddModalState();
@@ -262,6 +270,8 @@ export function CodexAccountsPage() {
       setOauthPortInUse(null);
       setOauthTimeoutInfo(payload);
       setOauthPrepareError(null);
+      setOauthCallbackSubmitting(false);
+      setOauthCallbackError(null);
       setAddStatus('idle');
       setAddMessage('');
     }).then((fn) => { if (disposed) fn(); else unlistenTimeout = fn; });
@@ -277,6 +287,9 @@ export function CodexAccountsPage() {
     setOauthPrepareError(null);
     setOauthPortInUse(null);
     setOauthTimeoutInfo(null);
+    setOauthCallbackInput('');
+    setOauthCallbackSubmitting(false);
+    setOauthCallbackError(null);
 
     codexService.startCodexOAuthLogin()
       .then(({ loginId, authUrl }) => {
@@ -325,6 +338,9 @@ export function CodexAccountsPage() {
     setOauthUrl('');
     setOauthUrlCopied(false);
     setOauthTimeoutInfo(null);
+    setOauthCallbackInput('');
+    setOauthCallbackSubmitting(false);
+    setOauthCallbackError(null);
   }, [showAddModal, addTab]);
 
   useEffect(
@@ -365,12 +381,42 @@ export function CodexAccountsPage() {
     setOauthPortInUse(null);
     setOauthUrl('');
     setOauthUrlCopied(false);
+    setOauthCallbackInput('');
+    setOauthCallbackSubmitting(false);
+    setOauthCallbackError(null);
     prepareOauthUrl();
   };
 
   const handleOpenOauthUrl = async () => {
     if (!oauthUrl) return;
     try { await openUrl(oauthUrl); } catch { await navigator.clipboard.writeText(oauthUrl).catch(() => { }); setOauthUrlCopied(true); setTimeout(() => setOauthUrlCopied(false), 1200); }
+  };
+
+  const handleSubmitOauthCallbackUrl = async () => {
+    const callbackUrl = oauthCallbackInput.trim();
+    if (!callbackUrl) return;
+    const loginId = oauthLoginIdRef.current;
+    if (!loginId) {
+      setOauthCallbackError(t('common.shared.oauth.failed', '授权失败'));
+      return;
+    }
+
+    setOauthCallbackSubmitting(true);
+    setOauthCallbackError(null);
+    oauthCompletingRef.current = true;
+    try {
+      await codexService.submitCodexOAuthCallbackUrl(loginId, callbackUrl);
+      setAddStatus('loading');
+      setAddMessage(t('codex.oauth.exchanging', '正在交换令牌...'));
+      await codexService.completeCodexOAuthLogin(loginId);
+      await completeOauthSuccess();
+    } catch (e) {
+      completeOauthError(e);
+      setOauthCallbackError(String(e).replace(/^Error:\s*/, ''));
+    } finally {
+      oauthCompletingRef.current = false;
+      setOauthCallbackSubmitting(false);
+    }
   };
 
   // ─── Codex-specific: Switch / Import ─────────────────────────────────
@@ -703,7 +749,7 @@ export function CodexAccountsPage() {
           {meta.accountContextText && (
             <div className="account-sub-line">
               <span className="codex-login-subline" title={meta.accountContextText}>
-                {meta.accountContextText}
+                Team Name：{meta.accountContextText}
               </span>
             </div>
           )}
@@ -771,7 +817,7 @@ export function CodexAccountsPage() {
             {meta.accountContextText && (
               <div className="account-sub-line codex-account-meta-inline">
                 <span className="codex-login-subline" title={meta.accountContextText}>
-                  {meta.accountContextText}
+                  Team Name：{meta.accountContextText}
                 </span>
               </div>
             )}
@@ -928,12 +974,35 @@ export function CodexAccountsPage() {
             {addTab === 'oauth' && (<div className="add-section">
               <p className="section-desc">{t('codex.oauth.desc', '通过 OpenAI 官方 OAuth 授权您的 Codex 账号。')}</p>
               {oauthPrepareError ? (<div className="add-status error"><CircleAlert size={16} /><span>{oauthPrepareError}</span>
-                {oauthPortInUse && (<button className="btn btn-sm btn-outline" onClick={handleReleaseOauthPort}>{t('codex.oauth.portInUseAction', 'Close port and retry')}</button>)}
+              {oauthPortInUse && (<button className="btn btn-sm btn-outline" onClick={handleReleaseOauthPort}>{t('codex.oauth.portInUseAction', 'Close port and retry')}</button>)}
                 {!oauthPortInUse && oauthTimeoutInfo && (<button className="btn btn-sm btn-outline" onClick={handleRetryOauthAfterTimeout}>{t('codex.oauth.timeoutRetry', '刷新授权链接')}</button>)}</div>
               ) : oauthUrl ? (<div className="oauth-url-section">
-                <div className="oauth-url-box"><input type="text" value={oauthUrl} readOnly /><button onClick={handleCopyOauthUrl}>{oauthUrlCopied ? <Check size={16} /> : <Copy size={16} />}</button></div>
+                <div className="oauth-link">
+                  <label>{t('accounts.oauth.linkLabel', '授权链接')}</label>
+                  <div className="oauth-url-box"><input type="text" value={oauthUrl} readOnly /><button onClick={handleCopyOauthUrl}>{oauthUrlCopied ? <Check size={16} /> : <Copy size={16} />}</button></div>
+                </div>
                 <button className="btn btn-primary btn-full" onClick={isOauthTimeoutState ? handleRetryOauthAfterTimeout : handleOpenOauthUrl}>
                   {isOauthTimeoutState ? <RefreshCw size={16} /> : <Globe size={16} />}{isOauthTimeoutState ? t('codex.oauth.timeoutRetry', '刷新授权链接') : t('common.shared.oauth.openBrowser', 'Open in Browser')}</button>
+                <div className="oauth-link">
+                  <label>{t('common.shared.oauth.manualCallbackLabel', '手动输入回调地址')}</label>
+                  <div className="oauth-url-box oauth-manual-input">
+                    <input
+                      type="text"
+                      value={oauthCallbackInput}
+                      onChange={(e) => setOauthCallbackInput(e.target.value)}
+                      placeholder={t('common.shared.oauth.manualCallbackPlaceholder', '粘贴完整回调地址，例如：http://localhost:1455/auth/callback?code=...&state=...')}
+                    />
+                    <button
+                      className="oauth-copy-button"
+                      onClick={() => void handleSubmitOauthCallbackUrl()}
+                      disabled={oauthCallbackSubmitting || !oauthCallbackInput.trim()}
+                    >
+                      {oauthCallbackSubmitting ? <RefreshCw size={16} className="loading-spinner" /> : <Check size={16} />}
+                      {t('accounts.oauth.continue', '我已授权，继续')}
+                    </button>
+                  </div>
+                </div>
+                {oauthCallbackError && (<div className="add-status error"><CircleAlert size={16} /><span>{oauthCallbackError}</span></div>)}
                 {isOauthTimeoutState && (<div className="add-status error"><CircleAlert size={16} /><span>{t('codex.oauth.timeout', '授权超时，请点击"刷新授权链接"后重试。')}</span></div>)}
                 <p className="oauth-hint">{t('common.shared.oauth.hint', 'Once authorized, this window will update automatically')}</p></div>
               ) : (<div className="oauth-loading"><RefreshCw size={24} className="loading-spinner" /><span>{t('codex.oauth.preparing', '正在准备授权链接...')}</span></div>)}</div>)}

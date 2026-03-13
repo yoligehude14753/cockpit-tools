@@ -79,7 +79,9 @@
         "preparing": "Preparing authorization info...",
         "retry": "Regenerate authorization info",
         "timeoutRetry": "Refresh authorization link",
-        "waiting": "Waiting for authorization..."
+        "waiting": "Waiting for authorization...",
+        "manualCallbackLabel": "Manual callback URL",
+        "manualCallbackPlaceholder": "Paste the full callback URL, e.g. http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Refresh All",
       "refreshQuota": "Refresh Quota",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Antigravity Account",
+    "overview": "Antigravity",
     "accounts": "Accounts",
     "wakeup": "Wakeup Tasks",
     "fingerprints": "Fingerprints",
     "settings": "Settings",
-    "codex": "Codex Accounts",
+    "codex": "Codex",
     "codebuddy": "CodeBuddy",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
@@ -172,7 +174,8 @@
       "installing": "Installing"
     },
     "qoder": "Qoder",
-    "trae": "Trae"
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Platform Layout",
@@ -1272,7 +1275,7 @@
         "title": "IDE sign-in only",
         "item1": "Add the account after completing OAuth in your browser, then use it for IDE switching.",
         "item2": "Quota query parameters are not bound automatically.",
-        "item3": "If you need quota display, manually run \"Query Quota\" on the account card."
+        "item3": "To view quota, click \"Query Quota\" on the account card and check it on the web page."
       }
     },
     "oauthWebviewTab": "WebView OAuth",
@@ -1327,10 +1330,11 @@
       "success": "Quota queried successfully. Binding has been saved.",
       "failed": "Quota query failed: {{error}}",
       "failedCompact": "Query failed",
-      "failedRefreshCompact": "Quota refresh failed",
+      "failedRefreshCompact": "Quota query failed",
       "failedReasonLabel": "Reason: {{reason}}",
       "failedReasonAt": "Failed at: {{time}}",
       "sectionTitle": "Quota Query",
+      "webOnlyHint": "Please view quota on the web page",
       "empty": "No bound quota query info yet",
       "packageUnknown": "Unknown package",
       "quotaLabel": "Remaining quota",
@@ -1593,6 +1597,9 @@
     "trae": {
       "title": "Trae Settings",
       "appPath": "Trae Path"
+    },
+    "codebuddyCn": {
+      "appPath": "CodeBuddy CN Path"
     }
   },
   "quotaAlert": {
@@ -2224,6 +2231,29 @@
       "desc": "Supports official OAuth sign-in, local import, JSON import, and local injection-based account switching. Account switching writes back using Trae client's actual on-disk rules.",
       "permission": "Permission scope: read and write login-related fields in the local Trae storage.json for account import, account switching injection, and plan display. All data is processed locally on your machine.",
       "network": "Network scope: OAuth sign-in, token refresh, and plan queries call official Trae APIs. Local account files and raw storage contents are not uploaded to third-party services."
+    }
+  },
+  "codebuddyCn": {
+    "title": "CodeBuddy CN Account Management",
+    "noAccounts": "No CodeBuddy CN accounts",
+    "addAccount": "Add CodeBuddy CN Account",
+    "search": "Search CodeBuddy CN accounts...",
+    "oauthDesc": "Click the button below to open the CodeBuddy CN authorization page in your browser.",
+    "tokenDesc": "Paste your CodeBuddy CN access token:",
+    "flowNotice": {
+      "title": "CodeBuddy CN Account Management Info (click to expand/collapse)",
+      "desc": "Switching accounts requires reading CodeBuddy CN local auth storage and calling system credential services for decryption/re-encryption. Data is processed locally only.",
+      "permission": "Permission scope: read CodeBuddy CN auth database (state.vscdb), call system credential capabilities (macOS Keychain / Windows DPAPI / Linux Secret Service) for decrypt/write-back.",
+      "network": "Network scope: OAuth login and token refresh require network requests to codebuddy.cn and copilot.tencent.com; quota queries call billing APIs. No local keys or credentials are uploaded."
+    },
+    "import": {
+      "localDesc": "Import account data from local CodeBuddy CN client or a JSON file.",
+      "localClient": "Import from local CodeBuddy CN"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "CodeBuddy CN multi-instance is supported on macOS, Windows, and Linux only."
+      }
     }
   }
 }

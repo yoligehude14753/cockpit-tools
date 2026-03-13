@@ -8,11 +8,11 @@ English · [简体中文](README.md)
 [![GitHub issues](https://img.shields.io/github/issues/jlcodes99/cockpit-tools)](https://github.com/jlcodes99/cockpit-tools/issues)
 [![License](https://img.shields.io/github/license/jlcodes99/cockpit-tools)](https://github.com/jlcodes99/cockpit-tools)
 
-A **universal AI IDE account management tool**, currently supporting **Antigravity**, **Codex**, **GitHub Copilot**, **Windsurf**, **Kiro**, **Cursor**, **Gemini Cli**, **CodeBuddy**, **Qoder**, and **Trae**, with multi-instance parallel workflows.
+A **universal AI IDE account management tool**, currently supporting **Antigravity**, **Codex**, **GitHub Copilot**, **Windsurf**, **Kiro**, **Cursor**, **Gemini Cli**, **CodeBuddy**, **CodeBuddy CN**, **Qoder**, and **Trae**, with multi-instance parallel workflows.
 
 > Designed to help users efficiently manage multiple AI IDE accounts, this tool supports one-click switching, quota monitoring, wake-up tasks, and multi-instance parallel runs, helping you fully utilize resources from different accounts.
 
-**Features**: One-click Switch · Multi-account Management · Multi-instance · Quota Monitoring · Wake-up Tasks · Device Fingerprints · Plugin Integration · GitHub Copilot Management · Windsurf Management · Kiro Management · Cursor Management · Gemini Cli Management · CodeBuddy Management · Qoder Management · Trae Management
+**Features**: One-click Switch · Multi-account Management · Multi-instance · Quota Monitoring · Wake-up Tasks · Device Fingerprints · Plugin Integration · GitHub Copilot Management · Windsurf Management · Kiro Management · Cursor Management · Gemini Cli Management · CodeBuddy Management · CodeBuddy CN Management · Qoder Management · Trae Management
 
 **Languages**: Supports 17 languages
 
@@ -26,7 +26,7 @@ A **universal AI IDE account management tool**, currently supporting **Antigravi
 
 A brand new visual dashboard providing a one-stop status overview:
 
-- **Ten-Platform Support**: Simultaneously displays Antigravity, Codex, GitHub Copilot, Windsurf, Kiro, Cursor, Gemini Cli, CodeBuddy, Qoder, and Trae account status
+- **Eleven-Platform Support**: Simultaneously displays Antigravity, Codex, GitHub Copilot, Windsurf, Kiro, Cursor, Gemini Cli, CodeBuddy, CodeBuddy CN, Qoder, and Trae account status
 - **Quota Monitoring**: Real-time view of remaining quotas and reset times for each model
 - **Quick Actions**: One-click refresh, one-click wake-up
 - **Visual Progress**: Intuitive progress bars showing quota consumption
@@ -157,14 +157,29 @@ Manage CodeBuddy instances with isolated profiles and lifecycle controls.
 - **Quick Lifecycle**: Start/stop/force stop instances
 - **Window Control**: Open instance windows and close all instances
 
-### 10. Qoder Account Management
+### 10. CodeBuddy CN Account Management
+
+- **Account Import**: supports OAuth, Token/JSON import, and local-client import
+- **Quota View**: shows plan and usage status, with a shortcut to open detailed quota information on the official web page
+- **Batch Operations**: supports tags and bulk actions
+- **Switch Injection**: supports writing local auth state back and launching CodeBuddy CN after account switch
+
+#### 10.1 CodeBuddy CN Multi-Instance
+
+Manage CodeBuddy CN instances with isolated profiles and lifecycle controls.
+
+- **Isolated Profiles**: each instance uses its own user data directory
+- **Quick Lifecycle**: start/stop/force stop instances
+- **Window Control**: open instance windows and close all instances
+
+### 11. Qoder Account Management
 
 - **Account Import**: supports local import and JSON import
 - **Quota View**: shows Credits usage, remaining credits, and raw plan values
 - **Batch Operations**: supports tags, filters, export, and batch delete/refresh
 - **Switch Injection**: supports injecting and launching Qoder after account switch
 
-#### 10.1 Qoder Multi-Instance
+#### 11.1 Qoder Multi-Instance
 
 Manage Qoder instances with isolated profiles and lifecycle controls.
 
@@ -172,14 +187,14 @@ Manage Qoder instances with isolated profiles and lifecycle controls.
 - **Quick Lifecycle**: start/stop/force stop instances
 - **Window Control**: open instance windows and close all instances
 
-### 11. Trae Account Management
+### 12. Trae Account Management
 
 - **Account Import**: supports local import and JSON import
 - **Quota View**: shows raw plan values, USD spent/total budget, and reset time
 - **Batch Operations**: supports tags, filters, export, and batch delete/refresh
 - **Switch Injection**: supports writing back local auth state and launching Trae after account switch
 
-#### 11.1 Trae Multi-Instance
+#### 12.1 Trae Multi-Instance
 
 Manage Trae instances with isolated profiles and lifecycle controls.
 
@@ -187,10 +202,10 @@ Manage Trae instances with isolated profiles and lifecycle controls.
 - **Quick Lifecycle**: start/stop/force stop instances
 - **Window Control**: open instance windows and close all instances
 
-### 12. General Settings
+### 13. General Settings
 
 - **Personalized Settings**: Theme switching, language settings, auto-refresh interval
-- **Platform Controls**: Centralized Qoder/Trae launch-path and quota-alert settings
+- **Platform Controls**: Centralized CodeBuddy CN/Qoder/Trae launch-path and quota-alert settings
 
 > ![Settings](docs/images/settings_page.png)
 
@@ -205,7 +220,7 @@ These are the most common security questions answered directly:
   - `~/.antigravity_cockpit`: Antigravity accounts, configs, WebSocket status, etc.
   - `~/.codex`: official Codex current login `auth.json`
   - `~/.gemini`: Gemini Cli local session files (for example `oauth_creds.json`, `google_accounts.json`, `settings.json`)
-  - local app data folder under `com.antigravity.cockpit-tools`: Codex / GitHub Copilot / Windsurf / Kiro / Cursor / Gemini Cli / CodeBuddy / Qoder / Trae multi-account index data, etc.
+  - local app data folder under `com.antigravity.cockpit-tools`: Codex / GitHub Copilot / Windsurf / Kiro / Cursor / Gemini Cli / CodeBuddy / CodeBuddy CN / Qoder / Trae multi-account index data, etc.
 - **WebSocket is local-only by default**: binds to `127.0.0.1`, default port `19528`; you can disable it or change the port in Settings.
 - **When network access happens**: OAuth login, token refresh, quota fetching, update checks, and other official API requests.
 - **Practical safety tips**:
@@ -232,10 +247,11 @@ If you want a stable setup with minimal tuning, follow the "Recommended" values.
 | Cursor Auto Refresh | Periodically updates Cursor quota | 5-10 minutes | Same as above |
 | Gemini Cli Auto Refresh | Periodically updates Gemini Cli quota | 5-10 minutes | Same as above |
 | CodeBuddy Auto Refresh | Periodically updates CodeBuddy quota | 5-10 minutes | Same as above |
+| CodeBuddy CN Auto Refresh | Periodically updates CodeBuddy CN quota | 5-10 minutes | Same as above |
 | Qoder Auto Refresh | Periodically updates Qoder quota | 5-10 minutes | Same as above |
 | Trae Auto Refresh | Periodically updates Trae quota | 5-10 minutes | Same as above |
 | Data Directory | Where account/config files are stored | Keep default | Only for troubleshooting or backups |
-| Antigravity/Codex/VS Code/Windsurf/Kiro/Cursor/Gemini Cli/CodeBuddy/Qoder/Trae/OpenCode App Path | Manually set executable path | Leave empty (auto-detect) | Change only if auto-detect fails or you use custom install paths |
+| Antigravity/Codex/VS Code/Windsurf/Kiro/Cursor/Gemini Cli/CodeBuddy/CodeBuddy CN/Qoder/Trae/OpenCode App Path | Manually set executable path | Leave empty (auto-detect) | Change only if auto-detect fails or you use custom install paths |
 | Auto-restart OpenCode on Codex switch | Sync OpenCode auth after Codex switch | ON if you use OpenCode; otherwise OFF | Enable for frequent Codex switching with OpenCode |
 
 Notes:

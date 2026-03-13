@@ -1,7 +1,9 @@
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::ErrorKind;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -15,6 +17,7 @@ use crate::modules::{config, device, logger, trae_account};
 
 const OAUTH_TIMEOUT_SECONDS: i64 = 600;
 const OAUTH_POLL_INTERVAL_MS: u64 = 250;
+const OAUTH_STATE_FILE: &str = "trae_oauth_pending.json";
 const CALLBACK_PATH: &str = "/authorize";
 const TRAE_AUTHORIZATION_PATH: &str = "/authorization";
 const TRAE_AUTH_CLIENT_ID: &str = "ono9krqynydwx5";
@@ -32,7 +35,7 @@ const TRAE_EXCHANGE_TOKEN_PATH: &str = "/cloudide/api/v3/trae/oauth/ExchangeToke
 const TRAE_GET_USER_INFO_PATH: &str = "/cloudide/api/v3/trae/GetUserInfo";
 const TRAE_EXCHANGE_CLIENT_SECRET: &str = "-";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct TraeCallbackPayload {
     refresh_token: String,
     login_host: String,
@@ -42,7 +45,7 @@ struct TraeCallbackPayload {
     raw_query: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct PendingOAuthState {
     login_id: String,
     login_trace_id: String,
@@ -81,6 +84,56 @@ lazy_static::lazy_static! {
 
 fn now_timestamp() -> i64 {
     chrono::Utc::now().timestamp()
+}
+
+fn load_pending_login_from_disk() -> Option<PendingOAuthState> {
+    match crate::modules::oauth_pending_state::load::<PendingOAuthState>(OAUTH_STATE_FILE) {
+        Ok(Some(state)) => {
+            if state.cancelled || now_timestamp() > state.expires_at {
+                let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+                None
+            } else {
+                Some(state)
+            }
+        }
+        Ok(None) => None,
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Trae OAuth] 读取持久化登录状态失败，已忽略: {}",
+                err
+            ));
+            let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+            None
+        }
+    }
+}
+
+fn persist_pending_login(state: Option<&PendingOAuthState>) {
+    let result = match state {
+        Some(value) => crate::modules::oauth_pending_state::save(OAUTH_STATE_FILE, value),
+        None => crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE),
+    };
+    if let Err(err) = result {
+        logger::log_warn(&format!(
+            "[Trae OAuth] 持久化登录状态失败，已忽略: {}",
+            err
+        ));
+    }
+}
+
+fn hydrate_pending_login_if_missing() {
+    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+        if guard.is_none() {
+            *guard = load_pending_login_from_disk();
+        }
+    }
+}
+
+fn set_pending_login(state: Option<PendingOAuthState>) {
+    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+        *guard = state.clone();
+    }
+    persist_pending_login(state.as_ref());
 }
 
 fn normalize_non_empty(value: Option<&str>) -> Option<String> {
@@ -625,6 +678,33 @@ fn parse_query_map(raw_query: &str) -> HashMap<String, String> {
         .collect()
 }
 
+fn parse_callback_url(raw_callback_url: &str, callback_port: u16) -> Result<Url, String> {
+    let trimmed = raw_callback_url.trim();
+    if trimmed.is_empty() {
+        return Err("回调链接不能为空".to_string());
+    }
+
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return Url::parse(trimmed).map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    if trimmed.starts_with('/') {
+        return Url::parse(format!("http://127.0.0.1:{}{}", callback_port, trimmed).as_str())
+            .map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    Url::parse(
+        format!(
+            "http://127.0.0.1:{}{}?{}",
+            callback_port,
+            CALLBACK_PATH,
+            trimmed.trim_start_matches('?')
+        )
+        .as_str(),
+    )
+    .map_err(|e| format!("回调链接格式无效: {}", e))
+}
+
 fn pick_query_value(params: &HashMap<String, String>, keys: &[&str]) -> Option<String> {
     for key in keys {
         if let Some(value) = params.get(*key) {
@@ -700,10 +780,17 @@ fn callback_failure_html(message: &str) -> String {
 }
 
 fn clear_pending_if_matches(login_id: &str) {
-    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
-        if guard.as_ref().map(|state| state.login_id.as_str()) == Some(login_id) {
-            *guard = None;
-        }
+    let should_clear = if let Ok(guard) = PENDING_OAUTH_STATE.lock() {
+        guard
+            .as_ref()
+            .map(|state| state.login_id.as_str())
+            .map(|id| id == login_id)
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    if should_clear {
+        set_pending_login(None);
     }
 }
 
@@ -712,6 +799,7 @@ fn set_callback_result_if_matches(login_id: &str, result: Result<TraeCallbackPay
         if let Some(state) = guard.as_mut() {
             if state.login_id == login_id {
                 state.callback_result = Some(result);
+                persist_pending_login(Some(state));
             }
         }
     }
@@ -922,6 +1010,43 @@ fn spawn_callback_server(login_id: String, callback_port: u16, fallback_login_ho
             ));
         }
     });
+}
+
+fn ensure_callback_server_for_state(state: &PendingOAuthState) {
+    if state.cancelled || now_timestamp() > state.expires_at {
+        set_pending_login(None);
+        return;
+    }
+    if state.callback_result.is_some() {
+        return;
+    }
+
+    match TcpListener::bind(("127.0.0.1", state.callback_port)) {
+        Ok(listener) => {
+            drop(listener);
+            spawn_callback_server(
+                state.login_id.clone(),
+                state.callback_port,
+                state.login_host.clone(),
+            );
+            logger::log_info(&format!(
+                "[Trae OAuth] 已恢复本地回调服务: login_id={}, port={}",
+                state.login_id, state.callback_port
+            ));
+        }
+        Err(err) if err.kind() == ErrorKind::AddrInUse => {
+            logger::log_info(&format!(
+                "[Trae OAuth] 本地回调端口已占用，视为监听中: login_id={}, port={}",
+                state.login_id, state.callback_port
+            ));
+        }
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Trae OAuth] 本地回调恢复失败: login_id={}, port={}, error={}",
+                state.login_id, state.callback_port, err
+            ));
+        }
+    }
 }
 
 fn extract_login_guidance_host(response: &Value) -> Option<String> {
@@ -1387,6 +1512,23 @@ async fn request_user_info(
 }
 
 pub async fn start_login() -> Result<TraeOAuthStartResponse, String> {
+    hydrate_pending_login_if_missing();
+    if let Ok(guard) = PENDING_OAUTH_STATE.lock() {
+        if let Some(state) = guard.as_ref() {
+            if !state.cancelled && now_timestamp() <= state.expires_at {
+                ensure_callback_server_for_state(state);
+                return Ok(TraeOAuthStartResponse {
+                    login_id: state.login_id.clone(),
+                    verification_uri: state.verification_uri.clone(),
+                    expires_in: (state.expires_at - now_timestamp()).max(0) as u64,
+                    interval_seconds: (OAUTH_POLL_INTERVAL_MS / 1000).max(1),
+                    callback_url: Some(state.callback_url.clone()),
+                });
+            }
+        }
+    }
+    set_pending_login(None);
+
     let login_id = Uuid::new_v4().to_string();
     let login_trace_id = Uuid::new_v4().to_string();
     let login_context = collect_trae_login_context();
@@ -1413,12 +1555,7 @@ pub async fn start_login() -> Result<TraeOAuthStartResponse, String> {
         callback_result: None,
     };
 
-    {
-        let mut guard = PENDING_OAUTH_STATE
-            .lock()
-            .map_err(|_| "获取 Trae OAuth 状态锁失败".to_string())?;
-        *guard = Some(state);
-    }
+    set_pending_login(Some(state));
 
     spawn_callback_server(login_id.clone(), callback_port, login_host.clone());
 
@@ -1444,6 +1581,7 @@ pub async fn start_login() -> Result<TraeOAuthStartResponse, String> {
 }
 
 pub async fn complete_login(login_id: &str) -> Result<TraeImportPayload, String> {
+    hydrate_pending_login_if_missing();
     let result = async {
         let (callback_payload, login_trace_id) = loop {
             let snapshot = {
@@ -1663,11 +1801,14 @@ pub async fn complete_login(login_id: &str) -> Result<TraeImportPayload, String>
 }
 
 pub fn cancel_login(login_id: Option<&str>) -> Result<(), String> {
-    let mut guard = PENDING_OAUTH_STATE
+    hydrate_pending_login_if_missing();
+    let current = PENDING_OAUTH_STATE
         .lock()
-        .map_err(|_| "获取 Trae OAuth 状态锁失败".to_string())?;
+        .map_err(|_| "获取 Trae OAuth 状态锁失败".to_string())?
+        .as_ref()
+        .cloned();
 
-    let Some(current) = guard.as_ref() else {
+    let Some(current) = current.as_ref() else {
         return Ok(());
     };
 
@@ -1682,6 +1823,125 @@ pub fn cancel_login(login_id: Option<&str>) -> Result<(), String> {
         current.login_id
     ));
 
-    *guard = None;
+    set_pending_login(None);
     Ok(())
+}
+
+pub fn submit_callback_url(login_id: &str, callback_url: &str) -> Result<(), String> {
+    hydrate_pending_login_if_missing();
+    let (expires_at, cancelled, callback_port, fallback_login_host) = {
+        let guard = PENDING_OAUTH_STATE
+            .lock()
+            .map_err(|_| "获取 Trae OAuth 状态锁失败".to_string())?;
+        let state = guard
+            .as_ref()
+            .ok_or_else(|| "没有进行中的 Trae OAuth 登录会话".to_string())?;
+        if state.login_id != login_id {
+            return Err("Trae OAuth 登录会话已变更，请重新发起".to_string());
+        }
+        (
+            state.expires_at,
+            state.cancelled,
+            state.callback_port,
+            state.login_host.clone(),
+        )
+    };
+
+    if cancelled {
+        return Err("Trae OAuth 登录已取消".to_string());
+    }
+    if now_timestamp() > expires_at {
+        return Err("Trae OAuth 登录已超时，请重试".to_string());
+    }
+
+    let parsed = parse_callback_url(callback_url, callback_port)?;
+    if parsed.path() != CALLBACK_PATH {
+        return Err(format!("回调链接路径无效，必须为 {}", CALLBACK_PATH));
+    }
+
+    let params = parse_query_map(parsed.query().unwrap_or_default());
+    if let Some(error_code) =
+        pick_query_value(&params, &["error", "error_code", "err", "errorCode"])
+    {
+        let error_desc = pick_query_value(
+            &params,
+            &[
+                "error_description",
+                "error_desc",
+                "errorDescription",
+                "message",
+            ],
+        );
+        let message = if let Some(desc) = error_desc {
+            format!("授权失败: {} ({})", error_code, desc)
+        } else {
+            format!("授权失败: {}", error_code)
+        };
+        set_callback_result_if_matches(login_id, Err(message.clone()));
+        return Err(message);
+    }
+
+    let is_redirect = parse_bool_like(
+        pick_query_value(&params, &["isRedirect", "is_redirect", "redirect"]).as_deref(),
+    );
+    if is_redirect != Some(true) {
+        return Err("回调参数缺少 isRedirect=true".to_string());
+    }
+
+    let refresh_token = pick_query_value(
+        &params,
+        &[
+            "refreshToken",
+            "refresh_token",
+            "RefreshToken",
+            "refresh-token",
+        ],
+    )
+    .ok_or_else(|| "回调参数缺少 refreshToken".to_string())?;
+
+    let login_host = pick_query_value(
+        &params,
+        &[
+            "loginHost",
+            "login_host",
+            "LoginHost",
+            "host",
+            "consoleHost",
+        ],
+    )
+    .or_else(|| normalize_non_empty(Some(fallback_login_host.as_str())))
+    .ok_or_else(|| "回调参数缺少 loginHost".to_string())?;
+
+    let payload = TraeCallbackPayload {
+        refresh_token,
+        login_host,
+        login_region: pick_query_value(
+            &params,
+            &["loginRegion", "login_region", "region", "Region"],
+        ),
+        login_trace_id: pick_query_value(
+            &params,
+            &["loginTraceID", "loginTraceId", "login_trace_id", "trace_id"],
+        ),
+        cloudide_token: extract_cloudide_token(&params),
+        raw_query: params,
+    };
+
+    set_callback_result_if_matches(login_id, Ok(payload));
+    logger::log_info(&format!(
+        "[Trae OAuth] 已接收手动回调链接: login_id={}",
+        login_id
+    ));
+    Ok(())
+}
+
+pub fn restore_pending_oauth_listener() {
+    hydrate_pending_login_if_missing();
+    let pending = PENDING_OAUTH_STATE
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned());
+    if let Some(state) = pending {
+        ensure_callback_server_for_state(&state);
+    }
 }

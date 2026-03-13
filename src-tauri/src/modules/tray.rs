@@ -28,12 +28,13 @@ enum PlatformId {
     Cursor,
     Gemini,
     Codebuddy,
+    CodebuddyCn,
     Qoder,
     Trae,
 }
 
 impl PlatformId {
-    fn default_order() -> [Self; 10] {
+    fn default_order() -> [Self; 11] {
         [
             Self::Antigravity,
             Self::Codex,
@@ -43,6 +44,7 @@ impl PlatformId {
             Self::Cursor,
             Self::Gemini,
             Self::Codebuddy,
+            Self::CodebuddyCn,
             Self::Qoder,
             Self::Trae,
         ]
@@ -58,6 +60,7 @@ impl PlatformId {
             crate::modules::tray_layout::PLATFORM_CURSOR => Some(Self::Cursor),
             crate::modules::tray_layout::PLATFORM_GEMINI => Some(Self::Gemini),
             crate::modules::tray_layout::PLATFORM_CODEBUDDY => Some(Self::Codebuddy),
+            crate::modules::tray_layout::PLATFORM_CODEBUDDY_CN => Some(Self::CodebuddyCn),
             crate::modules::tray_layout::PLATFORM_QODER => Some(Self::Qoder),
             crate::modules::tray_layout::PLATFORM_TRAE => Some(Self::Trae),
             _ => None,
@@ -74,6 +77,7 @@ impl PlatformId {
             Self::Cursor => crate::modules::tray_layout::PLATFORM_CURSOR,
             Self::Gemini => crate::modules::tray_layout::PLATFORM_GEMINI,
             Self::Codebuddy => crate::modules::tray_layout::PLATFORM_CODEBUDDY,
+            Self::CodebuddyCn => crate::modules::tray_layout::PLATFORM_CODEBUDDY_CN,
             Self::Qoder => crate::modules::tray_layout::PLATFORM_QODER,
             Self::Trae => crate::modules::tray_layout::PLATFORM_TRAE,
         }
@@ -89,6 +93,7 @@ impl PlatformId {
             Self::Cursor => "Cursor",
             Self::Gemini => "Gemini Cli",
             Self::Codebuddy => "CodeBuddy",
+            Self::CodebuddyCn => "CodeBuddy CN",
             Self::Qoder => "Qoder",
             Self::Trae => "Trae",
         }
@@ -104,6 +109,7 @@ impl PlatformId {
             Self::Cursor => "cursor",
             Self::Gemini => "gemini",
             Self::Codebuddy => "codebuddy",
+            Self::CodebuddyCn => "codebuddy-cn",
             Self::Qoder => "qoder",
             Self::Trae => "trae",
         }
@@ -420,6 +426,7 @@ fn get_account_display_info(platform: PlatformId, lang: &str) -> AccountDisplayI
         PlatformId::Cursor => build_cursor_display_info(lang),
         PlatformId::Gemini => build_gemini_display_info(lang),
         PlatformId::Codebuddy => build_codebuddy_display_info(lang),
+        PlatformId::CodebuddyCn => build_codebuddy_cn_display_info(lang),
         PlatformId::Qoder => build_qoder_display_info(lang),
         PlatformId::Trae => build_trae_display_info(lang),
     }
@@ -990,80 +997,24 @@ fn build_gemini_display_info(lang: &str) -> AccountDisplayInfo {
 
 fn build_codebuddy_display_info(lang: &str) -> AccountDisplayInfo {
     let accounts = crate::modules::codebuddy_account::list_accounts();
-    let account = resolve_codebuddy_current_account(&accounts);
+    build_codebuddy_family_display_info(lang, resolve_codebuddy_current_account(&accounts))
+}
+
+fn build_codebuddy_cn_display_info(lang: &str) -> AccountDisplayInfo {
+    let accounts = crate::modules::codebuddy_cn_account::list_accounts();
+    build_codebuddy_family_display_info(lang, resolve_codebuddy_cn_current_account(&accounts))
+}
+
+fn build_codebuddy_family_display_info(
+    lang: &str,
+    account: Option<crate::models::codebuddy::CodebuddyAccount>,
+) -> AccountDisplayInfo {
     let Some(account) = account else {
         return AccountDisplayInfo {
             account: format!("📧 {}", get_text("not_logged_in", lang)),
             quota_lines: vec!["—".to_string()],
         };
     };
-
-    let mut quota_lines = Vec::new();
-
-    // Plan badge from payment_type or plan_type
-    let plan_label = first_non_empty(&[
-        account.payment_type.as_deref(),
-        account.plan_type.as_deref(),
-    ]);
-    if let Some(plan) = plan_label {
-        quota_lines.push(format!("Plan: {}", plan));
-    }
-
-    // Parse resource quota from quota_raw/usage_raw
-    let resource = extract_codebuddy_resource_quota(&account);
-    if let Some(res) = &resource {
-        // Fixed short label: 配额 / Credits (don't use the long package name as prefix)
-        let quota_label = if lang == "zh" || lang == "zh-CN" {
-            "配额"
-        } else {
-            "Credits"
-        };
-        let quota_text = if res.total > 0.0 {
-            let remain_pct = ((res.remain / res.total) * 100.0).round().clamp(0.0, 100.0) as i32;
-            format!(
-                "{}: {:.2} / {:.2} ({}% {})",
-                quota_label,
-                res.remain,
-                res.total,
-                remain_pct,
-                get_text("left", lang)
-            )
-        } else {
-            format!("{}: {:.2} / {:.2}", quota_label, res.remain, res.total)
-        };
-        quota_lines.push(quota_text);
-    }
-
-    // Parse extra credit from quota_raw/usage_raw
-    let extra = extract_codebuddy_extra_credit(&account);
-    // Always show 加量包/Extra line (even if 0/0), matching the dashboard card
-    {
-        let extra_label = if lang == "zh" || lang == "zh-CN" {
-            "加量包"
-        } else {
-            "Extra"
-        };
-        quota_lines.push(format!(
-            "{}: {:.0} / {:.0}",
-            extra_label, extra.remain, extra.total
-        ));
-    }
-
-    // Dosage notification status (fallback if no resource quota)
-    if resource.is_none() {
-        if let Some(code) = account.dosage_notify_code.as_deref() {
-            let msg = if lang == "zh" || lang == "zh-CN" {
-                account.dosage_notify_zh.as_deref().unwrap_or(code)
-            } else {
-                account.dosage_notify_en.as_deref().unwrap_or(code)
-            };
-            quota_lines.push(msg.to_string());
-        }
-    }
-
-    if quota_lines.is_empty() {
-        quota_lines.push(get_text("loading", lang));
-    }
 
     let display_email = first_non_empty(&[
         Some(account.email.as_str()),
@@ -1075,8 +1026,66 @@ fn build_codebuddy_display_info(lang: &str) -> AccountDisplayInfo {
 
     AccountDisplayInfo {
         account: format!("📧 {}", display_email),
-        quota_lines,
+        quota_lines: vec![build_codebuddy_usage_status_line(lang, &account)],
     }
+}
+
+fn build_codebuddy_usage_status_line(
+    lang: &str,
+    account: &crate::models::codebuddy::CodebuddyAccount,
+) -> String {
+    let label = get_text("usage_status", lang);
+    let code = account.dosage_notify_code.as_deref().unwrap_or("").trim();
+
+    if code.is_empty() {
+        return format!("{}: --", label);
+    }
+
+    if code == "0" || code.eq_ignore_ascii_case("USAGE_NORMAL") {
+        return format!("{}: {}", label, get_text("status_normal_short", lang));
+    }
+
+    let raw = if is_chinese_lang(lang) {
+        account
+            .dosage_notify_zh
+            .as_deref()
+            .or(account.dosage_notify_en.as_deref())
+            .unwrap_or(code)
+    } else {
+        account
+            .dosage_notify_en
+            .as_deref()
+            .or(account.dosage_notify_zh.as_deref())
+            .unwrap_or(code)
+    };
+
+    format!("{}: {}", label, strip_codebuddy_status_prefix(raw))
+}
+
+fn is_chinese_lang(lang: &str) -> bool {
+    lang.to_ascii_lowercase().starts_with("zh")
+}
+
+fn strip_codebuddy_status_prefix(raw: &str) -> String {
+    let trimmed = raw.trim();
+    for prefix in [
+        "用量状态：",
+        "用量状态:",
+        "用量狀態：",
+        "用量狀態:",
+        "状态：",
+        "状态:",
+        "狀態：",
+        "狀態:",
+        "Usage Status:",
+        "Usage:",
+        "Status:",
+    ] {
+        if let Some(rest) = trimmed.strip_prefix(prefix) {
+            return rest.trim().to_string();
+        }
+    }
+    trimmed.to_string()
 }
 
 fn resolve_codebuddy_current_account(
@@ -1099,15 +1108,24 @@ fn resolve_codebuddy_current_account(
         .cloned()
 }
 
-/// CodeBuddy resource quota parsed from quota_raw/usage_raw
-struct CodebuddyResourceQuota {
-    remain: f64,
-    total: f64,
-}
+fn resolve_codebuddy_cn_current_account(
+    accounts: &[crate::models::codebuddy::CodebuddyAccount],
+) -> Option<crate::models::codebuddy::CodebuddyAccount> {
+    if let Ok(settings) = crate::modules::codebuddy_cn_instance::load_default_settings() {
+        if let Some(bind_id) = settings.bind_account_id {
+            let bind_id = bind_id.trim();
+            if !bind_id.is_empty() {
+                if let Some(account) = accounts.iter().find(|account| account.id == bind_id) {
+                    return Some(account.clone());
+                }
+            }
+        }
+    }
 
-struct CodebuddyExtraCredit {
-    remain: f64,
-    total: f64,
+    accounts
+        .iter()
+        .max_by_key(|account| account.last_used)
+        .cloned()
 }
 
 fn json_as_f64(value: &serde_json::Value) -> Option<f64> {
@@ -1124,120 +1142,6 @@ fn json_as_f64(value: &serde_json::Value) -> Option<f64> {
         }
     }
     None
-}
-
-fn extract_codebuddy_resource_accounts(
-    account: &crate::models::codebuddy::CodebuddyAccount,
-) -> Vec<serde_json::Value> {
-    // Try usage_raw first, then quota_raw.userResource
-    let usage_root = account.usage_raw.as_ref();
-    let quota_root = account.quota_raw.as_ref();
-    let user_resource = quota_root
-        .and_then(|q| q.get("userResource"))
-        .or(usage_root);
-
-    let accounts_array = user_resource
-        .and_then(|v| v.get("data"))
-        .and_then(|v| v.get("Response"))
-        .and_then(|v| v.get("Data"))
-        .and_then(|v| v.get("Accounts"))
-        .and_then(|v| v.as_array());
-
-    match accounts_array {
-        Some(arr) => arr.clone(),
-        None => Vec::new(),
-    }
-}
-
-fn is_codebuddy_active_resource(item: &serde_json::Value) -> bool {
-    let status = item.get("Status").and_then(|v| v.as_i64()).unwrap_or(-1);
-    status == 0 || status == 3 // valid=0, usedUp=3
-}
-
-fn is_codebuddy_extra_package(item: &serde_json::Value) -> bool {
-    item.get("PackageCode")
-        .and_then(|v| v.as_str())
-        .map(|code| code == "p_tcaca_extra")
-        .unwrap_or(false)
-}
-
-fn extract_codebuddy_resource_quota(
-    account: &crate::models::codebuddy::CodebuddyAccount,
-) -> Option<CodebuddyResourceQuota> {
-    // Only available if quota_binding cookie is present
-    let cookie = account.quota_binding.as_ref()?.cookie_header.trim();
-    if cookie.is_empty() {
-        return None;
-    }
-
-    let all = extract_codebuddy_resource_accounts(account);
-    let active: Vec<_> = all
-        .iter()
-        .filter(|a| is_codebuddy_active_resource(a) && !is_codebuddy_extra_package(a))
-        .collect();
-
-    if active.is_empty() {
-        return None;
-    }
-
-    let mut total_agg: f64 = 0.0;
-    let mut remain_agg: f64 = 0.0;
-
-    for a in &active {
-        let cap = a
-            .get("CapacitySizePrecise")
-            .and_then(json_as_f64)
-            .or_else(|| a.get("CapacitySize").and_then(json_as_f64))
-            .unwrap_or(0.0);
-        let rem = a
-            .get("CapacityRemainPrecise")
-            .and_then(json_as_f64)
-            .or_else(|| a.get("CapacityRemain").and_then(json_as_f64))
-            .unwrap_or(0.0);
-        total_agg += cap;
-        remain_agg += rem;
-    }
-
-    if total_agg <= 0.0 {
-        return None;
-    }
-
-    Some(CodebuddyResourceQuota {
-        remain: remain_agg,
-        total: total_agg,
-    })
-}
-
-fn extract_codebuddy_extra_credit(
-    account: &crate::models::codebuddy::CodebuddyAccount,
-) -> CodebuddyExtraCredit {
-    let all = extract_codebuddy_resource_accounts(account);
-    let extras: Vec<_> = all
-        .iter()
-        .filter(|a| is_codebuddy_active_resource(a) && is_codebuddy_extra_package(a))
-        .collect();
-
-    let mut total_agg: f64 = 0.0;
-    let mut remain_agg: f64 = 0.0;
-    for a in &extras {
-        let cap = a
-            .get("CapacitySizePrecise")
-            .and_then(json_as_f64)
-            .or_else(|| a.get("CapacitySize").and_then(json_as_f64))
-            .unwrap_or(0.0);
-        let rem = a
-            .get("CapacityRemainPrecise")
-            .and_then(json_as_f64)
-            .or_else(|| a.get("CapacityRemain").and_then(json_as_f64))
-            .unwrap_or(0.0);
-        total_agg += cap;
-        remain_agg += rem;
-    }
-
-    CodebuddyExtraCredit {
-        remain: remain_agg,
-        total: total_agg,
-    }
 }
 
 fn build_qoder_display_info(lang: &str) -> AccountDisplayInfo {
@@ -2702,6 +2606,8 @@ fn get_text(key: &str, lang: &str) -> String {
         ("reset_done", "zh-cn") => "已重置".to_string(),
         ("reset_unknown", "zh-cn") => "重置时间未知".to_string(),
         ("left", "zh-cn") => "剩余".to_string(),
+        ("usage_status", "zh-cn") => "用量状态".to_string(),
+        ("status_normal_short", "zh-cn") => "正常".to_string(),
         ("included", "zh-cn") => "包含".to_string(),
         ("ghcp_inline", "zh-cn") => "Inline".to_string(),
         ("ghcp_chat", "zh-cn") => "Chat".to_string(),
@@ -2721,6 +2627,8 @@ fn get_text(key: &str, lang: &str) -> String {
         ("reset_done", "zh-tw") => "已重置".to_string(),
         ("reset_unknown", "zh-tw") => "重置時間未知".to_string(),
         ("left", "zh-tw") => "剩餘".to_string(),
+        ("usage_status", "zh-tw") => "用量狀態".to_string(),
+        ("status_normal_short", "zh-tw") => "正常".to_string(),
         ("included", "zh-tw") => "已包含".to_string(),
         ("ghcp_inline", "zh-tw") => "Inline".to_string(),
         ("ghcp_chat", "zh-tw") => "Chat".to_string(),
@@ -2740,6 +2648,8 @@ fn get_text(key: &str, lang: &str) -> String {
         ("reset_done", "en") => "Reset done".to_string(),
         ("reset_unknown", "en") => "Reset time unknown".to_string(),
         ("left", "en") => "left".to_string(),
+        ("usage_status", "en") => "Usage Status".to_string(),
+        ("status_normal_short", "en") => "Normal".to_string(),
         ("included", "en") => "Included".to_string(),
         ("ghcp_inline", "en") => "Inline".to_string(),
         ("ghcp_chat", "en") => "Chat".to_string(),
@@ -2759,6 +2669,8 @@ fn get_text(key: &str, lang: &str) -> String {
         ("reset_done", "ja") => "リセット済み".to_string(),
         ("reset_unknown", "ja") => "リセット時間不明".to_string(),
         ("left", "ja") => "残り".to_string(),
+        ("usage_status", "ja") => "利用状況".to_string(),
+        ("status_normal_short", "ja") => "正常".to_string(),
         ("included", "ja") => "含まれる".to_string(),
         ("ghcp_inline", "ja") => "Inline".to_string(),
         ("ghcp_chat", "ja") => "Chat".to_string(),
@@ -2780,6 +2692,8 @@ fn get_text(key: &str, lang: &str) -> String {
         ("reset_done", "ru") => "Сброс выполнен".to_string(),
         ("reset_unknown", "ru") => "Время сброса неизвестно".to_string(),
         ("left", "ru") => "осталось".to_string(),
+        ("usage_status", "ru") => "Статус использования".to_string(),
+        ("status_normal_short", "ru") => "Норма".to_string(),
         ("included", "ru") => "Включено".to_string(),
         ("ghcp_inline", "ru") => "Inline".to_string(),
         ("ghcp_chat", "ru") => "Chat".to_string(),
@@ -2799,6 +2713,8 @@ fn get_text(key: &str, lang: &str) -> String {
         ("reset_done", _) => "Reset done".to_string(),
         ("reset_unknown", _) => "Reset time unknown".to_string(),
         ("left", _) => "left".to_string(),
+        ("usage_status", _) => "Usage Status".to_string(),
+        ("status_normal_short", _) => "Normal".to_string(),
         ("included", _) => "Included".to_string(),
         ("ghcp_inline", _) => "Inline".to_string(),
         ("ghcp_chat", _) => "Chat".to_string(),

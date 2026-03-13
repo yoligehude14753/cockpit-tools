@@ -21,6 +21,13 @@ export async function cancelGeminiOAuthLogin(loginId?: string): Promise<void> {
   return await invoke('gemini_oauth_login_cancel', { loginId: loginId ?? null });
 }
 
+export async function submitGeminiOAuthCallbackUrl(
+  loginId: string,
+  callbackUrl: string,
+): Promise<void> {
+  return await invoke('gemini_oauth_submit_callback_url', { loginId, callbackUrl });
+}
+
 export async function listGeminiAccounts(): Promise<GeminiAccount[]> {
   return await invoke('list_gemini_accounts');
 }

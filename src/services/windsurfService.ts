@@ -66,6 +66,14 @@ export async function cancelWindsurfOAuthLogin(loginId?: string): Promise<void> 
   return await invoke('windsurf_oauth_login_cancel', { loginId: loginId ?? null });
 }
 
+/** Windsurf OAuth：手动提交回调链接 */
+export async function submitWindsurfOAuthCallbackUrl(
+  loginId: string,
+  callbackUrl: string,
+): Promise<void> {
+  return await invoke('windsurf_oauth_submit_callback_url', { loginId, callbackUrl });
+}
+
 /** 通过 Windsurf access token 添加账号 */
 export async function addWindsurfAccountWithToken(githubAccessToken: string): Promise<WindsurfAccount> {
   return await invoke('add_windsurf_account_with_token', { githubAccessToken });

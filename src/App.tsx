@@ -22,6 +22,7 @@ import { useKiroAccountStore } from './stores/useKiroAccountStore';
 import { useCursorAccountStore } from './stores/useCursorAccountStore';
 import { useGeminiAccountStore } from './stores/useGeminiAccountStore';
 import { useCodebuddyAccountStore } from './stores/useCodebuddyAccountStore';
+import { useCodebuddyCnAccountStore } from './stores/useCodebuddyCnAccountStore';
 import { useQoderAccountStore } from './stores/useQoderAccountStore';
 import { useTraeAccountStore } from './stores/useTraeAccountStore';
 import type { UpdateCheckResult } from './components/UpdateNotification';
@@ -65,6 +66,9 @@ const GeminiAccountsPage = lazy(() =>
 );
 const CodebuddyAccountsPage = lazy(() =>
   import('./pages/CodebuddyAccountsPage').then((module) => ({ default: module.CodebuddyAccountsPage })),
+);
+const CodebuddyCnAccountsPage = lazy(() =>
+  import('./pages/CodebuddyCnAccountsPage').then((module) => ({ default: module.CodebuddyCnAccountsPage })),
 );
 const QoderAccountsPage = lazy(() =>
   import('./pages/QoderAccountsPage').then((module) => ({ default: module.QoderAccountsPage })),
@@ -123,6 +127,7 @@ interface GeneralConfig extends GeneralConfigTheme {
   kiro_app_path: string;
   cursor_app_path: string;
   codebuddy_app_path: string;
+  codebuddy_cn_app_path: string;
   qoder_app_path: string;
   trae_app_path: string;
 }
@@ -136,6 +141,7 @@ type AppPathMissingDetail = {
     | 'kiro'
     | 'cursor'
     | 'codebuddy'
+    | 'codebuddy_cn'
     | 'qoder'
     | 'trae';
   retry?:
@@ -189,6 +195,7 @@ type QuotaAlertPlatform =
   | 'cursor'
   | 'gemini'
   | 'codebuddy'
+  | 'codebuddy_cn'
   | 'qoder'
   | 'trae';
 type UpdateCheckSource = 'auto' | 'manual';
@@ -238,6 +245,8 @@ function normalizeQuotaAlertPlatform(platform: string | undefined): QuotaAlertPl
       return 'gemini';
     case 'codebuddy':
       return 'codebuddy';
+    case 'codebuddy_cn':
+      return 'codebuddy_cn';
     case 'qoder':
       return 'qoder';
     case 'trae':
@@ -266,6 +275,8 @@ function getQuotaAlertPlatformLabel(
       return 'Gemini Cli';
     case 'codebuddy':
       return 'CodeBuddy';
+    case 'codebuddy_cn':
+      return t('nav.codebuddyCn', 'CodeBuddy CN');
     case 'qoder':
       return t('nav.qoder', 'Qoder');
     case 'trae':
@@ -291,6 +302,8 @@ function getQuotaAlertTargetPage(platform: QuotaAlertPlatform): Page {
       return 'gemini';
     case 'codebuddy':
       return 'codebuddy';
+    case 'codebuddy_cn':
+      return 'codebuddy-cn';
     case 'qoder':
       return 'qoder';
     case 'trae':
@@ -316,6 +329,8 @@ function getQuotaAlertQuickSettingsType(platform: QuotaAlertPlatform): QuickSett
       return 'gemini';
     case 'codebuddy':
       return 'codebuddy';
+    case 'codebuddy_cn':
+      return 'codebuddy_cn';
     case 'qoder':
       return 'qoder';
     case 'trae':
@@ -1388,6 +1403,9 @@ function App() {
                     } else if (platform === 'codebuddy') {
                       await useCodebuddyAccountStore.getState().switchAccount(targetAccountId);
                       setPage('codebuddy');
+                    } else if (platform === 'codebuddy_cn') {
+                      await useCodebuddyCnAccountStore.getState().switchAccount(targetAccountId);
+                      setPage('codebuddy-cn');
                     } else if (platform === 'qoder') {
                       await useQoderAccountStore.getState().switchAccount(targetAccountId);
                       setPage('qoder');
@@ -1642,6 +1660,10 @@ function App() {
         errorMessage: 'Failed to refresh CodeBuddy:',
       },
       {
+        command: 'refresh_all_codebuddy_cn_tokens',
+        errorMessage: 'Failed to refresh CodeBuddy CN:',
+      },
+      {
         command: 'refresh_all_qoder_tokens',
         errorMessage: 'Failed to refresh Qoder:',
       },
@@ -1690,6 +1712,7 @@ function App() {
         detail.app !== 'kiro' &&
         detail.app !== 'cursor' &&
         detail.app !== 'codebuddy' &&
+        detail.app !== 'codebuddy_cn' &&
         detail.app !== 'qoder' &&
         detail.app !== 'trae'
       ) {
@@ -1743,6 +1766,8 @@ function App() {
                 ? config.cursor_app_path
               : appPathMissing.app === 'codebuddy'
                 ? config.codebuddy_app_path
+              : appPathMissing.app === 'codebuddy_cn'
+                ? config.codebuddy_cn_app_path
               : appPathMissing.app === 'qoder'
                 ? config.qoder_app_path
               : appPathMissing.app === 'trae'
@@ -1806,6 +1831,8 @@ function App() {
           await invoke('cursor_start_instance', { instanceId: retry.instanceId });
         } else if (app === 'codebuddy') {
           await invoke('codebuddy_start_instance', { instanceId: retry.instanceId });
+        } else if (app === 'codebuddy_cn') {
+          await invoke('codebuddy_cn_start_instance', { instanceId: retry.instanceId });
         } else if (app === 'qoder') {
           await invoke('qoder_start_instance', { instanceId: retry.instanceId });
         } else if (app === 'trae') {
@@ -1826,6 +1853,8 @@ function App() {
           await invoke('cursor_start_instance', { instanceId: '__default__' });
         } else if (app === 'codebuddy') {
           await invoke('codebuddy_start_instance', { instanceId: '__default__' });
+        } else if (app === 'codebuddy_cn') {
+          await invoke('codebuddy_cn_start_instance', { instanceId: '__default__' });
         } else if (app === 'qoder') {
           await invoke('qoder_start_instance', { instanceId: '__default__' });
         } else if (app === 'trae') {
@@ -1889,6 +1918,7 @@ function App() {
             case 'cursor':
             case 'gemini':
             case 'codebuddy':
+            case 'codebuddy-cn':
             case 'qoder':
             case 'trae':
             case 'manual':
@@ -1943,6 +1973,8 @@ function App() {
             ? 'Cursor'
             : appPathMissing.app === 'codebuddy'
               ? 'CodeBuddy'
+              : appPathMissing.app === 'codebuddy_cn'
+                ? 'CodeBuddy CN'
               : appPathMissing.app === 'qoder'
                 ? 'Qoder'
               : appPathMissing.app === 'trae'
@@ -1963,6 +1995,8 @@ function App() {
             ? t('quickSettings.cursor.appPath', 'Cursor 路径')
             : appPathMissing.app === 'codebuddy'
               ? t('quickSettings.codebuddy.appPath', 'CodeBuddy 路径')
+              : appPathMissing.app === 'codebuddy_cn'
+                ? t('quickSettings.codebuddyCn.appPath', 'CodeBuddy CN 路径')
               : appPathMissing.app === 'qoder'
                 ? t('quickSettings.qoder.appPath', 'Qoder 路径')
               : appPathMissing.app === 'trae'
@@ -2133,6 +2167,8 @@ function App() {
                                   ? t('settings.general.cursorPathReset', '重置默认')
                                     : appPathMissing.app === 'codebuddy'
                                       ? t('settings.general.codebuddyPathReset', '重置默认')
+                                    : appPathMissing.app === 'codebuddy_cn'
+                                      ? t('settings.general.codebuddyPathReset', '重置默认')
                                     : appPathMissing.app === 'qoder'
                                       ? t('settings.general.qoderPathReset', '重置默认')
                                     : appPathMissing.app === 'trae'
@@ -2215,6 +2251,7 @@ function App() {
           {page === 'cursor' && <CursorAccountsPage />}
           {page === 'gemini' && <GeminiAccountsPage />}
           {page === 'codebuddy' && <CodebuddyAccountsPage />}
+          {page === 'codebuddy-cn' && <CodebuddyCnAccountsPage />}
           {page === 'qoder' && <QoderAccountsPage />}
           {page === 'trae' && <TraeAccountsPage />}
           {page === 'instances' && <InstancesPage onNavigate={setPage} />}

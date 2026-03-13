@@ -1,10 +1,12 @@
 use base64::Engine;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
+use url::Url;
 
 use crate::models::windsurf::{
     WindsurfAccount, WindsurfOAuthCompletePayload, WindsurfOAuthStartResponse,
@@ -17,8 +19,9 @@ const WINDSURF_DEFAULT_API_SERVER_URL: &str = "https://server.codeium.com";
 const WINDSURF_CLIENT_ID: &str = "3GUryQ7ldAeKEuD2obYnppsnmj58eP5u";
 const APP_USER_AGENT: &str = "antigravity-cockpit-tools";
 const OAUTH_TIMEOUT_SECONDS: u64 = 600;
+const OAUTH_STATE_FILE: &str = "windsurf_oauth_pending.json";
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct PendingOAuthState {
     login_id: String,
     state: String,
@@ -46,6 +49,102 @@ fn now_timestamp() -> i64 {
     chrono::Utc::now().timestamp()
 }
 
+fn load_pending_login_from_disk() -> Option<PendingOAuthState> {
+    match crate::modules::oauth_pending_state::load::<PendingOAuthState>(OAUTH_STATE_FILE) {
+        Ok(Some(state)) => {
+            if state.expires_at <= now_timestamp() {
+                let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+                None
+            } else {
+                Some(state)
+            }
+        }
+        Ok(None) => None,
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Windsurf OAuth] 读取持久化登录状态失败，已忽略: {}",
+                err
+            ));
+            let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+            None
+        }
+    }
+}
+
+fn persist_pending_login(state: Option<&PendingOAuthState>) {
+    let result = match state {
+        Some(value) => crate::modules::oauth_pending_state::save(OAUTH_STATE_FILE, value),
+        None => crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE),
+    };
+    if let Err(err) = result {
+        logger::log_warn(&format!(
+            "[Windsurf OAuth] 持久化登录状态失败，已忽略: {}",
+            err
+        ));
+    }
+}
+
+fn hydrate_pending_login_if_missing() {
+    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+        if guard.is_none() {
+            *guard = load_pending_login_from_disk();
+        }
+    }
+}
+
+fn set_pending_login(state: Option<PendingOAuthState>) {
+    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+        *guard = state.clone();
+    }
+    persist_pending_login(state.as_ref());
+}
+
+fn ensure_callback_server_for_state(state: &PendingOAuthState) {
+    if state.expires_at <= now_timestamp() {
+        clear_pending_if_matches(&state.login_id, &state.state);
+        return;
+    }
+    if state.access_token.is_some() || state.callback_error.is_some() {
+        return;
+    }
+
+    match TcpListener::bind(("127.0.0.1", state.port)) {
+        Ok(listener) => {
+            drop(listener);
+            let callback_login_id = state.login_id.clone();
+            let callback_state = state.state.clone();
+            let callback_port = state.port;
+            tokio::spawn(async move {
+                if let Err(e) =
+                    start_callback_server(callback_port, callback_login_id.clone(), callback_state)
+                        .await
+                {
+                    logger::log_error(&format!(
+                        "[Windsurf OAuth] 回调服务恢复失败: login_id={}, error={}",
+                        callback_login_id, e
+                    ));
+                }
+            });
+            logger::log_info(&format!(
+                "[Windsurf OAuth] 已恢复本地回调服务: login_id={}, port={}",
+                state.login_id, state.port
+            ));
+        }
+        Err(err) if err.kind() == ErrorKind::AddrInUse => {
+            logger::log_info(&format!(
+                "[Windsurf OAuth] 本地回调端口已占用，视为监听中: login_id={}, port={}",
+                state.login_id, state.port
+            ));
+        }
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Windsurf OAuth] 本地回调恢复失败: login_id={}, port={}, error={}",
+                state.login_id, state.port, err
+            ));
+        }
+    }
+}
+
 fn generate_token() -> String {
     let mut rng = rand::thread_rng();
     let bytes: Vec<u8> = (0..24).map(|_| rng.gen::<u8>()).collect();
@@ -71,6 +170,32 @@ fn parse_query_params(query: &str) -> HashMap<String, String> {
             Some((key.to_string(), decode_query_component(value)))
         })
         .collect()
+}
+
+fn parse_callback_url(raw_callback_url: &str, port: u16) -> Result<Url, String> {
+    let trimmed = raw_callback_url.trim();
+    if trimmed.is_empty() {
+        return Err("回调链接不能为空".to_string());
+    }
+
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return Url::parse(trimmed).map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    if trimmed.starts_with('/') {
+        return Url::parse(format!("http://127.0.0.1:{}{}", port, trimmed).as_str())
+            .map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    Url::parse(
+        format!(
+            "http://127.0.0.1:{}/windsurf-auth-callback?{}",
+            port,
+            trimmed.trim_start_matches('?')
+        )
+        .as_str(),
+    )
+    .map_err(|e| format!("回调链接格式无效: {}", e))
 }
 
 fn pick_string_from_object(obj: Option<&Value>, keys: &[&str]) -> Option<String> {
@@ -243,12 +368,16 @@ fn to_start_response(state: &PendingOAuthState) -> WindsurfOAuthStartResponse {
 }
 
 fn clear_pending_if_matches(expected_login_id: &str, expected_state: &str) {
-    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
-        if let Some(current) = guard.as_ref() {
-            if current.login_id == expected_login_id && current.state == expected_state {
-                *guard = None;
-            }
-        }
+    let should_clear = if let Ok(guard) = PENDING_OAUTH_STATE.lock() {
+        guard
+            .as_ref()
+            .map(|current| current.login_id == expected_login_id && current.state == expected_state)
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    if should_clear {
+        set_pending_login(None);
     }
 }
 
@@ -410,6 +539,7 @@ async fn start_callback_server(
                         if current.login_id == expected_login_id && current.state == expected_state
                         {
                             current.callback_error = Some(message.clone());
+                            persist_pending_login(Some(current));
                         }
                     }
                 }
@@ -435,6 +565,7 @@ async fn start_callback_server(
                         if current.login_id == expected_login_id && current.state == expected_state
                         {
                             current.callback_error = Some(message.to_string());
+                            persist_pending_login(Some(current));
                         }
                     }
                 }
@@ -457,6 +588,8 @@ async fn start_callback_server(
                 if let Some(current) = guard.as_mut() {
                     if current.login_id == expected_login_id && current.state == expected_state {
                         current.access_token = Some(access_token);
+                        current.callback_error = None;
+                        persist_pending_login(Some(current));
                     }
                 }
             }
@@ -877,9 +1010,11 @@ async fn build_payload_from_api_key(
 }
 
 pub async fn start_login() -> Result<WindsurfOAuthStartResponse, String> {
+    hydrate_pending_login_if_missing();
     if let Ok(guard) = PENDING_OAUTH_STATE.lock() {
         if let Some(state) = guard.as_ref() {
             if state.expires_at > now_timestamp() {
+                ensure_callback_server_for_state(state);
                 logger::log_info(&format!(
                     "[Windsurf OAuth] 复用进行中的登录会话: login_id={}, port={}, age={}s",
                     state.login_id,
@@ -890,6 +1025,7 @@ pub async fn start_login() -> Result<WindsurfOAuthStartResponse, String> {
             }
         }
     }
+    set_pending_login(None);
 
     let port = find_available_port()?;
     let login_id = generate_token();
@@ -908,9 +1044,7 @@ pub async fn start_login() -> Result<WindsurfOAuthStartResponse, String> {
         callback_error: None,
     };
 
-    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
-        *guard = Some(pending.clone());
-    }
+    set_pending_login(Some(pending.clone()));
 
     let callback_login_id = login_id.clone();
     let callback_state = state_token.clone();
@@ -931,6 +1065,7 @@ pub async fn start_login() -> Result<WindsurfOAuthStartResponse, String> {
 }
 
 pub async fn complete_login(login_id: &str) -> Result<WindsurfOAuthCompletePayload, String> {
+    hydrate_pending_login_if_missing();
     let token = loop {
         let state = {
             let guard = PENDING_OAUTH_STATE
@@ -963,21 +1098,122 @@ pub async fn complete_login(login_id: &str) -> Result<WindsurfOAuthCompletePaylo
 }
 
 pub fn cancel_login(login_id: Option<&str>) -> Result<(), String> {
-    let mut state = PENDING_OAUTH_STATE
+    hydrate_pending_login_if_missing();
+    let current = PENDING_OAUTH_STATE
         .lock()
-        .map_err(|_| "OAuth 状态锁不可用".to_string())?;
+        .map_err(|_| "OAuth 状态锁不可用".to_string())?
+        .as_ref()
+        .cloned();
 
-    match (state.as_ref(), login_id) {
-        (Some(current), Some(input)) if current.login_id != input => {
+    match (current.as_ref(), login_id) {
+        (Some(state), Some(input)) if state.login_id != input => {
             return Err("登录会话不匹配，取消失败".to_string());
         }
-        (Some(current), _) => {
-            notify_cancel(current.port);
-            *state = None;
+        (Some(state), _) => {
+            notify_cancel(state.port);
+            set_pending_login(None);
         }
         (None, _) => {}
     }
     Ok(())
+}
+
+pub fn submit_callback_url(login_id: &str, callback_url: &str) -> Result<(), String> {
+    hydrate_pending_login_if_missing();
+    let (expected_state, port, expires_at) = {
+        let guard = PENDING_OAUTH_STATE
+            .lock()
+            .map_err(|_| "OAuth 状态锁不可用".to_string())?;
+        let state = guard
+            .as_ref()
+            .ok_or_else(|| "登录流程已取消，请重新发起授权".to_string())?;
+        if state.login_id != login_id {
+            return Err("登录会话已变更，请刷新后重试".to_string());
+        }
+        (state.state.clone(), state.port, state.expires_at)
+    };
+
+    if expires_at <= now_timestamp() {
+        return Err("等待 Windsurf 授权超时，请重新发起授权".to_string());
+    }
+
+    let parsed = parse_callback_url(callback_url, port)?;
+    if parsed.path() != "/windsurf-auth-callback" {
+        return Err("回调链接路径无效，必须为 /windsurf-auth-callback".to_string());
+    }
+
+    let params = parse_query_params(parsed.query().unwrap_or_default());
+    let state = params
+        .get("state")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "回调链接中缺少 state 参数".to_string())?;
+    if state != expected_state {
+        return Err("回调 state 校验失败，请确认粘贴的是当前登录会话链接".to_string());
+    }
+
+    if let Some(error) = params
+        .get("error")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        let error_desc = params
+            .get("error_description")
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_default();
+        let message = if error_desc.is_empty() {
+            format!("授权失败: {}", error)
+        } else {
+            format!("授权失败: {} ({})", error, error_desc)
+        };
+        if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+            if let Some(current) = guard.as_mut() {
+                if current.login_id == login_id && current.state == expected_state {
+                    current.callback_error = Some(message.clone());
+                    persist_pending_login(Some(current));
+                }
+            }
+        }
+        return Err(message);
+    }
+
+    let access_token = params
+        .get("access_token")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "回调链接中缺少 access_token 参数".to_string())?
+        .to_string();
+
+    let mut guard = PENDING_OAUTH_STATE
+        .lock()
+        .map_err(|_| "OAuth 状态锁不可用".to_string())?;
+    let state = guard
+        .as_mut()
+        .ok_or_else(|| "登录流程已取消，请重新发起授权".to_string())?;
+    if state.login_id != login_id {
+        return Err("登录会话已变更，请刷新后重试".to_string());
+    }
+    state.access_token = Some(access_token);
+    state.callback_error = None;
+    persist_pending_login(Some(state));
+
+    logger::log_info(&format!(
+        "[Windsurf OAuth] 已接收手动回调链接: login_id={}",
+        login_id
+    ));
+    Ok(())
+}
+
+pub fn restore_pending_oauth_listener() {
+    hydrate_pending_login_if_missing();
+    let pending = PENDING_OAUTH_STATE
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned());
+    if let Some(state) = pending {
+        ensure_callback_server_for_state(&state);
+    }
 }
 
 pub async fn build_payload_from_token(token: &str) -> Result<WindsurfOAuthCompletePayload, String> {

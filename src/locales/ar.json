@@ -79,7 +79,9 @@
         "preparing": "جارٍ تجهيز معلومات التفويض...",
         "retry": "إعادة إنشاء معلومات التفويض",
         "timeoutRetry": "تحديث رابط التفويض",
-        "waiting": "بانتظار التفويض..."
+        "waiting": "بانتظار التفويض...",
+        "manualCallbackLabel": "إدخال رابط رد النداء يدويًا",
+        "manualCallbackPlaceholder": "الصق رابط رد النداء الكامل، مثل: http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "تحديث الكل",
       "refreshQuota": "تحديث الحصة",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "حساب Antigravity",
+    "overview": "Antigravity",
     "accounts": "إدارة الحسابات",
     "wakeup": "مهام الاستيقاظ",
     "fingerprints": "بصمات الجهاز",
     "settings": "الإعدادات",
-    "codex": "حسابات Codex",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "لوحة التحكم",
@@ -169,10 +171,11 @@
       "restart": "إعادة التشغيل",
       "installing": "جارٍ التثبيت"
     },
-    "gemini": "حسابات Gemini Cli",
-    "codebuddy": "حسابات CodeBuddy",
-    "qoder": "حسابات Qoder",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "تخطيط المنصات",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "إعدادات Trae",
       "appPath": "مسار Trae"
+    },
+    "codebuddyCn": {
+      "appPath": "مسار CodeBuddy CN"
     }
   },
   "quotaAlert": {
@@ -2052,6 +2058,7 @@
       "failedReasonLabel": "السبب: {{reason}}",
       "failedReasonAt": "وقت الفشل: {{time}}",
       "sectionTitle": "استعلام الحصة",
+      "webOnlyHint": "يرجى عرض الحصة في صفحة الويب",
       "empty": "لا توجد معلومات ربط لاستعلام الحصة بعد",
       "packageUnknown": "باقة غير معروفة",
       "quotaLabel": "الحصة المتبقية",
@@ -2224,6 +2231,29 @@
       "desc": "يدعم تسجيل الدخول الرسمي عبر OAuth والاستيراد المحلي واستيراد JSON وتبديل الحساب عبر الحقن المحلي. تتم إعادة الكتابة وفقا لقواعد التخزين الفعلية لعميل Trae.",
       "permission": "نطاق الصلاحيات: قراءة وكتابة الحقول المرتبطة بتسجيل الدخول في ملف storage.json المحلي الخاص بـ Trae لاستخدامها في استيراد الحساب وحقن تبديل الحساب وعرض الخطة. تتم معالجة جميع البيانات محليا على جهازك.",
       "network": "نطاق الشبكة: تسجيل الدخول عبر OAuth وتحديث الرمز المميز واستعلامات الخطة تستدعي واجهات Trae الرسمية. لا يتم رفع ملفات الحساب المحلية أو محتوى التخزين الخام إلى خدمات خارجية."
+    }
+  },
+  "codebuddyCn": {
+    "title": "إدارة حسابات CodeBuddy CN",
+    "noAccounts": "لا توجد حسابات CodeBuddy CN",
+    "addAccount": "إضافة حساب CodeBuddy CN",
+    "search": "ابحث في حسابات CodeBuddy CN...",
+    "oauthDesc": "انقر الزر أدناه لفتح صفحة تفويض CodeBuddy CN في متصفحك.",
+    "tokenDesc": "ألصق رمز الوصول الخاص بـ CodeBuddy CN:",
+    "flowNotice": {
+      "title": "معلومات إدارة حسابات CodeBuddy CN (انقر للتوسيع/الطي)",
+      "desc": "يتطلب تبديل الحسابات قراءة تخزين مصادقة CodeBuddy CN المحلي واستدعاء خدمات بيانات الاعتماد في النظام لفك التشفير/إعادة التشفير. تتم معالجة البيانات محليًا فقط.",
+      "permission": "نطاق الأذونات: قراءة قاعدة بيانات مصادقة CodeBuddy CN (state.vscdb)، واستدعاء قدرات بيانات الاعتماد بالنظام (macOS Keychain / Windows DPAPI / Linux Secret Service) لفك التشفير/إعادة الكتابة.",
+      "network": "نطاق الشبكة: تسجيل دخول OAuth وتحديث الرمز يتطلبان طلبات شبكة إلى codebuddy.cn / copilot.tencent.com؛ واستعلامات الحصة تستدعي واجهات فوترة API. لا يتم رفع أي مفاتيح أو بيانات اعتماد محلية."
+    },
+    "import": {
+      "localDesc": "استيراد بيانات الحساب من عميل CodeBuddy CN المحلي أو من ملف JSON.",
+      "localClient": "استيراد من CodeBuddy CN المحلي"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "تعدد مثيلات CodeBuddy CN مدعوم فقط على macOS وWindows وLinux."
+      }
     }
   }
 }

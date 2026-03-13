@@ -25,9 +25,12 @@ pub fn import_cursor_from_json(json_content: String) -> Result<Vec<CursorAccount
 }
 
 #[tauri::command]
-pub fn import_cursor_from_local() -> Result<Vec<CursorAccount>, String> {
+pub fn import_cursor_from_local(app: AppHandle) -> Result<Vec<CursorAccount>, String> {
     match cursor_account::import_from_local()? {
-        Some(account) => Ok(vec![account]),
+        Some(account) => {
+            let _ = crate::modules::tray::update_tray_menu(&app);
+            Ok(vec![account])
+        }
         None => Err("未找到本地 Cursor 登录信息".to_string()),
     }
 }

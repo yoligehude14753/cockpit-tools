@@ -4,7 +4,6 @@ import {
   Copy, Check, RotateCw, LayoutGrid, List, Search,
   Tag, Play, Eye, EyeOff, CircleAlert, ChevronDown,
 } from 'lucide-react';
-import { confirm as confirmDialog } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useCodebuddyAccountStore } from '../stores/useCodebuddyAccountStore';
 import * as codebuddyService from '../services/codebuddyService';
@@ -15,8 +14,6 @@ import {
   getCodebuddyAccountDisplayEmail,
   getCodebuddyPlanBadge,
   getCodebuddyUsage,
-  getCodebuddyResourceSummary,
-  getCodebuddyExtraCreditSummary,
 } from '../types/codebuddy';
 import { QuickSettingsPopover } from '../components/QuickSettingsPopover';
 import { useProviderAccountsPage } from '../hooks/useProviderAccountsPage';
@@ -26,53 +23,11 @@ import { CodebuddyInstancesContent } from './CodebuddyInstancesPage';
 const CB_FLOW_NOTICE_COLLAPSED_KEY = 'agtools.codebuddy.flow_notice_collapsed';
 const CB_CURRENT_ACCOUNT_ID_KEY = 'agtools.codebuddy.current_account_id';
 const CB_KNOWN_PLAN_FILTERS = ['FREE', 'TRIAL', 'PRO', 'ENTERPRISE'] as const;
-const CB_QUOTA_BINDING_MISMATCH_CODE = 'CODEBUDDY_QUOTA_BINDING_ACCOUNT_MISMATCH';
 const CODEBUDDY_USAGE_URL = 'https://www.codebuddy.ai/profile/usage';
-
-type QuotaQueryFormState = {
-  cookieHeader: string;
-};
-
-function createDefaultQuotaQueryForm(): QuotaQueryFormState {
-  return {
-    cookieHeader: '',
-  };
-}
-
-type QuotaBindingMismatchMeta = {
-  expectedUin: string;
-  resourceUin: string;
-  payerUin: string;
-};
-
-function parseQuotaBindingMismatchMeta(raw: string): QuotaBindingMismatchMeta | null {
-  const markerIndex = raw.indexOf(CB_QUOTA_BINDING_MISMATCH_CODE);
-  if (markerIndex < 0) return null;
-  const payload = raw.slice(markerIndex + CB_QUOTA_BINDING_MISMATCH_CODE.length);
-  const segments = payload.split('|').map((item) => item.trim()).filter(Boolean);
-  const meta: Record<string, string> = {};
-  segments.forEach((segment) => {
-    const eqIndex = segment.indexOf('=');
-    if (eqIndex <= 0) return;
-    const key = segment.slice(0, eqIndex).trim();
-    const value = segment.slice(eqIndex + 1).trim();
-    meta[key] = value;
-  });
-  if (!meta.expected_uin) return null;
-  return {
-    expectedUin: meta.expected_uin || '--',
-    resourceUin: meta.resource_uin || '--',
-    payerUin: meta.payer_uin || '--',
-  };
-}
 
 export function CodebuddyAccountsPage() {
   const [activeTab, setActiveTab] = useState<PlatformOverviewTab>('overview');
   const [quotaQueryAccountId, setQuotaQueryAccountId] = useState<string | null>(null);
-  const [quotaQueryForm, setQuotaQueryForm] = useState<QuotaQueryFormState>(createDefaultQuotaQueryForm);
-  const [quotaQuerySubmitting, setQuotaQuerySubmitting] = useState(false);
-  const [quotaBindingClearing, setQuotaBindingClearing] = useState(false);
-  const [quotaQueryModalError, setQuotaQueryModalError] = useState<string | null>(null);
   const untaggedKey = '__untagged__';
   const store = useCodebuddyAccountStore();
 
@@ -144,21 +99,14 @@ export function CodebuddyAccountsPage() {
     () => accounts.find((item) => item.id === quotaQueryAccountId) ?? null,
     [accounts, quotaQueryAccountId],
   );
-  const quotaQueryHasBinding = !!quotaQueryAccount?.quota_binding;
 
   const openQuotaQueryModal = useCallback((account: CodebuddyAccount) => {
-    setQuotaQueryForm({
-      cookieHeader: '',
-    });
-    setQuotaQueryModalError(null);
     setQuotaQueryAccountId(account.id);
   }, []);
 
   const closeQuotaQueryModal = useCallback(() => {
-    if (quotaQuerySubmitting || quotaBindingClearing) return;
-    setQuotaQueryModalError(null);
     setQuotaQueryAccountId(null);
-  }, [quotaBindingClearing, quotaQuerySubmitting]);
+  }, []);
 
   const handleCopyQuotaUsageUrl = useCallback(async () => {
     try {
@@ -185,122 +133,6 @@ export function CodebuddyAccountsPage() {
       });
     }
   }, [setMessage, t]);
-
-  const setQuotaQueryField = useCallback((key: keyof QuotaQueryFormState, value: string) => {
-    setQuotaQueryModalError(null);
-    setQuotaQueryForm((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
-  const resolveQuotaClass = useCallback((remainPercent: number | null): 'high' | 'medium' | 'critical' => {
-    if (remainPercent == null) return 'high';
-    if (remainPercent >= 60) return 'high';
-    if (remainPercent >= 30) return 'medium';
-    return 'critical';
-  }, []);
-
-  const formatQuotaUpdatedTime = useCallback((ts: number | null) => {
-    if (!ts || !Number.isFinite(ts)) return null;
-    const date = new Date(ts);
-    if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleString();
-  }, []);
-
-  const formatQuotaValue = useCallback((value: number | null | undefined) => {
-    if (value == null || !Number.isFinite(value)) return '--';
-    return value.toFixed(2);
-  }, []);
-
-  const handleSubmitQuotaQuery = useCallback(async () => {
-    if (!quotaQueryAccountId || quotaQuerySubmitting) return;
-    const cookieHeader = quotaQueryForm.cookieHeader.trim();
-    if (!cookieHeader) {
-      setQuotaQueryModalError(t('codebuddy.quotaQuery.errors.cookieRequired', '请先粘贴完整 cURL 命令。'));
-      return;
-    }
-    if (!/^\s*curl(?:\.exe)?\b/i.test(cookieHeader)) {
-      setQuotaQueryModalError(
-        t(
-          'codebuddy.quotaQuery.errors.fullCurlRequired',
-          '仅支持完整 cURL 命令。请在浏览器 Network 中对 get-user-resource 使用“Copy as cURL (bash)”后原样粘贴。',
-        ),
-      );
-      return;
-    }
-
-    setQuotaQueryModalError(null);
-    setQuotaQuerySubmitting(true);
-    try {
-      await codebuddyService.queryCodebuddyQuotaWithBinding({
-        accountId: quotaQueryAccountId,
-        cookieHeader,
-      });
-      await store.fetchAccounts();
-      setMessage({
-        text: t('codebuddy.quotaQuery.success', '配额查询成功，已绑定查询参数。'),
-      });
-      setQuotaQueryModalError(null);
-      setQuotaQueryAccountId(null);
-    } catch (err) {
-      const rawError = String(err);
-      await store.fetchAccounts();
-      const mismatchMeta = parseQuotaBindingMismatchMeta(rawError);
-      if (mismatchMeta) {
-        setQuotaQueryModalError(
-          t('codebuddy.quotaQuery.errors.accountMismatch', '配额 Cookie 对应账号与当前账号不一致（当前 UIN：{{expectedUin}}，返回 UIN：{{resourceUin}}，payerUin：{{payerUin}}）。', mismatchMeta),
-        );
-        return;
-      }
-      setQuotaQueryModalError(
-        t('codebuddy.quotaQuery.failed', '配额查询失败：{{error}}', { error: rawError }),
-      );
-    } finally {
-      setQuotaQuerySubmitting(false);
-    }
-  }, [quotaQueryAccountId, quotaQueryForm, quotaQuerySubmitting, setMessage, store, t]);
-
-  const handleClearQuotaBinding = useCallback(async () => {
-    if (!quotaQueryAccountId || quotaBindingClearing || quotaQuerySubmitting || !quotaQueryHasBinding) return;
-    const confirmed = await confirmDialog(
-      t(
-        'codebuddy.quotaQuery.clearBindingConfirm',
-        '确认清除当前账号的配额查询绑定参数？清除后将停止自动刷新配额。',
-      ),
-      {
-        title: t('common.appName', 'Cockpit Tools'),
-        kind: 'warning',
-        okLabel: t('common.confirm', '确认'),
-        cancelLabel: t('common.cancel', '取消'),
-      },
-    );
-    if (!confirmed) return;
-
-    setQuotaBindingClearing(true);
-    try {
-      await codebuddyService.clearCodebuddyQuotaBinding(quotaQueryAccountId);
-      await store.fetchAccounts();
-      setMessage({
-        text: t('codebuddy.quotaQuery.clearBindingSuccess', '已清除配额查询绑定参数。'),
-      });
-      setQuotaQueryAccountId(null);
-    } catch (err) {
-      setMessage({
-        tone: 'error',
-        text: t('codebuddy.quotaQuery.clearBindingFailed', '清除配额绑定失败：{{error}}', {
-          error: String(err),
-        }),
-      });
-    } finally {
-      setQuotaBindingClearing(false);
-    }
-  }, [
-    quotaBindingClearing,
-    quotaQueryAccountId,
-    quotaQueryHasBinding,
-    quotaQuerySubmitting,
-    setMessage,
-    store,
-    t,
-  ]);
 
   const resolvePlanKey = useCallback(
     (account: CodebuddyAccount) => getCodebuddyPlanBadge(account),
@@ -402,18 +234,6 @@ export function CodebuddyAccountsPage() {
       const moreTagCount = Math.max(0, accountTags.length - visibleTags.length);
       const isSelected = selected.has(account.id);
       const isCurrent = currentAccountId === account.id;
-      const resourceSummary = getCodebuddyResourceSummary(account);
-      const extraCredit = getCodebuddyExtraCreditSummary(account);
-      const quotaClass = resolveQuotaClass(resourceSummary?.remainPercent ?? null);
-      const remainText = resourceSummary?.remain != null && resourceSummary?.total != null
-        ? `${formatQuotaValue(resourceSummary.remain)} / ${formatQuotaValue(resourceSummary.total)}`
-        : '--';
-      const expireText = resourceSummary?.cycleEndTime
-        ? t('codebuddy.quotaQuery.expireAt', '到期时间：{{time}}', { time: resourceSummary.cycleEndTime })
-        : t('codebuddy.quotaQuery.expireUnknown', '到期时间：暂无');
-      const updatedText = formatQuotaUpdatedTime(resourceSummary?.boundUpdatedAt ?? null);
-      const quotaQueryError = (account.quota_query_last_error || '').trim();
-      const quotaQueryErrorAtText = formatQuotaUpdatedTime(account.quota_query_last_error_at ?? null);
       return (
         <div key={groupKey ? `${groupKey}-${account.id}` : account.id}
           className={`ghcp-account-card ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
@@ -449,54 +269,7 @@ export function CodebuddyAccountsPage() {
                   {t('codebuddy.quotaQuery.button', '查询配额')}
                 </button>
               </div>
-              {resourceSummary ? (
-                <>
-                  <div className="quota-header">
-                    <span className="quota-label">{t('codebuddy.quotaQuery.quotaLabel', '剩余配额')}</span>
-                    <span className={`quota-pct ${quotaClass}`}>{remainText}</span>
-                  </div>
-                  <div className="quota-bar-track">
-                    <div
-                      className={`quota-bar ${quotaClass}`}
-                      style={{ width: `${Math.min(resourceSummary.remainPercent ?? 0, 100)}%` }}
-                    />
-                  </div>
-                  <div className="quota-item codebuddy-extra-credit">
-                    <div className="quota-header">
-                      <span className="quota-label">{t('codebuddy.extraCredit.title', '加量包')}</span>
-                      <span className={`quota-pct ${resolveQuotaClass(extraCredit.remainPercent)}`}>{`${extraCredit.remain} / ${extraCredit.total}`}</span>
-                    </div>
-                    <div className="quota-bar-track">
-                      <div
-                        className={`quota-bar ${resolveQuotaClass(extraCredit.remainPercent)}`}
-                        style={{ width: `${Math.min(extraCredit.remainPercent ?? 0, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="quota-reset">{expireText}</span>
-                  {updatedText && (
-                    <span className="quota-reset">
-                      {t('codebuddy.quotaQuery.updatedAt', '最近查询：{{time}}', { time: updatedText })}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="quota-empty">{t('codebuddy.quotaQuery.empty', '暂无绑定配额查询信息')}</span>
-                  {quotaQueryError && (
-                    <>
-                      <span className="quota-value critical">
-                        {t('codebuddy.quotaQuery.failedRefreshCompact', '刷新配额失败')}
-                      </span>
-                      {quotaQueryErrorAtText && (
-                        <span className="quota-reset">
-                          {t('codebuddy.quotaQuery.failedReasonAt', '失败时间：{{time}}', { time: quotaQueryErrorAtText })}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
+              <span className="quota-empty">{t('codebuddy.quotaQuery.webOnlyHint', '配额请在网页中查看')}</span>
             </div>
           </div>
           <div className="card-footer">
@@ -509,9 +282,6 @@ export function CodebuddyAccountsPage() {
               <button className="card-action-btn" onClick={() => openTagModal(account.id)} title={t('accounts.editTags', '编辑标签')}><Tag size={14} /></button>
               <button className="card-action-btn" onClick={() => handleRefresh(account.id)} disabled={refreshing === account.id} title={t('common.shared.refreshQuota', '刷新')}>
                 <RotateCw size={14} className={refreshing === account.id ? 'loading-spinner' : ''} />
-              </button>
-              <button className="card-action-btn" onClick={() => openQuotaQueryModal(account)} title={t('codebuddy.quotaQuery.button', '查询配额')}>
-                <Database size={14} />
               </button>
               <button className="card-action-btn export-btn" onClick={() => handleExportByIds([account.id])} title={t('common.shared.export', '导出')}><Upload size={14} /></button>
               <button className="card-action-btn danger" onClick={() => handleDelete(account.id)} title={t('common.delete', '删除')}><Trash2 size={14} /></button>
@@ -528,19 +298,6 @@ export function CodebuddyAccountsPage() {
       const tierBadgeClass = resolveTierBadgeClass(planBadge);
       const isSelected = selected.has(account.id);
       const isCurrent = currentAccountId === account.id;
-      const resourceSummary = getCodebuddyResourceSummary(account);
-      const extraCredit = getCodebuddyExtraCreditSummary(account);
-      const quotaQueryError = (account.quota_query_last_error || '').trim();
-      const tableQuotaText = resourceSummary?.remain != null && resourceSummary?.total != null
-        ? `${formatQuotaValue(resourceSummary.remain)}/${formatQuotaValue(resourceSummary.total)}`
-        : (quotaQueryError
-          ? t('codebuddy.quotaQuery.failedRefreshCompact', '刷新配额失败')
-          : t('codebuddy.quotaQuery.noQuota', '未查询'));
-      const tableExtraText = resourceSummary
-        ? `${t('codebuddy.extraCredit.title', '加量包')} ${formatQuotaValue(extraCredit.remain)}/${formatQuotaValue(extraCredit.total)}`
-        : (quotaQueryError
-          ? t('codebuddy.quotaQuery.failedRefreshCompact', '刷新配额失败')
-          : '');
       return (
         <tr key={account.id} className={`${isCurrent ? 'current-row' : ''} ${isSelected ? 'selected-row' : ''}`}>
           <td><input type="checkbox" checked={isSelected} onChange={() => toggleSelect(account.id)} /></td>
@@ -552,8 +309,9 @@ export function CodebuddyAccountsPage() {
           <td>
             <div className="codebuddy-table-usage">
               {renderUsageInfo(account)}
-              <span className="kiro-table-subline">{tableQuotaText}</span>
-              {tableExtraText && <span className="kiro-table-subline extra-credit-subline">{tableExtraText}</span>}
+              <span className="kiro-table-subline">
+                {t('codebuddy.quotaQuery.webOnlyHint', '配额请在网页中查看')}
+              </span>
             </div>
           </td>
           <td className="sticky-action-cell table-action-cell">
@@ -722,7 +480,7 @@ export function CodebuddyAccountsPage() {
                 <th style={{ width: 40 }}><input type="checkbox" checked={selected.size === filteredAccounts.length && filteredAccounts.length > 0} onChange={() => toggleSelectAll(filteredAccounts.map((a) => a.id))} /></th>
                 <th style={{ width: 240 }}>{t('common.shared.columns.email', '邮箱')}</th>
                 <th style={{ width: 120 }}>{t('common.shared.columns.plan', '套餐')}</th>
-                <th>{t('codebuddy.usage', '用量状态')}</th>
+                <th>{t('codebuddy.quotaQuery.sectionTitle', '配额查询')}</th>
                 <th className="sticky-action-header table-action-header">{t('common.shared.columns.actions', '操作')}</th>
               </tr>
             </thead>
@@ -744,7 +502,7 @@ export function CodebuddyAccountsPage() {
                 <th style={{ width: 40 }}><input type="checkbox" checked={selected.size === filteredAccounts.length && filteredAccounts.length > 0} onChange={() => toggleSelectAll(filteredAccounts.map((a) => a.id))} /></th>
                 <th style={{ width: 240 }}>{t('common.shared.columns.email', '邮箱')}</th>
                 <th style={{ width: 120 }}>{t('common.shared.columns.plan', '套餐')}</th>
-                <th>{t('codebuddy.usage', '用量状态')}</th>
+                <th>{t('codebuddy.quotaQuery.sectionTitle', '配额查询')}</th>
                 <th className="sticky-action-header table-action-header">{t('common.shared.columns.actions', '操作')}</th>
               </tr>
             </thead>
@@ -778,7 +536,7 @@ export function CodebuddyAccountsPage() {
                     <ul className="feature-list">
                       <li>{t('codebuddy.oauthFeature.oauth.item1', '在浏览器完成 OAuth 后即可添加账号并用于 IDE 切换。')}</li>
                       <li>{t('codebuddy.oauthFeature.oauth.item2', '不会自动绑定配额查询参数。')}</li>
-                      <li>{t('codebuddy.oauthFeature.oauth.item3', '如需配额显示，请在账号卡片中手动执行“查询配额”绑定。')}</li>
+                      <li>{t('codebuddy.oauthFeature.oauth.item3', '如需查看配额，请在账号卡片点击“查询配额”并在网页查看。')}</li>
                     </ul>
                   </div>
                   {oauthPrepareError ? (
@@ -921,19 +679,7 @@ export function CodebuddyAccountsPage() {
                         </div>
                       </div>
                     </li>
-                    <li>{t('codebuddy.quotaQuery.manual.step2', '按 F12 打开开发者工具，切换到 Network（网络）面板')}</li>
-                    <li>{t('codebuddy.quotaQuery.manual.step3', '刷新页面，找到 get-user-resource 请求')}</li>
-                    <li>{t('codebuddy.quotaQuery.manual.step4', '右键该请求 → Copy → Copy as cURL (bash)')}</li>
-                    <li>{t('codebuddy.quotaQuery.manual.step5', '粘贴到下方输入框')}</li>
                   </ol>
-                  <div className="codebuddy-quota-form">
-                    <textarea
-                      className="token-input"
-                      value={quotaQueryForm.cookieHeader}
-                      onChange={(e) => setQuotaQueryField('cookieHeader', e.target.value)}
-                      placeholder={t('codebuddy.quotaQuery.placeholders.cookieHeader', '粘贴 get-user-resource 的 cURL 命令')}
-                    />
-                  </div>
                 </div>
                 {quotaQueryAccount && (
                   <p className="oauth-hint">
@@ -942,35 +688,17 @@ export function CodebuddyAccountsPage() {
                     })}
                   </p>
                 )}
-                {quotaQueryModalError && (
-                  <div className="add-status error">
-                    <CircleAlert size={16} />
-                    <span>{quotaQueryModalError}</span>
-                  </div>
-                )}
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={closeQuotaQueryModal} disabled={quotaQuerySubmitting || quotaBindingClearing}>
+                  <button className="btn btn-secondary" onClick={closeQuotaQueryModal}>
                     {t('common.cancel', '取消')}
                   </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={handleClearQuotaBinding}
-                    disabled={!quotaQueryHasBinding || quotaQuerySubmitting || quotaBindingClearing}
-                  >
-                    {quotaBindingClearing ? (
-                      <RefreshCw size={16} className="loading-spinner" />
-                    ) : (
-                      <Trash2 size={16} />
-                    )}
-                    {t('codebuddy.quotaQuery.clearBinding', '清除绑定')}
+                  <button className="btn btn-secondary" onClick={handleCopyQuotaUsageUrl}>
+                    <Copy size={16} />
+                    {t('common.copy', '复制')}
                   </button>
-                  <button className="btn btn-primary" onClick={handleSubmitQuotaQuery} disabled={quotaQuerySubmitting || quotaBindingClearing}>
-                    {quotaQuerySubmitting ? (
-                      <RefreshCw size={16} className="loading-spinner" />
-                    ) : (
-                      <Database size={16} />
-                    )}
-                    {t('codebuddy.quotaQuery.submit', '绑定并查询')}
+                  <button className="btn btn-primary" onClick={handleOpenQuotaUsageUrl}>
+                    <Globe size={16} />
+                    {t('common.shared.oauth.openBrowser', '在浏览器中打开')}
                   </button>
                 </div>
               </div>

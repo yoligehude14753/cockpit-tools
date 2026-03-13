@@ -1,9 +1,13 @@
 use base64::Engine;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::io::ErrorKind;
+use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
+use url::Url;
 
 use crate::models::kiro::{KiroAccount, KiroOAuthCompletePayload, KiroOAuthStartResponse};
 use crate::modules::{kiro_account, logger};
@@ -17,11 +21,12 @@ const KIRO_ACCOUNT_STATUS_BANNED: &str = "banned";
 const KIRO_ACCOUNT_STATUS_ERROR: &str = "error";
 const OAUTH_TIMEOUT_SECONDS: u64 = 600;
 const OAUTH_POLL_INTERVAL_MS: u64 = 250;
+const OAUTH_STATE_FILE: &str = "kiro_oauth_pending.json";
 const CALLBACK_PORT_CANDIDATES: [u16; 10] = [
     3128, 4649, 6588, 8008, 9091, 49153, 50153, 51153, 52153, 53153,
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct OAuthCallbackData {
     login_option: String,
     code: Option<String>,
@@ -34,7 +39,7 @@ struct OAuthCallbackData {
     audience: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct PendingOAuthState {
     login_id: String,
     expires_at: i64,
@@ -53,6 +58,110 @@ lazy_static::lazy_static! {
 
 fn now_timestamp() -> i64 {
     chrono::Utc::now().timestamp()
+}
+
+fn load_pending_login_from_disk() -> Option<PendingOAuthState> {
+    match crate::modules::oauth_pending_state::load::<PendingOAuthState>(OAUTH_STATE_FILE) {
+        Ok(Some(state)) => {
+            if state.expires_at <= now_timestamp() {
+                let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+                None
+            } else {
+                Some(state)
+            }
+        }
+        Ok(None) => None,
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Kiro OAuth] 读取持久化登录状态失败，已忽略: {}",
+                err
+            ));
+            let _ = crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE);
+            None
+        }
+    }
+}
+
+fn persist_pending_login(state: Option<&PendingOAuthState>) {
+    let result = match state {
+        Some(value) => crate::modules::oauth_pending_state::save(OAUTH_STATE_FILE, value),
+        None => crate::modules::oauth_pending_state::clear(OAUTH_STATE_FILE),
+    };
+    if let Err(err) = result {
+        logger::log_warn(&format!(
+            "[Kiro OAuth] 持久化登录状态失败，已忽略: {}",
+            err
+        ));
+    }
+}
+
+fn hydrate_pending_login_if_missing() {
+    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+        if guard.is_none() {
+            *guard = load_pending_login_from_disk();
+        }
+    }
+}
+
+fn set_pending_login(state: Option<PendingOAuthState>) {
+    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+        *guard = state.clone();
+    }
+    persist_pending_login(state.as_ref());
+}
+
+fn ensure_callback_server_for_state(state: &PendingOAuthState) {
+    if state.expires_at <= now_timestamp() {
+        set_pending_login(None);
+        return;
+    }
+    if state.callback_result.is_some() {
+        return;
+    }
+
+    match TcpListener::bind(("127.0.0.1", state.callback_port)) {
+        Ok(listener) => {
+            drop(listener);
+            let expected_login_id = state.login_id.clone();
+            let expected_state = state.state_token.clone();
+            let callback_port = state.callback_port;
+            tokio::spawn(async move {
+                if let Err(err) = start_callback_server(
+                    callback_port,
+                    expected_login_id.clone(),
+                    expected_state.clone(),
+                )
+                .await
+                {
+                    logger::log_error(&format!(
+                        "[Kiro OAuth] 回调服务恢复失败: login_id={}, error={}",
+                        expected_login_id, err
+                    ));
+                    set_callback_result_for_login(
+                        &expected_login_id,
+                        &expected_state,
+                        Err(format!("本地回调服务异常: {}", err)),
+                    );
+                }
+            });
+            logger::log_info(&format!(
+                "[Kiro OAuth] 已恢复本地回调服务: login_id={}, port={}",
+                state.login_id, state.callback_port
+            ));
+        }
+        Err(err) if err.kind() == ErrorKind::AddrInUse => {
+            logger::log_info(&format!(
+                "[Kiro OAuth] 本地回调端口已占用，视为监听中: login_id={}, port={}",
+                state.login_id, state.callback_port
+            ));
+        }
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Kiro OAuth] 本地回调恢复失败: login_id={}, port={}, error={}",
+                state.login_id, state.callback_port, err
+            ));
+        }
+    }
 }
 
 fn generate_token() -> String {
@@ -322,6 +431,32 @@ fn parse_query_params(query: &str) -> HashMap<String, String> {
         .collect()
 }
 
+fn parse_callback_url(raw_callback_url: &str, callback_port: u16) -> Result<Url, String> {
+    let trimmed = raw_callback_url.trim();
+    if trimmed.is_empty() {
+        return Err("回调链接不能为空".to_string());
+    }
+
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return Url::parse(trimmed).map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    if trimmed.starts_with('/') {
+        return Url::parse(format!("http://localhost:{}{}", callback_port, trimmed).as_str())
+            .map_err(|e| format!("回调链接格式无效: {}", e));
+    }
+
+    Url::parse(
+        format!(
+            "http://localhost:{}/oauth/callback?{}",
+            callback_port,
+            trimmed.trim_start_matches('?')
+        )
+        .as_str(),
+    )
+    .map_err(|e| format!("回调链接格式无效: {}", e))
+}
+
 fn auth_success_redirect_url() -> String {
     format!(
         "{}?auth_status=success&redirect_from=KiroIDE",
@@ -396,6 +531,7 @@ fn set_callback_result_for_login(
         if let Some(state) = guard.as_mut() {
             if state.login_id == expected_login_id && state.state_token == expected_state {
                 state.callback_result = Some(result);
+                persist_pending_login(Some(state));
             }
         }
     }
@@ -1763,9 +1899,11 @@ pub async fn refresh_payload_for_account(
 }
 
 pub async fn start_login() -> Result<KiroOAuthStartResponse, String> {
-    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
+    hydrate_pending_login_if_missing();
+    if let Ok(guard) = PENDING_OAUTH_STATE.lock() {
         if let Some(state) = guard.as_ref() {
             if state.expires_at > now_timestamp() && state.callback_result.is_none() {
+                ensure_callback_server_for_state(state);
                 return Ok(KiroOAuthStartResponse {
                     login_id: state.login_id.clone(),
                     user_code: String::new(),
@@ -1776,9 +1914,9 @@ pub async fn start_login() -> Result<KiroOAuthStartResponse, String> {
                     callback_url: Some(state.callback_url.clone()),
                 });
             }
-            *guard = None;
         }
     }
+    set_pending_login(None);
 
     let callback_port = find_available_callback_port()?;
     let callback_url = format!("http://localhost:{}", callback_port);
@@ -1804,9 +1942,7 @@ pub async fn start_login() -> Result<KiroOAuthStartResponse, String> {
         callback_result: None,
     };
 
-    if let Ok(mut guard) = PENDING_OAUTH_STATE.lock() {
-        *guard = Some(pending.clone());
-    }
+    set_pending_login(Some(pending.clone()));
 
     let expected_login_id = pending.login_id.clone();
     let expected_state = state_token.clone();
@@ -1848,6 +1984,7 @@ pub async fn start_login() -> Result<KiroOAuthStartResponse, String> {
 }
 
 pub async fn complete_login(login_id: &str) -> Result<KiroOAuthCompletePayload, String> {
+    hydrate_pending_login_if_missing();
     loop {
         let state = {
             let guard = PENDING_OAUTH_STATE
@@ -1895,20 +2032,130 @@ pub async fn complete_login(login_id: &str) -> Result<KiroOAuthCompletePayload, 
 }
 
 pub fn cancel_login(login_id: Option<&str>) -> Result<(), String> {
-    let mut state = PENDING_OAUTH_STATE
+    hydrate_pending_login_if_missing();
+    let current = PENDING_OAUTH_STATE
         .lock()
-        .map_err(|_| "OAuth 状态锁不可用".to_string())?;
+        .map_err(|_| "OAuth 状态锁不可用".to_string())?
+        .as_ref()
+        .cloned();
 
-    match (state.as_ref(), login_id) {
-        (Some(current), Some(input)) if current.login_id != input => {
+    match (current.as_ref(), login_id) {
+        (Some(state), Some(input)) if state.login_id != input => {
             return Err("登录会话不匹配，取消失败".to_string());
         }
         (Some(_), _) => {
-            *state = None;
+            set_pending_login(None);
         }
         (None, _) => {}
     }
     Ok(())
+}
+
+pub fn submit_callback_url(login_id: &str, callback_url: &str) -> Result<(), String> {
+    hydrate_pending_login_if_missing();
+    let (expected_state, callback_port, expires_at) = {
+        let guard = PENDING_OAUTH_STATE
+            .lock()
+            .map_err(|_| "OAuth 状态锁不可用".to_string())?;
+        let state = guard
+            .as_ref()
+            .ok_or_else(|| "登录流程已取消，请重新发起授权".to_string())?;
+        if state.login_id != login_id {
+            return Err("登录会话已变更，请刷新后重试".to_string());
+        }
+        (
+            state.state_token.clone(),
+            state.callback_port,
+            state.expires_at,
+        )
+    };
+
+    if expires_at <= now_timestamp() {
+        return Err("等待 Kiro 登录超时，请重新发起授权".to_string());
+    }
+
+    let parsed = parse_callback_url(callback_url, callback_port)?;
+    let path = parsed.path();
+    if path != "/oauth/callback" && path != "/signin/callback" {
+        return Err("回调链接路径无效，必须为 /oauth/callback 或 /signin/callback".to_string());
+    }
+
+    let params = parse_query_params(parsed.query().unwrap_or_default());
+    let error_code = params.get("error").cloned();
+    let error_description = params
+        .get("error_description")
+        .cloned()
+        .unwrap_or_else(String::new);
+    if let Some(error_code) = error_code {
+        let message = if error_description.trim().is_empty() {
+            format!("授权失败: {}", error_code)
+        } else {
+            format!("授权失败: {} ({})", error_code, error_description)
+        };
+        set_callback_result_for_login(login_id, &expected_state, Err(message.clone()));
+        return Err(message);
+    }
+
+    let callback_state = params.get("state").cloned().unwrap_or_default();
+    if callback_state.is_empty() || callback_state != expected_state {
+        return Err("授权状态校验失败，请确认粘贴的是当前登录会话链接".to_string());
+    }
+
+    let login_option = params
+        .get("login_option")
+        .or_else(|| params.get("loginOption"))
+        .and_then(|value| normalize_non_empty(Some(value.as_str())))
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    let callback = OAuthCallbackData {
+        login_option,
+        code: params
+            .get("code")
+            .and_then(|value| normalize_non_empty(Some(value.as_str()))),
+        issuer_url: params
+            .get("issuer_url")
+            .or_else(|| params.get("issuerUrl"))
+            .and_then(|value| normalize_non_empty(Some(value.as_str()))),
+        idc_region: params
+            .get("idc_region")
+            .or_else(|| params.get("idcRegion"))
+            .and_then(|value| normalize_non_empty(Some(value.as_str()))),
+        path: path.to_string(),
+        client_id: params
+            .get("client_id")
+            .or_else(|| params.get("clientId"))
+            .and_then(|value| normalize_non_empty(Some(value.as_str()))),
+        scopes: params
+            .get("scopes")
+            .or_else(|| params.get("scope"))
+            .and_then(|value| normalize_non_empty(Some(value.as_str()))),
+        login_hint: params
+            .get("login_hint")
+            .or_else(|| params.get("loginHint"))
+            .and_then(|value| normalize_non_empty(Some(value.as_str()))),
+        audience: params
+            .get("audience")
+            .and_then(|value| normalize_non_empty(Some(value.as_str()))),
+    };
+
+    set_callback_result_for_login(login_id, &expected_state, Ok(callback));
+    logger::log_info(&format!(
+        "[Kiro OAuth] 已接收手动回调链接: login_id={}",
+        login_id
+    ));
+    Ok(())
+}
+
+pub fn restore_pending_oauth_listener() {
+    hydrate_pending_login_if_missing();
+    let pending = PENDING_OAUTH_STATE
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned());
+    if let Some(state) = pending {
+        ensure_callback_server_for_state(&state);
+    }
 }
 
 pub async fn build_payload_from_token(token: &str) -> Result<KiroOAuthCompletePayload, String> {

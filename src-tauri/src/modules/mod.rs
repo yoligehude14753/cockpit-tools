@@ -1,6 +1,9 @@
 pub mod account;
 pub mod announcement;
 pub mod codebuddy_account;
+pub mod codebuddy_cn_account;
+pub mod codebuddy_cn_instance;
+pub mod codebuddy_cn_oauth;
 pub mod codebuddy_instance;
 pub mod codebuddy_oauth;
 pub mod codex_account;
@@ -31,6 +34,7 @@ pub mod kiro_oauth;
 pub mod linux_updater;
 pub mod logger;
 pub mod oauth;
+pub mod oauth_pending_state;
 pub mod oauth_server;
 pub mod opencode_auth;
 pub mod process;

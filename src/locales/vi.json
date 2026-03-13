@@ -79,7 +79,9 @@
         "preparing": "Đang chuẩn bị liên kết ủy quyền...",
         "retry": "Tạo lại thông tin ủy quyền",
         "timeoutRetry": "Làm mới liên kết ủy quyền",
-        "waiting": "Đang chờ ủy quyền..."
+        "waiting": "Đang chờ ủy quyền...",
+        "manualCallbackLabel": "Nhập URL callback thủ công",
+        "manualCallbackPlaceholder": "Dán đầy đủ URL callback, ví dụ: http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "Làm mới tất cả",
       "refreshQuota": "Làm mới hạn mức",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Tài khoản Antigravity",
+    "overview": "Antigravity",
     "accounts": "Quản lý tài khoản",
     "wakeup": "Wakeup Tasks",
     "fingerprints": "Vân tay thiết bị",
     "settings": "Cài đặt",
-    "codex": "Tài khoản Codex",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "Bảng điều khiển",
@@ -169,10 +171,11 @@
       "restart": "Khởi động lại",
       "installing": "Đang cài đặt"
     },
-    "gemini": "Tài khoản Gemini Cli",
-    "codebuddy": "Tài khoản CodeBuddy",
-    "qoder": "Tài khoản Qoder",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "Bố cục nền tảng",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Cài đặt Trae",
       "appPath": "Đường dẫn Trae"
+    },
+    "codebuddyCn": {
+      "appPath": "Đường dẫn CodeBuddy CN"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Định dạng Status không hợp lệ. Hãy dùng các số cách nhau bằng dấu phẩy.",
         "pageInvalid": "Giá trị phân trang không hợp lệ. Vui lòng nhập số lớn hơn 0.",
         "fullCurlRequired": "Chỉ hỗ trợ lệnh cURL đầy đủ. Hãy dùng \"Copy as cURL (bash)\" cho yêu cầu get-user-resource trong Network và dán nguyên văn."
-      }
+      },
+      "webOnlyHint": "Vui lòng xem hạn mức trên trang web"
     },
     "extraCredit": {
       "title": "Gói cộng thêm"
@@ -2224,6 +2231,29 @@
       "desc": "Ho tro dang nhap OAuth chinh thuc, nhap cuc bo, nhap JSON va chuyen tai khoan bang cach tiem du lieu cuc bo. Khi chuyen tai khoan, du lieu duoc ghi lai theo dung quy tac luu tru thuc te cua Trae client.",
       "permission": "Pham vi quyen: doc va ghi cac truong lien quan den dang nhap trong storage.json cuc bo cua Trae de phuc vu viec nhap tai khoan, tiem chuyen tai khoan va hien thi goi. Moi du lieu deu duoc xu ly cuc bo tren may cua ban.",
       "network": "Pham vi mang: dang nhap OAuth, lam moi token va truy van goi se goi cac API chinh thuc cua Trae. Tep tai khoan cuc bo va noi dung luu tru thuan khong duoc tai len dich vu ben thu ba."
+    }
+  },
+  "codebuddyCn": {
+    "title": "Quản lý tài khoản CodeBuddy CN",
+    "noAccounts": "Chưa có tài khoản CodeBuddy CN",
+    "addAccount": "Thêm tài khoản CodeBuddy CN",
+    "search": "Tìm kiếm tài khoản CodeBuddy CN...",
+    "oauthDesc": "Bấm nút bên dưới để mở trang ủy quyền CodeBuddy CN trong trình duyệt.",
+    "tokenDesc": "Dán access token của CodeBuddy CN:",
+    "flowNotice": {
+      "title": "Hướng dẫn quản lý tài khoản CodeBuddy CN (bấm để mở rộng/thu gọn)",
+      "desc": "Khi chuyển tài khoản, ứng dụng cần đọc vùng lưu xác thực cục bộ của CodeBuddy CN và gọi dịch vụ chứng thực hệ thống để giải mã/mã hóa lại. Dữ liệu chỉ được xử lý cục bộ.",
+      "permission": "Phạm vi quyền: đọc cơ sở dữ liệu xác thực CodeBuddy CN (state.vscdb), gọi khả năng chứng thực hệ thống (macOS Keychain / Windows DPAPI / Linux Secret Service) để giải mã và ghi lại.",
+      "network": "Phạm vi mạng: đăng nhập OAuth và làm mới Token cần gửi yêu cầu đến codebuddy.cn / copilot.tencent.com; truy vấn hạn ngạch sẽ gọi API tính phí. Không tải lên khóa hoặc thông tin xác thực cục bộ."
+    },
+    "import": {
+      "localDesc": "Hỗ trợ nhập dữ liệu tài khoản từ ứng dụng CodeBuddy CN cục bộ hoặc từ tệp JSON.",
+      "localClient": "Nhập từ CodeBuddy CN cục bộ"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "Phiên bản đa phiên bản CodeBuddy CN chỉ được hỗ trợ trên macOS, Windows và Linux."
+      }
     }
   }
 }

@@ -8,6 +8,7 @@ import { useKiroAccountStore } from '../stores/useKiroAccountStore';
 import { useCursorAccountStore } from '../stores/useCursorAccountStore';
 import { useGeminiAccountStore } from '../stores/useGeminiAccountStore';
 import { useCodebuddyAccountStore } from '../stores/useCodebuddyAccountStore';
+import { useCodebuddyCnAccountStore } from '../stores/useCodebuddyCnAccountStore';
 import { useQoderAccountStore } from '../stores/useQoderAccountStore';
 import { useTraeAccountStore } from '../stores/useTraeAccountStore';
 import { usePlatformLayoutStore } from '../stores/usePlatformLayoutStore';
@@ -21,6 +22,7 @@ import {
   getCodebuddyPlanBadgeClass,
   getCodebuddyResourceSummary,
   getCodebuddyExtraCreditSummary,
+  getCodebuddyUsage,
 } from '../types/codebuddy';
 import {
   QoderAccount,
@@ -89,6 +91,7 @@ const KIRO_CURRENT_ACCOUNT_ID_KEY = 'agtools.kiro.current_account_id';
 const CURSOR_CURRENT_ACCOUNT_ID_KEY = 'agtools.cursor.current_account_id';
 const GEMINI_CURRENT_ACCOUNT_ID_KEY = 'agtools.gemini.current_account_id';
 const CODEBUDDY_CURRENT_ACCOUNT_ID_KEY = 'agtools.codebuddy.current_account_id';
+const CODEBUDDY_CN_CURRENT_ACCOUNT_ID_KEY = 'agtools.codebuddycn.current_account_id';
 const QODER_CURRENT_ACCOUNT_ID_KEY = 'agtools.qoder.current_account_id';
 const TRAE_CURRENT_ACCOUNT_ID_KEY = 'agtools.trae.current_account_id';
 const DASHBOARD_DEFERRED_PREFETCH_DELAY_MS = 1200;
@@ -99,7 +102,7 @@ function toFiniteNumber(value: number | null | undefined): number | null {
 }
 
 export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTriggerClick }: DashboardPageProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { orderedPlatformIds, hiddenPlatformIds } = usePlatformLayoutStore();
   const visiblePlatformOrder = useMemo(
     () => orderedPlatformIds.filter((platformId) => !hiddenPlatformIds.includes(platformId)),
@@ -196,6 +199,12 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
   } = useCodebuddyAccountStore();
 
   const {
+    accounts: codebuddyCnAccounts,
+    fetchAccounts: fetchCodebuddyCnAccounts,
+    switchAccount: switchCodebuddyCnAccount,
+  } = useCodebuddyCnAccountStore();
+
+  const {
     accounts: qoderAccounts,
     fetchAccounts: fetchQoderAccounts,
     switchAccount: switchQoderAccount,
@@ -253,6 +262,7 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
         fetchCursorAccounts(),
         fetchGeminiAccounts(),
         fetchCodebuddyAccounts(),
+        fetchCodebuddyCnAccounts(),
         fetchQoderAccounts(),
         fetchTraeAccounts(),
       ]);
@@ -285,6 +295,7 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
         cursorAccounts.length +
         geminiAccounts.length +
         codebuddyAccounts.length +
+        codebuddyCnAccounts.length +
         qoderAccounts.length +
         traeAccounts.length,
       antigravity: agAccounts.length,
@@ -295,10 +306,11 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
       cursor: cursorAccounts.length,
       gemini: geminiAccounts.length,
       codebuddy: codebuddyAccounts.length,
+      codebuddy_cn: codebuddyCnAccounts.length,
       qoder: qoderAccounts.length,
       trae: traeAccounts.length,
     };
-  }, [agAccounts, codexAccounts, githubCopilotAccounts, windsurfAccounts, kiroAccounts, cursorAccounts, geminiAccounts, codebuddyAccounts, qoderAccounts, traeAccounts]);
+  }, [agAccounts, codexAccounts, githubCopilotAccounts, windsurfAccounts, kiroAccounts, cursorAccounts, geminiAccounts, codebuddyAccounts, codebuddyCnAccounts, qoderAccounts, traeAccounts]);
 
   // Refresh States
   const [refreshing, setRefreshing] = React.useState<Set<string>>(new Set());
@@ -345,6 +357,13 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
       return null;
     }
   });
+  const [codebuddyCnCurrentId, setCodebuddyCnCurrentId] = React.useState<string | null>(() => {
+    try {
+      return localStorage.getItem(CODEBUDDY_CN_CURRENT_ACCOUNT_ID_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [qoderCurrentId, setQoderCurrentId] = React.useState<string | null>(() => {
     try {
       return localStorage.getItem(QODER_CURRENT_ACCOUNT_ID_KEY);
@@ -368,6 +387,7 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     cursor: boolean;
     gemini: boolean;
     codebuddy: boolean;
+    codebuddyCn: boolean;
     qoder: boolean;
     trae: boolean;
   }>({
@@ -379,6 +399,7 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     cursor: false,
     gemini: false,
     codebuddy: false,
+    codebuddyCn: false,
     qoder: false,
     trae: false,
   });
@@ -707,6 +728,22 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     }
   };
 
+  const handleRefreshCodebuddyCn = async (accountId: string) => {
+    if (refreshing.has(accountId)) return;
+    setRefreshing((prev) => new Set(prev).add(accountId));
+    try {
+      await useCodebuddyCnAccountStore.getState().refreshToken(accountId);
+    } catch (error) {
+      console.error('Refresh failed:', error);
+    } finally {
+      setRefreshing((prev) => {
+        const next = new Set(prev);
+        next.delete(accountId);
+        return next;
+      });
+    }
+  };
+
   const handleRefreshQoder = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
@@ -754,6 +791,21 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     }
   };
 
+  const handleRefreshCodebuddyCnCard = async () => {
+    if (cardRefreshing.codebuddyCn) return;
+    setCardRefreshing((prev) => ({ ...prev, codebuddyCn: true }));
+    const idsToRefresh = [codebuddyCnCurrent?.id, codebuddyCnRecommended?.id].filter(Boolean) as string[];
+    try {
+      for (const id of idsToRefresh) {
+        await useCodebuddyCnAccountStore.getState().refreshToken(id);
+      }
+    } catch (error) {
+      console.error('Card refresh failed:', error);
+    } finally {
+      setCardRefreshing((prev) => ({ ...prev, codebuddyCn: false }));
+    }
+  };
+
   const handleRefreshQoderCard = async () => {
     if (cardRefreshing.qoder) return;
     setCardRefreshing((prev) => ({ ...prev, qoder: true }));
@@ -791,6 +843,24 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
       await switchCodebuddyAccount(accountId);
       setCodebuddyCurrentId(accountId);
       localStorage.setItem(CODEBUDDY_CURRENT_ACCOUNT_ID_KEY, accountId);
+    } catch (error) {
+      console.error('Switch failed:', error);
+    } finally {
+      setSwitching((prev) => {
+        const next = new Set(prev);
+        next.delete(accountId);
+        return next;
+      });
+    }
+  };
+
+  const handleSwitchCodebuddyCn = async (accountId: string) => {
+    if (switching.has(accountId)) return;
+    setSwitching((prev) => new Set(prev).add(accountId));
+    try {
+      await switchCodebuddyCnAccount(accountId);
+      setCodebuddyCnCurrentId(accountId);
+      localStorage.setItem(CODEBUDDY_CN_CURRENT_ACCOUNT_ID_KEY, accountId);
     } catch (error) {
       console.error('Switch failed:', error);
     } finally {
@@ -1003,6 +1073,19 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     });
   }, [codebuddyAccounts, codebuddyCurrentId]);
 
+  const codebuddyCnCurrent = useMemo(() => {
+    if (codebuddyCnAccounts.length === 0) return null;
+    if (codebuddyCnCurrentId) {
+      const current = codebuddyCnAccounts.find((account) => account.id === codebuddyCnCurrentId);
+      if (current) return current;
+    }
+    return codebuddyCnAccounts.reduce((prev, curr) => {
+      const prevScore = prev.last_used || prev.created_at || 0;
+      const currScore = curr.last_used || curr.created_at || 0;
+      return currScore > prevScore ? curr : prev;
+    });
+  }, [codebuddyCnAccounts, codebuddyCnCurrentId]);
+
   const qoderCurrent = useMemo(() => {
     if (qoderAccounts.length === 0) return null;
     if (qoderCurrentId) {
@@ -1036,6 +1119,14 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     setCodebuddyCurrentId(null);
     localStorage.removeItem(CODEBUDDY_CURRENT_ACCOUNT_ID_KEY);
   }, [codebuddyAccounts, codebuddyCurrentId]);
+
+  React.useEffect(() => {
+    if (!codebuddyCnCurrentId) return;
+    const exists = codebuddyCnAccounts.some((account) => account.id === codebuddyCnCurrentId);
+    if (exists) return;
+    setCodebuddyCnCurrentId(null);
+    localStorage.removeItem(CODEBUDDY_CN_CURRENT_ACCOUNT_ID_KEY);
+  }, [codebuddyCnAccounts, codebuddyCnCurrentId]);
 
   React.useEffect(() => {
     if (!qoderCurrentId) return;
@@ -1253,6 +1344,32 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
   }, [codebuddyAccounts, codebuddyCurrent?.id]);
+
+  const codebuddyCnRecommended = useMemo(() => {
+    if (codebuddyCnAccounts.length <= 1) return null;
+    const currentId = codebuddyCnCurrent?.id;
+    const others = codebuddyCnAccounts.filter((a) => a.id !== currentId);
+    if (others.length === 0) return null;
+
+    const getScore = (account: CodebuddyAccount) => {
+      const resource = getCodebuddyResourceSummary(account);
+      const extra = getCodebuddyExtraCreditSummary(account);
+      const remain = resource?.remainPercent ?? (extra.remainPercent ?? -1);
+      return {
+        remainPercent: remain,
+        freshness: account.last_used || account.created_at || 0,
+      };
+    };
+
+    return others.reduce((best, candidate) => {
+      const bestScore = getScore(best);
+      const candidateScore = getScore(candidate);
+      if (candidateScore.remainPercent !== bestScore.remainPercent) {
+        return candidateScore.remainPercent > bestScore.remainPercent ? candidate : best;
+      }
+      return candidateScore.freshness > bestScore.freshness ? candidate : best;
+    });
+  }, [codebuddyCnAccounts, codebuddyCnCurrent?.id]);
 
   const qoderRecommended = useMemo(() => {
     if (qoderAccounts.length <= 1) return null;
@@ -1932,17 +2049,18 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     const displayName = getCodebuddyAccountDisplayEmail(account);
     const badge = getCodebuddyPlanBadge(account);
     const badgeClass = getCodebuddyPlanBadgeClass(badge);
-    const resource = getCodebuddyResourceSummary(account);
-    const extra = getCodebuddyExtraCreditSummary(account);
+    const usage = getCodebuddyUsage(account);
     const isRefreshing = refreshing.has(account.id);
     const isSwitching = switching.has(account.id);
-
-    const hasResource = resource != null && resource.remainPercent != null;
-    const hasExtra = extra.total > 0;
-    const remainPercent = hasResource ? Math.round(resource!.remainPercent!) : null;
-    const remainClass = remainPercent != null ? (remainPercent <= 10 ? 'low' : remainPercent <= 30 ? 'medium' : 'high') : '';
-    const extraRemainPercent = hasExtra ? Math.round(extra.remainPercent ?? 0) : null;
-    const extraRemainClass = extraRemainPercent != null ? (extraRemainPercent <= 10 ? 'low' : extraRemainPercent <= 30 ? 'medium' : 'high') : '';
+    const locale = i18n.language || 'zh-CN';
+    const usageStatusText = !usage.dosageNotifyCode
+      ? '--'
+      : usage.isNormal
+        ? t('codebuddy.usageNormal', '正常')
+        : locale.startsWith('zh')
+          ? (usage.dosageNotifyZh || usage.dosageNotifyCode)
+          : (usage.dosageNotifyEn || usage.dosageNotifyCode);
+    const usageStatusClass = !usage.dosageNotifyCode ? '' : (usage.isNormal ? 'high' : 'critical');
 
     return (
       <div className="account-mini-card">
@@ -1956,40 +2074,14 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
         </div>
 
         <div className="account-mini-quotas">
-          {hasResource ? (
-            <div className="mini-quota-row-stacked">
-              <div className="mini-quota-header">
-                <span className="model-name">{resource!.packageName || t('codebuddy.columns.mainQuota', '主配额')}</span>
-                <span className={`model-pct ${remainClass}`}>
-                  {remainPercent}% {t('common.shared.remaining', '剩余')}
-                </span>
-              </div>
-              <div className="mini-progress-track">
-                <div
-                  className={`mini-progress-bar ${remainClass}`}
-                  style={{ width: `${remainPercent}%` }}
-                />
-              </div>
+          <div className="mini-quota-row-stacked">
+            <div className="mini-quota-header">
+              <span className="model-name">{t('codebuddy.usage', '用量状态')}</span>
+              <span className={usageStatusClass ? `model-pct ${usageStatusClass}` : 'no-data-text'}>
+                {usageStatusText}
+              </span>
             </div>
-          ) : (
-            <span className="no-data-text">{t('dashboard.noData', '暂无数据')}</span>
-          )}
-          {hasExtra && (
-            <div className="mini-quota-row-stacked">
-              <div className="mini-quota-header">
-                <span className="model-name">{t('codebuddy.columns.extraCredit', '额外积分')}</span>
-                <span className={`model-pct ${extraRemainClass}`}>
-                  {extra.remain}/{extra.total}
-                </span>
-              </div>
-              <div className="mini-progress-track">
-                <div
-                  className={`mini-progress-bar ${extraRemainClass}`}
-                  style={{ width: `${extraRemainPercent ?? 0}%` }}
-                />
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
         <div className="account-mini-actions icon-only-row">
@@ -2004,6 +2096,69 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
           <button
             className="mini-icon-btn"
             onClick={() => handleSwitchCodebuddy(account.id)}
+            title={t('dashboard.switch', '切换')}
+            disabled={isSwitching}
+          >
+            {isSwitching ? <RotateCw size={14} className="loading-spinner" /> : <Play size={14} />}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCodebuddyCnAccountContent = (account: CodebuddyAccount | null) => {
+    if (!account) return <div className="empty-slot">{t('dashboard.noAccount', '无账号')}</div>;
+
+    const displayName = getCodebuddyAccountDisplayEmail(account);
+    const badge = getCodebuddyPlanBadge(account);
+    const badgeClass = getCodebuddyPlanBadgeClass(badge);
+    const usage = getCodebuddyUsage(account);
+    const isRefreshing = refreshing.has(account.id);
+    const isSwitching = switching.has(account.id);
+    const locale = i18n.language || 'zh-CN';
+    const usageStatusText = !usage.dosageNotifyCode
+      ? '--'
+      : usage.isNormal
+        ? t('codebuddy.usageNormal', '正常')
+        : locale.startsWith('zh')
+          ? (usage.dosageNotifyZh || usage.dosageNotifyCode)
+          : (usage.dosageNotifyEn || usage.dosageNotifyCode);
+    const usageStatusClass = !usage.dosageNotifyCode ? '' : (usage.isNormal ? 'high' : 'critical');
+
+    return (
+      <div className="account-mini-card">
+        <div className="account-mini-header">
+          <div className="account-info-row">
+            <span className="account-email" title={maskAccountText(displayName)}>
+              {maskAccountText(displayName)}
+            </span>
+            <span className={`tier-tag ${badgeClass} raw-value`}>{badge}</span>
+          </div>
+        </div>
+
+        <div className="account-mini-quotas">
+          <div className="mini-quota-row-stacked">
+            <div className="mini-quota-header">
+              <span className="model-name">{t('codebuddy.usage', '用量状态')}</span>
+              <span className={usageStatusClass ? `model-pct ${usageStatusClass}` : 'no-data-text'}>
+                {usageStatusText}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="account-mini-actions icon-only-row">
+          <button
+            className="mini-icon-btn"
+            onClick={() => handleRefreshCodebuddyCn(account.id)}
+            title={t('common.refresh', '刷新')}
+            disabled={isRefreshing || isSwitching}
+          >
+            <RotateCw size={14} className={isRefreshing ? 'loading-spinner' : ''} />
+          </button>
+          <button
+            className="mini-icon-btn"
+            onClick={() => handleSwitchCodebuddyCn(account.id)}
             title={t('dashboard.switch', '切换')}
             disabled={isSwitching}
           >
@@ -2185,6 +2340,7 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
     cursor: stats.cursor,
     gemini: stats.gemini,
     codebuddy: stats.codebuddy,
+    codebuddy_cn: stats.codebuddy_cn,
     qoder: stats.qoder,
     trae: stats.trae,
   };
@@ -2546,6 +2702,50 @@ export function DashboardPage({ onNavigate, onOpenPlatformLayout, onEasterEggTri
           </div>
 
           <button className="card-footer-action" onClick={() => onNavigate('codebuddy')}>
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
+          </button>
+        </div>
+      );
+    }
+
+    if (platformId === 'codebuddy_cn') {
+      return (
+        <div className="main-card windsurf-card" key={platformId}>
+          <div className="main-card-header">
+            <div className="header-title">
+              <CodebuddyIcon style={{ width: 18, height: 18 }} />
+              <h3>{getPlatformLabel(platformId, t)}</h3>
+            </div>
+            <button
+              className="header-action-btn"
+              onClick={handleRefreshCodebuddyCnCard}
+              disabled={cardRefreshing.codebuddyCn}
+              title={t('common.refresh', '刷新')}
+            >
+              <RotateCw size={14} className={cardRefreshing.codebuddyCn ? 'loading-spinner' : ''} />
+              <span>{t('common.refresh', '刷新')}</span>
+            </button>
+          </div>
+
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderCodebuddyCnAccountContent(codebuddyCnCurrent)}
+            </div>
+
+            <div className="split-divider"></div>
+
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {codebuddyCnRecommended ? (
+                renderCodebuddyCnAccountContent(codebuddyCnRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
+            </div>
+          </div>
+
+          <button className="card-footer-action" onClick={() => onNavigate('codebuddy-cn')}>
             {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>

@@ -193,6 +193,14 @@ pub fn gemini_oauth_login_cancel(login_id: Option<String>) -> Result<(), String>
 }
 
 #[tauri::command]
+pub fn gemini_oauth_submit_callback_url(
+    login_id: String,
+    callback_url: String,
+) -> Result<(), String> {
+    gemini_oauth::submit_callback_url(login_id.as_str(), callback_url.as_str())
+}
+
+#[tauri::command]
 pub async fn add_gemini_account_with_token(
     app: AppHandle,
     access_token: String,

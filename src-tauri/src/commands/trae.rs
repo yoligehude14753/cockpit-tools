@@ -25,9 +25,12 @@ pub fn import_trae_from_json(json_content: String) -> Result<Vec<TraeAccount>, S
 }
 
 #[tauri::command]
-pub fn import_trae_from_local() -> Result<Vec<TraeAccount>, String> {
+pub fn import_trae_from_local(app: AppHandle) -> Result<Vec<TraeAccount>, String> {
     match trae_account::import_from_local()? {
-        Some(account) => Ok(vec![account]),
+        Some(account) => {
+            let _ = crate::modules::tray::update_tray_menu(&app);
+            Ok(vec![account])
+        }
         None => Err("未找到本地 Trae 登录信息".to_string()),
     }
 }
@@ -69,6 +72,14 @@ pub fn trae_oauth_login_cancel(login_id: Option<String>) -> Result<(), String> {
         login_id.as_deref().unwrap_or("<none>")
     ));
     trae_oauth::cancel_login(login_id.as_deref())
+}
+
+#[tauri::command]
+pub fn trae_oauth_submit_callback_url(
+    login_id: String,
+    callback_url: String,
+) -> Result<(), String> {
+    trae_oauth::submit_callback_url(login_id.as_str(), callback_url.as_str())
 }
 
 #[tauri::command]

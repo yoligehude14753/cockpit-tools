@@ -25,9 +25,12 @@ pub fn import_qoder_from_json(json_content: String) -> Result<Vec<QoderAccount>,
 }
 
 #[tauri::command]
-pub fn import_qoder_from_local() -> Result<Vec<QoderAccount>, String> {
+pub fn import_qoder_from_local(app: AppHandle) -> Result<Vec<QoderAccount>, String> {
     match qoder_account::import_from_local()? {
-        Some(account) => Ok(vec![account]),
+        Some(account) => {
+            let _ = crate::modules::tray::update_tray_menu(&app);
+            Ok(vec![account])
+        }
         None => Err("未找到本地 Qoder 登录信息".to_string()),
     }
 }

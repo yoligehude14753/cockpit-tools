@@ -79,7 +79,9 @@
         "preparing": "正在準備授權連結...",
         "retry": "重新產生授權資訊",
         "timeoutRetry": "更新授權連結",
-        "waiting": "等待授權中..."
+        "waiting": "等待授權中...",
+        "manualCallbackLabel": "手動輸入回呼網址",
+        "manualCallbackPlaceholder": "貼上完整回呼網址，例如：http://localhost:1455/auth/callback?code=...&state=..."
       },
       "refreshAll": "全部刷新",
       "refreshQuota": "刷新配額",
@@ -152,12 +154,12 @@
     }
   },
   "nav": {
-    "overview": "Antigravity 帳號",
+    "overview": "Antigravity",
     "accounts": "帳號管理",
     "wakeup": "喚醒任務",
     "fingerprints": "裝置指纹",
     "settings": "設定",
-    "codex": "Codex 帳號",
+    "codex": "Codex",
     "githubCopilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "dashboard": "儀表板",
@@ -169,10 +171,11 @@
       "restart": "重新啟動",
       "installing": "安裝中"
     },
-    "gemini": "Gemini Cli 帳號",
-    "codebuddy": "CodeBuddy 帳號",
-    "qoder": "Qoder 帳號",
-    "trae": "Trae"
+    "gemini": "Gemini Cli",
+    "codebuddy": "CodeBuddy",
+    "qoder": "Qoder",
+    "trae": "Trae",
+    "codebuddyCn": "CodeBuddy CN"
   },
   "platformLayout": {
     "title": "平台佈局",
@@ -1425,6 +1428,9 @@
     "trae": {
       "title": "Trae 設定",
       "appPath": "Trae 路徑"
+    },
+    "codebuddyCn": {
+      "appPath": "CodeBuddy CN 路徑"
     }
   },
   "quotaAlert": {
@@ -2110,7 +2116,8 @@
         "statusInvalid": "Status 格式無效，請使用逗號分隔的數字。",
         "pageInvalid": "分頁參數無效，請輸入大於 0 的數字。",
         "fullCurlRequired": "僅支援完整 cURL 指令。請在瀏覽器 Network 對 get-user-resource 使用「Copy as cURL (bash)」後原樣貼上。"
-      }
+      },
+      "webOnlyHint": "配額請在網頁中查看"
     },
     "extraCredit": {
       "title": "加量包"
@@ -2224,6 +2231,29 @@
       "desc": "支援官方 OAuth 授權、本機匯入、JSON 匯入與本地注入切號；切號流程會依 Trae 用戶端的實際落盤規則寫回。",
       "permission": "權限範圍：讀取並寫入本機 Trae 設定目錄中的 storage.json 登入相關欄位，用於帳號匯入、切號注入與方案資訊顯示；所有資料僅在本機處理。",
       "network": "網路範圍：OAuth 登入、權杖刷新與方案查詢會請求 Trae 官方 API；不會將本機帳號檔案或原始儲存內容上傳到第三方服務。"
+    }
+  },
+  "codebuddyCn": {
+    "title": "CodeBuddy CN 帳號管理",
+    "noAccounts": "暫無 CodeBuddy CN 帳號",
+    "addAccount": "新增 CodeBuddy CN 帳號",
+    "search": "搜尋 CodeBuddy CN 帳號...",
+    "oauthDesc": "點擊下方按鈕將在瀏覽器中開啟 CodeBuddy CN 授權頁面。",
+    "tokenDesc": "貼上 CodeBuddy CN 的 access token：",
+    "flowNotice": {
+      "title": "CodeBuddy CN 帳號管理說明（點擊展開/收起）",
+      "desc": "切換帳號需讀取 CodeBuddy CN 本地認證儲存並呼叫系統憑證服務進行解密與重新加密，資料僅在本地處理。",
+      "permission": "權限範圍：讀取 CodeBuddy CN 認證資料庫（state.vscdb），呼叫系統憑證能力（macOS Keychain / Windows DPAPI / Linux Secret Service）進行解密與回寫。",
+      "network": "網路範圍：OAuth 登入與 Token 刷新需連線請求 codebuddy.cn 与 copilot.tencent.com；配額查詢需呼叫計費 API。不會上傳本地金鑰或憑證。"
+    },
+    "import": {
+      "localDesc": "支援從本機 CodeBuddy CN 用戶端或 JSON 檔案匯入帳號資料。",
+      "localClient": "從本機 CodeBuddy CN 匯入"
+    },
+    "instances": {
+      "unsupported": {
+        "descPlatform": "CodeBuddy CN 多執行個體僅在 macOS、Windows 和 Linux 上支援。"
+      }
     }
   }
 }
