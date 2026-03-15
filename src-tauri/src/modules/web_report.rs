@@ -16,6 +16,8 @@ use super::config::PORT_RANGE;
 const MAX_HTTP_REQUEST_BYTES: usize = 32 * 1024;
 const REQUEST_READ_TIMEOUT: Duration = Duration::from_secs(5);
 const AUTH_REFRESH_STALE_THRESHOLD_SECONDS: i64 = 10 * 60;
+const NEXT_AUTH_REFRESH_TRIGGER_LABEL: &str =
+    "Next AuthRefresh trigger time (only trigger if access to this page )";
 
 static ACTUAL_REPORT_PORT: OnceLock<RwLock<Option<u16>>> = OnceLock::new();
 static REPORT_REFRESH_STATE: OnceLock<RwLock<ReportRefreshState>> = OnceLock::new();
@@ -275,6 +277,34 @@ fn format_data_collected_at(meta: &ReportMeta) -> String {
         return meta.data_collected_at.clone();
     };
     format!("{} ({})", meta.data_collected_at, note)
+}
+
+fn format_timestamp_human_local(value: &str) -> String {
+    let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(value) else {
+        return value.to_string();
+    };
+    let local_dt = parsed.with_timezone(&chrono::Local);
+    let local_time = local_dt.format("%Y-%m-%d %H:%M:%S").to_string();
+    let offset = local_dt.format("%:z").to_string();
+    let tz_name = local_dt.format("%Z").to_string();
+    if tz_name.is_empty() {
+        format!("{} {}", local_time, offset)
+    } else {
+        format!("{} {} ({})", local_time, offset, tz_name)
+    }
+}
+
+fn format_data_collected_at_human(meta: &ReportMeta) -> String {
+    let base = format_timestamp_human_local(&meta.data_collected_at);
+    let Some(note) = meta
+        .data_collected_note
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return base;
+    };
+    format!("{} ({})", base, note)
 }
 
 pub async fn start_server() {
@@ -1596,7 +1626,8 @@ fn render_markdown(meta: &ReportMeta, rows: &[ReportRow]) -> String {
         markdown_cell(&meta.data_delayed)
     ));
     output.push_str(&format!(
-        "- Next AuthRefresh trigger time: {}\n",
+        "- {}: {}\n",
+        NEXT_AUTH_REFRESH_TRIGGER_LABEL,
         markdown_cell(&meta.next_auth_refresh_trigger_time)
     ));
     output.push_str(&format!("- Rows: {}\n\n", rows.len()));
@@ -1682,34 +1713,41 @@ fn render_yaml(meta: &ReportMeta, rows: &[ReportRow]) -> String {
 
 fn render_html(meta: &ReportMeta, rows: &[ReportRow]) -> String {
     let now = chrono::Utc::now();
-    let data_collected_at = format_data_collected_at(meta);
+    let generated_at = format_timestamp_human_local(&meta.generated_at);
+    let data_collected_at = format_data_collected_at_human(meta);
     let mut output = String::new();
     output.push_str(
         "<!DOCTYPE html><html><head><meta charset=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>",
     );
     output.push_str("<title>Cockpit Tools Usage Report</title>");
     output.push_str(
-        "<style>body{margin:0;background:#f6f8fb;color:#0f172a;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}main{max-width:1120px;margin:24px auto;padding:0 16px 24px}h1{font-size:22px;margin:0 0 12px}p{margin:4px 0 0;color:#334155}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:16px}th,td{font-size:13px;padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}th{background:#f8fafc;color:#334155;font-weight:600}tr:last-child td{border-bottom:none}.group-even td{background:#ffffff}.group-odd td{background:#f8fafc}.status-disabled{color:#b45309}.status-normal{color:#166534}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}.reset-friendly-col{min-width:240px;width:240px;white-space:nowrap}</style>",
+        "<style>body{margin:0;background:#f6f8fb;color:#0f172a;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}main{max-width:1120px;margin:24px auto;padding:0 16px 24px}h1{font-size:22px;margin:0 0 12px}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:16px}th,td{font-size:13px;padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}th{background:#f8fafc;color:#334155;font-weight:600}tr:last-child td{border-bottom:none}.meta-table{margin-top:0}.meta-key{width:360px;color:#334155;font-weight:600;background:#f8fafc}.group-even td{background:#ffffff}.group-odd td{background:#f8fafc}.status-disabled{color:#b45309}.status-normal{color:#166534}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}.reset-friendly-col{min-width:240px;width:240px;white-space:nowrap}</style>",
     );
     output.push_str("</head><body><main>");
     output.push_str("<h1>Cockpit Tools Usage Report</h1>");
+    output.push_str("<table class=\"meta-table\"><tbody>");
     output.push_str(&format!(
-        "<p>Generated at: <span class=\"mono\">{}</span></p>",
-        html_escape(&meta.generated_at)
+        "<tr><th class=\"meta-key\">Generated at</th><td class=\"mono\">{}</td></tr>",
+        html_escape(&generated_at)
     ));
     output.push_str(&format!(
-        "<p>Data collected at: <span class=\"mono\">{}</span></p>",
+        "<tr><th class=\"meta-key\">Data collected at</th><td class=\"mono\">{}</td></tr>",
         html_escape(&data_collected_at)
     ));
     output.push_str(&format!(
-        "<p>Data delayed: <span class=\"mono\">{}</span></p>",
+        "<tr><th class=\"meta-key\">Data delayed</th><td class=\"mono\">{}</td></tr>",
         html_escape(&meta.data_delayed)
     ));
     output.push_str(&format!(
-        "<p>Next AuthRefresh trigger time: <span class=\"mono\">{}</span></p>",
+        "<tr><th class=\"meta-key\">{}</th><td class=\"mono\">{}</td></tr>",
+        html_escape(NEXT_AUTH_REFRESH_TRIGGER_LABEL),
         html_escape(&meta.next_auth_refresh_trigger_time)
     ));
-    output.push_str(&format!("<p>Rows: {}</p>", rows.len()));
+    output.push_str(&format!(
+        "<tr><th class=\"meta-key\">Rows</th><td class=\"mono\">{}</td></tr>",
+        rows.len()
+    ));
+    output.push_str("</tbody></table>");
     output.push_str("<table><thead><tr><th>Service</th><th>Account</th><th>Metric</th><th>Used</th><th>Remaining</th><th class=\"reset-friendly-col\">Reset Friendly</th><th>Status</th><th>Note</th></tr></thead><tbody>");
 
     let mut previous_group_key = String::new();
