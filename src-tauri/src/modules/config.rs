@@ -680,11 +680,80 @@ static RUNTIME_STATE: OnceLock<RwLock<RuntimeState>> = OnceLock::new();
 
 fn get_runtime_state() -> &'static RwLock<RuntimeState> {
     RUNTIME_STATE.get_or_init(|| {
+        let initial_config = load_user_config().unwrap_or_default();
+        // 让应用内 reqwest 客户端与用户全局代理设置保持一致。
+        sync_global_proxy_env(&initial_config);
         RwLock::new(RuntimeState {
             actual_port: None,
-            user_config: load_user_config().unwrap_or_default(),
+            user_config: initial_config,
         })
     })
+}
+
+const MANAGED_PROXY_SET_KEYS: [&str; 6] = [
+    "http_proxy",
+    "https_proxy",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "all_proxy",
+    "ALL_PROXY",
+];
+
+const MANAGED_PROXY_NO_PROXY_KEYS: [&str; 2] = ["no_proxy", "NO_PROXY"];
+
+fn managed_proxy_env_pairs(config: &UserConfig) -> Vec<(&'static str, String)> {
+    if !config.global_proxy_enabled {
+        return Vec::new();
+    }
+
+    let proxy_url = config.global_proxy_url.trim();
+    if proxy_url.is_empty() {
+        return Vec::new();
+    }
+
+    let mut pairs = Vec::with_capacity(8);
+    for key in MANAGED_PROXY_SET_KEYS {
+        pairs.push((key, proxy_url.to_string()));
+    }
+
+    let no_proxy = config.global_proxy_no_proxy.trim();
+    if !no_proxy.is_empty() {
+        for key in MANAGED_PROXY_NO_PROXY_KEYS {
+            pairs.push((key, no_proxy.to_string()));
+        }
+    }
+
+    pairs
+}
+
+fn clear_managed_proxy_env() {
+    for key in MANAGED_PROXY_SET_KEYS {
+        std::env::remove_var(key);
+    }
+    for key in MANAGED_PROXY_NO_PROXY_KEYS {
+        std::env::remove_var(key);
+    }
+}
+
+pub fn sync_global_proxy_env(config: &UserConfig) {
+    clear_managed_proxy_env();
+
+    let pairs = managed_proxy_env_pairs(config);
+    if pairs.is_empty() {
+        crate::modules::logger::log_info("[Proxy] 应用内全局代理环境已清空");
+        return;
+    }
+
+    let mut applied_keys = Vec::with_capacity(pairs.len());
+    for (key, value) in pairs {
+        std::env::set_var(key, value);
+        applied_keys.push(key);
+    }
+
+    crate::modules::logger::log_info(&format!(
+        "[Proxy] 应用内全局代理环境已同步 keys={}",
+        applied_keys.join(",")
+    ));
 }
 
 /// 获取数据目录路径
@@ -1091,6 +1160,8 @@ pub fn save_user_config(config: &UserConfig) -> Result<(), String> {
     if let Ok(mut state) = get_runtime_state().write() {
         state.user_config = config.clone();
     }
+
+    sync_global_proxy_env(config);
 
     crate::modules::logger::log_info(&format!(
         "[Config] 用户配置已保存: ws_enabled={}, ws_port={}, report_enabled={}, report_port={}",
