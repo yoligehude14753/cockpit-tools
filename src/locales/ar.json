@@ -233,7 +233,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "منصة Zed"
+    "zed": "منصة Zed",
+    "expandSidebar": "توسيع الشريط الجانبي",
+    "collapseSidebar": "طي الشريط الجانبي",
+    "logs": "السجلات",
+    "switchClassicLayoutEntry": "التبديل إلى التخطيط الكلاسيكي",
+    "switchClassicLayoutTitle": "التبديل إلى تخطيط الشريط الجانبي الكلاسيكي",
+    "switchClassicLayoutDesc": "يعرض التخطيط الكلاسيكي جميع عناصر التنقل الخاصة بالمنصات ويدعم طي الشريط الجانبي. يمكنك الرجوع في أي وقت من الإعدادات > عام > تخطيط الشريط الجانبي.",
+    "switchClassicLayoutDontAskAgain": "عدم إظهار هذا التنبيه مرة أخرى",
+    "switchClassicLayoutConfirm": "التبديل الآن"
   },
   "platformLayout": {
     "title": "تخطيط المنصات",
@@ -272,7 +280,9 @@
     "customIconDeleteConfirm": "هل تريد حذف هذه الأيقونة المخصصة؟",
     "editChildPlatform": "تحرير المنصة الفرعية",
     "setAsDefaultInGroup": "تعيينها كمنصة افتراضية في هذه المجموعة",
-    "removeFromGroup": "إزالة من المجموعة"
+    "removeFromGroup": "إزالة من المجموعة",
+    "sidebarSelectedUnlimited": "محدد ({count})",
+    "tipWithGroupsUnlimited": "فرز المنصات والمجموعات المحددة يدوياً"
   },
   "privacy": {
     "hideSensitive": "إخفاء البريد الإلكتروني",
@@ -606,7 +616,11 @@
       "updateReminder": "تذكيرات التحديث",
       "updateReminderDesc": "عند اكتشاف إصدار جديد، اعرض تنبيه التحديث والمدخل السريع في الشريط الجانبي.",
       "updateReminderOff": "إيقاف (بدون تذكيرات)",
-      "updateReminderOn": "تشغيل (إظهار التذكيرات)"
+      "updateReminderOn": "تشغيل (إظهار التذكيرات)",
+      "sideNavLayout": "تخطيط الشريط الجانبي",
+      "sideNavLayoutDesc": "التبديل بين التخطيط الأصلي والكلاسيكي للشريط الجانبي",
+      "sideNavLayoutOriginal": "التخطيط الأصلي",
+      "sideNavLayoutClassic": "التخطيط الكلاسيكي"
     },
     "network": {
       "apiTitle": "واجهة برمجة تطبيقات قمرة القيادة المضادة للجاذبية",

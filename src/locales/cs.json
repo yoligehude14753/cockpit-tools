@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Platforma Zed"
+    "zed": "Platforma Zed",
+    "expandSidebar": "Rozbalit postranní panel",
+    "collapseSidebar": "Sbalit postranní panel",
+    "logs": "Protokoly",
+    "switchClassicLayoutEntry": "Přepnout na klasické rozvržení",
+    "switchClassicLayoutTitle": "Přepnout na klasické rozvržení postranního panelu",
+    "switchClassicLayoutDesc": "Klasické rozvržení zobrazuje celou navigaci platforem a podporuje sbalení postranního panelu. Kdykoli se můžete vrátit v Nastavení > Obecné > Rozvržení postranního panelu.",
+    "switchClassicLayoutDontAskAgain": "Toto upozornění už nezobrazovat",
+    "switchClassicLayoutConfirm": "Přepnout nyní"
   },
   "platformLayout": {
     "title": "Rozložení platforem",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Smazat tuto vlastní ikonu?",
     "editChildPlatform": "Upravit podřízenou platformu",
     "setAsDefaultInGroup": "Nastavit jako výchozí platformu v této skupině",
-    "removeFromGroup": "Odebrat ze skupiny"
+    "removeFromGroup": "Odebrat ze skupiny",
+    "sidebarSelectedUnlimited": "Vybráno ({count})",
+    "tipWithGroupsUnlimited": "Ruční seřazení vybraných platforem a skupin"
   },
   "privacy": {
     "hideSensitive": "Skrýt e-maily",
@@ -560,7 +570,11 @@
       "updateReminder": "Připomenutí aktualizací",
       "updateReminderDesc": "Po zjištění nové verze zobrazit výzvu k aktualizaci a rychlý vstup v postranním panelu.",
       "updateReminderOff": "Vypnuto (bez připomenutí)",
-      "updateReminderOn": "Zapnuto (zobrazovat připomenutí)"
+      "updateReminderOn": "Zapnuto (zobrazovat připomenutí)",
+      "sideNavLayout": "Rozložení postranního panelu",
+      "sideNavLayoutDesc": "Přepnutí mezi původním a klasickým rozložením postranního panelu",
+      "sideNavLayoutOriginal": "Původní rozložení",
+      "sideNavLayoutClassic": "Klasické rozložení"
     },
     "network": {
       "apiTitle": "Antigravity Cockpit API",

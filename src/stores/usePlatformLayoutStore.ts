@@ -78,6 +78,7 @@ interface PlatformLayoutState {
   setHiddenEntry: (id: PlatformLayoutEntryId, hidden: boolean) => void;
   toggleSidebarEntry: (id: PlatformLayoutEntryId) => void;
   setSidebarEntry: (id: PlatformLayoutEntryId, enabled: boolean) => void;
+  syncSidebarEntriesFromDashboard: () => void;
 
   upsertPlatformGroup: (group: PlatformLayoutGroup) => void;
   removePlatformGroup: (groupId: string) => void;
@@ -276,7 +277,7 @@ function normalizeHidden(hidden: PlatformId[]): PlatformId[] {
 
 function normalizeSidebar(sidebar: PlatformId[], hidden: PlatformId[]): PlatformId[] {
   const normalized = sanitizePlatformIds(sidebar).filter((id) => !hidden.includes(id));
-  return normalized.slice(0, 2);
+  return normalized;
 }
 
 function normalizeTray(
@@ -694,8 +695,7 @@ function normalizeSidebarEntryIds(
 ): PlatformLayoutEntryId[] {
   const hiddenSet = new Set(hiddenEntryIds);
   const normalized = normalizeEntryVisibilityList(rawSidebarEntryIds, orderedEntryIds)
-    .filter((entryId) => !hiddenSet.has(entryId))
-    .slice(0, 2);
+    .filter((entryId) => !hiddenSet.has(entryId));
   if (normalized.length > 0) {
     return normalized;
   }
@@ -727,10 +727,10 @@ function normalizeSidebarEntryIds(
   ).filter((entryId) => !hiddenSet.has(entryId));
 
   if (fallback.length > 0) {
-    return fallback.slice(0, 2);
+    return fallback;
   }
 
-  return orderedEntryIds.filter((entryId) => !hiddenSet.has(entryId)).slice(0, 2);
+  return orderedEntryIds.filter((entryId) => !hiddenSet.has(entryId));
 }
 
 function derivePlatformOrderFromEntryOrder(
@@ -811,9 +811,6 @@ function deriveSidebarPlatformIds(
       continue;
     }
     result.push(platformId);
-    if (result.length >= 2) {
-      break;
-    }
   }
   return result;
 }
@@ -1218,10 +1215,8 @@ export const usePlatformLayoutStore = create<PlatformLayoutState>((set, get) => 
 
     if (current.includes(id)) {
       nextSidebar = current.filter((item) => item !== id);
-    } else if (current.length < 2) {
-      nextSidebar = [...current, id];
     } else {
-      return;
+      nextSidebar = [...current, id];
     }
 
     const next = normalizeStateData({
@@ -1244,6 +1239,33 @@ export const usePlatformLayoutStore = create<PlatformLayoutState>((set, get) => 
     const has = get().sidebarEntryIds.includes(id);
     if ((enabled && has) || (!enabled && !has)) return;
     get().toggleSidebarEntry(id);
+  },
+
+  syncSidebarEntriesFromDashboard: () => {
+    const hiddenSet = new Set(get().hiddenEntryIds);
+    const nextSidebarEntries = get().orderedEntryIds.filter((entryId) => !hiddenSet.has(entryId));
+    const currentSidebarEntries = get().sidebarEntryIds;
+    if (
+      currentSidebarEntries.length === nextSidebarEntries.length
+      && currentSidebarEntries.every((entryId, index) => entryId === nextSidebarEntries[index])
+    ) {
+      return;
+    }
+
+    const next = normalizeStateData({
+      orderedPlatformIds: get().orderedPlatformIds,
+      hiddenPlatformIds: get().hiddenPlatformIds,
+      sidebarPlatformIds: get().sidebarPlatformIds,
+      trayPlatformIds: get().trayPlatformIds,
+      traySortMode: get().traySortMode,
+      platformGroups: get().platformGroups,
+      orderedEntryIds: get().orderedEntryIds,
+      hiddenEntryIds: get().hiddenEntryIds,
+      sidebarEntryIds: nextSidebarEntries,
+    });
+
+    set(next);
+    persist(next);
   },
 
   upsertPlatformGroup: (group) => {

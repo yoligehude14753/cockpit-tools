@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Plataforma Zed"
+    "zed": "Plataforma Zed",
+    "expandSidebar": "Expandir barra lateral",
+    "collapseSidebar": "Contraer barra lateral",
+    "logs": "Registros",
+    "switchClassicLayoutEntry": "Cambiar al diseño clásico",
+    "switchClassicLayoutTitle": "Cambiar al diseño clásico de la barra lateral",
+    "switchClassicLayoutDesc": "El diseño clásico muestra toda la navegación de plataformas y permite contraer la barra lateral. Puedes volver en cualquier momento en Configuración > General > Diseño de la barra lateral.",
+    "switchClassicLayoutDontAskAgain": "No volver a mostrar este aviso",
+    "switchClassicLayoutConfirm": "Cambiar ahora"
   },
   "platformLayout": {
     "title": "Diseño de plataformas",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "¿Eliminar este icono personalizado?",
     "editChildPlatform": "Editar subplataforma",
     "setAsDefaultInGroup": "Establecer como plataforma predeterminada de este grupo",
-    "removeFromGroup": "Quitar del grupo"
+    "removeFromGroup": "Quitar del grupo",
+    "sidebarSelectedUnlimited": "Seleccionado ({count})",
+    "tipWithGroupsUnlimited": "Ordene manualmente las plataformas y grupos seleccionados"
   },
   "privacy": {
     "hideSensitive": "Ocultar correos",
@@ -560,7 +570,11 @@
       "updateReminder": "Recordatorios de actualización",
       "updateReminderDesc": "Cuando se detecte una nueva versión, mostrar avisos de actualización y acceso rápido en la barra lateral.",
       "updateReminderOff": "Desactivado (sin recordatorios)",
-      "updateReminderOn": "Activado (mostrar recordatorios)"
+      "updateReminderOn": "Activado (mostrar recordatorios)",
+      "sideNavLayout": "Diseño de la barra lateral",
+      "sideNavLayoutDesc": "Alternar entre el diseño original y clásico de la barra lateral",
+      "sideNavLayoutOriginal": "Diseño original",
+      "sideNavLayoutClassic": "Diseño clásico"
     },
     "network": {
       "apiTitle": "API de cabina antigravedad",

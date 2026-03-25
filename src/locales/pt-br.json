@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Plataforma Zed"
+    "zed": "Plataforma Zed",
+    "expandSidebar": "Expandir barra lateral",
+    "collapseSidebar": "Recolher barra lateral",
+    "logs": "Registros",
+    "switchClassicLayoutEntry": "Mudar para o layout clássico",
+    "switchClassicLayoutTitle": "Mudar para o layout clássico da barra lateral",
+    "switchClassicLayoutDesc": "O layout clássico exibe toda a navegação de plataformas e permite recolher a barra lateral. Você pode voltar a qualquer momento em Configurações > Geral > Layout da barra lateral.",
+    "switchClassicLayoutDontAskAgain": "Não mostrar este aviso novamente",
+    "switchClassicLayoutConfirm": "Mudar agora"
   },
   "platformLayout": {
     "title": "Layout de plataformas",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Excluir este ícone personalizado?",
     "editChildPlatform": "Editar subplataforma",
     "setAsDefaultInGroup": "Definir como plataforma padrão deste grupo",
-    "removeFromGroup": "Remover do grupo"
+    "removeFromGroup": "Remover do grupo",
+    "sidebarSelectedUnlimited": "Selecionado ({count})",
+    "tipWithGroupsUnlimited": "Classifique manualmente as plataformas e grupos selecionados"
   },
   "privacy": {
     "hideSensitive": "Ocultar e-mails",
@@ -560,7 +570,11 @@
       "updateReminder": "Lembretes de atualização",
       "updateReminderDesc": "Quando uma nova versão for detectada, mostrar avisos de atualização e atalho rápido na barra lateral.",
       "updateReminderOff": "Desativado (sem lembretes)",
-      "updateReminderOn": "Ativado (mostrar lembretes)"
+      "updateReminderOn": "Ativado (mostrar lembretes)",
+      "sideNavLayout": "Layout da barra lateral",
+      "sideNavLayoutDesc": "Alternar entre os layouts originais e clássicos da barra lateral",
+      "sideNavLayoutOriginal": "Layout original",
+      "sideNavLayoutClassic": "Layout clássico"
     },
     "network": {
       "apiTitle": "API de cockpit antigravidade",

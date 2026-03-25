@@ -7,6 +7,17 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [0.20.9] - 2026-03-25
+
+### Added
+- **Added a classic sidebar layout mode with full platform navigation, collapsible sidebar width, grouped-entry expansion, and an in-sidebar logs entry**: users can now switch from the compact original rail to a full-height classic navigation shell that supports inline group children and adaptive scaling in constrained window heights.
+
+### Changed
+- **Sidebar layout configuration now supports mode-specific behavior across Settings and platform layout management**: Settings now provides an `Original / Classic` layout selector, first-time entry into classic mode syncs sidebar entries from dashboard visibility, and the platform layout modal now allows unlimited sidebar selections in classic mode while keeping the original mode limit.
+- **Antigravity account quota display groups are now fixed to built-in model families (Claude / Gemini Pro / Gemini Flash)**: account page rendering now uses predefined display groups directly, and no longer depends on manual group-settings configuration.
+- **Documentation now includes Arch Linux AUR installation paths**: README and README.en.md now document both source-built (`cockpit-tools`) and prebuilt (`cockpit-tools-bin`) AUR packages.
+
+---
 ## [0.20.8] - 2026-03-24
 
 ### Fixed

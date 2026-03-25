@@ -21,6 +21,58 @@ export interface DisplayGroup {
   models: string[];
 }
 
+const FIXED_DISPLAY_GROUPS: DisplayGroup[] = [
+  {
+    id: 'claude_45',
+    name: 'Claude',
+    models: [
+      'claude-opus-4-6-thinking',
+      'claude-opus-4-6',
+      'claude-opus-4-5-thinking',
+      'claude-sonnet-4-6',
+      'claude-sonnet-4-6-thinking',
+      'claude-sonnet-4-5',
+      'claude-sonnet-4-5-thinking',
+      'gpt-oss-120b-medium',
+      'MODEL_PLACEHOLDER_M12',
+      'MODEL_PLACEHOLDER_M26',
+      'MODEL_PLACEHOLDER_M35',
+      'MODEL_CLAUDE_4_5_SONNET',
+      'MODEL_CLAUDE_4_5_SONNET_THINKING',
+      'MODEL_OPENAI_GPT_OSS_120B_MEDIUM',
+    ],
+  },
+  {
+    id: 'g3_pro',
+    name: 'Gemini Pro',
+    models: [
+      'gemini-3.1-pro-high',
+      'gemini-3.1-pro-low',
+      'gemini-3-pro-high',
+      'gemini-3-pro-low',
+      'gemini-3-pro-image',
+      'MODEL_PLACEHOLDER_M7',
+      'MODEL_PLACEHOLDER_M8',
+      'MODEL_PLACEHOLDER_M9',
+      'MODEL_PLACEHOLDER_M36',
+      'MODEL_PLACEHOLDER_M37',
+    ],
+  },
+  {
+    id: 'g3_flash',
+    name: 'Gemini Flash',
+    models: [
+      'gemini-3-flash',
+      'gemini-3.1-flash',
+      'gemini-3-flash-image',
+      'gemini-3.1-flash-image',
+      'gemini-3-flash-lite',
+      'gemini-3.1-flash-lite',
+      'MODEL_PLACEHOLDER_M18',
+    ],
+  },
+];
+
 /**
  * 获取完整分组配置
  */
@@ -82,7 +134,11 @@ export async function updateGroupOrder(order: string[]): Promise<void> {
  * 获取显示用分组列表（最多3个）
  */
 export async function getDisplayGroups(): Promise<DisplayGroup[]> {
-  return invoke<DisplayGroup[]>('get_display_groups');
+  return FIXED_DISPLAY_GROUPS.map((group) => ({
+    id: group.id,
+    name: group.name,
+    models: [...group.models],
+  }));
 }
 
 /**

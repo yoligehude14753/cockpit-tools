@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Platforma Zed"
+    "zed": "Platforma Zed",
+    "expandSidebar": "Rozwiń pasek boczny",
+    "collapseSidebar": "Zwiń pasek boczny",
+    "logs": "Dzienniki",
+    "switchClassicLayoutEntry": "Przełącz na klasyczny układ",
+    "switchClassicLayoutTitle": "Przełącz na klasyczny układ paska bocznego",
+    "switchClassicLayoutDesc": "Klasyczny układ pokazuje pełną nawigację platform i obsługuje zwijanie paska bocznego. W każdej chwili możesz wrócić w Ustawienia > Ogólne > Układ paska bocznego.",
+    "switchClassicLayoutDontAskAgain": "Nie pokazuj ponownie tego komunikatu",
+    "switchClassicLayoutConfirm": "Przełącz teraz"
   },
   "platformLayout": {
     "title": "Układ platform",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Usunąć tę niestandardową ikonę?",
     "editChildPlatform": "Edytuj platformę podrzędną",
     "setAsDefaultInGroup": "Ustaw jako domyślną platformę w tej grupie",
-    "removeFromGroup": "Usuń z grupy"
+    "removeFromGroup": "Usuń z grupy",
+    "sidebarSelectedUnlimited": "Wybrano ({count})",
+    "tipWithGroupsUnlimited": "Ręczne sortowanie wybranych platform i grup"
   },
   "privacy": {
     "hideSensitive": "Ukryj e-maile",
@@ -560,7 +570,11 @@
       "updateReminder": "Przypomnienia o aktualizacjach",
       "updateReminderDesc": "Gdy zostanie wykryta nowa wersja, pokazuj monity aktualizacji i szybkie wejście na pasku bocznym.",
       "updateReminderOff": "Wyłączone (bez przypomnień)",
-      "updateReminderOn": "Włączone (pokazuj przypomnienia)"
+      "updateReminderOn": "Włączone (pokazuj przypomnienia)",
+      "sideNavLayout": "Układ paska bocznego",
+      "sideNavLayoutDesc": "Przełącz między oryginalnym a klasycznym układem paska bocznego",
+      "sideNavLayoutOriginal": "Układ oryginalny",
+      "sideNavLayoutClassic": "Układ klasyczny"
     },
     "network": {
       "apiTitle": "API kokpitu antygrawitacyjnego",

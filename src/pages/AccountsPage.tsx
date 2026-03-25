@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import {
   Plus,
   RefreshCw,
-  Download,
   Upload,
   Trash2,
   Rocket,
@@ -24,7 +23,6 @@ import {
   CircleAlert,
   Play,
   RotateCw,
-  Package,
   ArrowDownWideNarrow,
   Rows3,
   GripVertical,
@@ -54,7 +52,6 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { GroupSettingsModal } from '../components/GroupSettingsModal'
 import { TagEditModal } from '../components/TagEditModal'
 import { ExportJsonModal } from '../components/ExportJsonModal'
 import { AccountGroupModal, AddToGroupModal } from '../components/AccountGroupModal'
@@ -382,8 +379,6 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
   // 标签编辑弹窗
   const [showTagModal, setShowTagModal] = useState<string | null>(null)
 
-  // 模型分组管理
-  const [showGroupModal, setShowGroupModal] = useState(false)
   const [displayGroups, setDisplayGroups] = useState<DisplayGroup[]>([])
   const [displayGroupsLoaded, setDisplayGroupsLoaded] = useState(false)
 
@@ -478,29 +473,6 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
     }
     return quotas
   }
-
-  const groupModalModels = useMemo(() => {
-    const modelMap = new Map<string, string | undefined>()
-    for (const account of accounts) {
-      for (const model of account.quota?.models || []) {
-        const modelId = model.name?.trim()
-        if (!modelId) {
-          continue
-        }
-        const displayName = model.display_name?.trim() || undefined
-        const existing = modelMap.get(modelId)
-        if (!existing && displayName) {
-          modelMap.set(modelId, displayName)
-        } else if (!modelMap.has(modelId)) {
-          modelMap.set(modelId, undefined)
-        }
-      }
-    }
-    return Array.from(modelMap.entries()).map(([id, displayName]) => ({
-      id,
-      displayName,
-    }))
-  }, [accounts])
 
   const getQuotaDisplayItems = (account: Account) =>
     getAntigravityQuotaDisplayItems(account, displayGroups)
@@ -838,7 +810,6 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
     loadVerificationHistory()
 
     let unlisten: UnlistenFn | undefined
-    let unlistenGroups: UnlistenFn | undefined
 
     listen<string>('accounts:refresh', async () => {
       await fetchAccounts()
@@ -858,16 +829,8 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
       unlisten = fn
     })
 
-    // 监听分组配置变更
-    listen('group_settings:changed', async () => {
-      await loadDisplayGroups()
-    }).then((fn) => {
-      unlistenGroups = fn
-    })
-
     return () => {
       if (unlisten) unlisten()
-      if (unlistenGroups) unlistenGroups()
     }
   }, [fetchAccounts, fetchCurrentAccount, loadVerificationHistory, refreshQuota])
 
@@ -2920,23 +2883,6 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
               {privacyModeEnabled ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
             <button
-              className="btn btn-secondary icon-only"
-              onClick={() => setShowGroupModal(true)}
-              title={t('group_settings.title', '分组管理')}
-              aria-label={t('group_settings.title', '分组管理')}
-            >
-              <Package size={14} />
-            </button>
-            <button
-              className="btn btn-secondary icon-only"
-              onClick={() => openAddModal('oauth')}
-              disabled={importing}
-              title={t('accounts.import')}
-              aria-label={t('accounts.import')}
-            >
-              <Download size={14} />
-            </button>
-            <button
               className="btn btn-secondary export-btn icon-only"
               onClick={handleExport}
               disabled={exporting || filteredAccounts.length === 0}
@@ -3880,16 +3826,6 @@ export function AccountsPage({ onNavigate }: AccountsPageProps) {
         availableTags={availableTags}
         onClose={() => setShowTagModal(null)}
         onSave={handleSaveTags}
-      />
-
-      {/* 分组管理弹窗 */}
-      <GroupSettingsModal
-        isOpen={showGroupModal}
-        availableModels={groupModalModels}
-        onClose={() => {
-          setShowGroupModal(false)
-          loadDisplayGroups()
-        }}
       />
 
       {/* 账号分组管理弹窗 */}

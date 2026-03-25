@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Zed-Plattform"
+    "zed": "Zed-Plattform",
+    "expandSidebar": "Seitenleiste erweitern",
+    "collapseSidebar": "Seitenleiste einklappen",
+    "logs": "Protokolle",
+    "switchClassicLayoutEntry": "Zur klassischen Ansicht wechseln",
+    "switchClassicLayoutTitle": "Zur klassischen Seitenleisten-Ansicht wechseln",
+    "switchClassicLayoutDesc": "Die klassische Ansicht zeigt die vollständige Plattform-Navigation und unterstützt das Einklappen der Seitenleiste. Du kannst jederzeit unter Einstellungen > Allgemein > Seitenleisten-Layout zurückwechseln.",
+    "switchClassicLayoutDontAskAgain": "Diesen Hinweis nicht erneut anzeigen",
+    "switchClassicLayoutConfirm": "Jetzt wechseln"
   },
   "platformLayout": {
     "title": "Plattformlayout",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Dieses benutzerdefinierte Symbol wirklich löschen?",
     "editChildPlatform": "Unterplattform bearbeiten",
     "setAsDefaultInGroup": "Als Standardplattform in dieser Gruppe festlegen",
-    "removeFromGroup": "Aus Gruppe entfernen"
+    "removeFromGroup": "Aus Gruppe entfernen",
+    "sidebarSelectedUnlimited": "Ausgewählt ({count})",
+    "tipWithGroupsUnlimited": "Ausgewählte Plattformen und Gruppen manuell sortieren"
   },
   "privacy": {
     "hideSensitive": "E-Mails ausblenden",
@@ -560,7 +570,11 @@
       "updateReminder": "Update-Erinnerungen",
       "updateReminderDesc": "Bei neuer Version Update-Hinweise und den Schnellzugriff in der Seitenleiste anzeigen.",
       "updateReminderOff": "Aus (keine Erinnerungen)",
-      "updateReminderOn": "Ein (Erinnerungen anzeigen)"
+      "updateReminderOn": "Ein (Erinnerungen anzeigen)",
+      "sideNavLayout": "Layout der Seitenleiste",
+      "sideNavLayoutDesc": "Wechseln Sie zwischen dem ursprünglichen und dem klassischen Layout der Seitenleiste",
+      "sideNavLayoutOriginal": "Ursprüngliches Layout",
+      "sideNavLayoutClassic": "Klassisches Layout"
     },
     "network": {
       "apiTitle": "Antigravity-Cockpit-API",

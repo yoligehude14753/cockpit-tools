@@ -324,6 +324,18 @@ Or force overwrite the existing app:
 brew install --cask --force cockpit-tools
 ```
 
+### Option C: Arch Linux (AUR)
+
+Install via an AUR helper such as `yay` or `paru`:
+
+```bash
+# Source-built package
+yay -S cockpit-tools
+
+# Prebuilt binary package
+yay -S cockpit-tools-bin
+```
+
 ### 🛠️ Troubleshooting
 
 #### macOS says "App is damaged and can't be opened"?

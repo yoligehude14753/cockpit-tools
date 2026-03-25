@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Zed Platformu"
+    "zed": "Zed Platformu",
+    "expandSidebar": "Kenar çubuğunu genişlet",
+    "collapseSidebar": "Kenar çubuğunu daralt",
+    "logs": "Günlükler",
+    "switchClassicLayoutEntry": "Klasik düzene geç",
+    "switchClassicLayoutTitle": "Klasik kenar çubuğu düzenine geç",
+    "switchClassicLayoutDesc": "Klasik düzen, platform gezinmesinin tamamını gösterir ve kenar çubuğunu daraltmayı destekler. Ayarlar > Genel > Kenar Çubuğu Düzeni bölümünden istediğiniz zaman geri dönebilirsiniz.",
+    "switchClassicLayoutDontAskAgain": "Bu uyarıyı tekrar gösterme",
+    "switchClassicLayoutConfirm": "Şimdi geç"
   },
   "platformLayout": {
     "title": "Platform Düzeni",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Bu özel simge silinsin mi?",
     "editChildPlatform": "Alt platformu düzenle",
     "setAsDefaultInGroup": "Bu grupta varsayılan platform olarak ayarla",
-    "removeFromGroup": "Gruptan kaldır"
+    "removeFromGroup": "Gruptan kaldır",
+    "sidebarSelectedUnlimited": "Seçilen ({count})",
+    "tipWithGroupsUnlimited": "Seçili platformları ve grupları manuel olarak sıralayın"
   },
   "privacy": {
     "hideSensitive": "E-postaları gizle",
@@ -560,7 +570,11 @@
       "updateReminder": "Güncelleme hatırlatmaları",
       "updateReminderDesc": "Yeni sürüm algılandığında güncelleme uyarılarını ve kenar çubuğundaki hızlı girişi göster.",
       "updateReminderOff": "Kapalı (hatırlatma yok)",
-      "updateReminderOn": "Açık (hatırlatmaları göster)"
+      "updateReminderOn": "Açık (hatırlatmaları göster)",
+      "sideNavLayout": "Kenar Çubuğu Düzeni",
+      "sideNavLayoutDesc": "Orijinal ve klasik kenar çubuğu düzenleri arasında geçiş yapın",
+      "sideNavLayoutOriginal": "Orijinal Düzen",
+      "sideNavLayoutClassic": "Klasik Düzen"
     },
     "network": {
       "apiTitle": "Yerçekimine Karşı Kokpit API'si",

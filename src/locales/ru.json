@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Платформа Zed"
+    "zed": "Платформа Zed",
+    "expandSidebar": "Развернуть боковую панель",
+    "collapseSidebar": "Свернуть боковую панель",
+    "logs": "Журналы",
+    "switchClassicLayoutEntry": "Переключить на классический макет",
+    "switchClassicLayoutTitle": "Переключить на классический макет боковой панели",
+    "switchClassicLayoutDesc": "Классический макет показывает полную навигацию по платформам и поддерживает сворачивание боковой панели. Вы можете вернуться в любой момент: Настройки > Общие > Макет боковой панели.",
+    "switchClassicLayoutDontAskAgain": "Больше не показывать это сообщение",
+    "switchClassicLayoutConfirm": "Переключить сейчас"
   },
   "platformLayout": {
     "title": "Макет платформ",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Удалить этот пользовательский значок?",
     "editChildPlatform": "Редактировать дочернюю платформу",
     "setAsDefaultInGroup": "Сделать платформой по умолчанию в этой группе",
-    "removeFromGroup": "Удалить из группы"
+    "removeFromGroup": "Удалить из группы",
+    "sidebarSelectedUnlimited": "Выбрано ({count})",
+    "tipWithGroupsUnlimited": "Сортировать выбранные платформы и группы вручную"
   },
   "privacy": {
     "hideSensitive": "Скрыть e-mail",
@@ -560,7 +570,11 @@
       "updateReminder": "Напоминания об обновлениях",
       "updateReminderDesc": "При обнаружении новой версии показывать подсказки обновления и быстрый вход в боковой панели.",
       "updateReminderOff": "Выключено (без напоминаний)",
-      "updateReminderOn": "Включено (показывать напоминания)"
+      "updateReminderOn": "Включено (показывать напоминания)",
+      "sideNavLayout": "Макет боковой панели",
+      "sideNavLayoutDesc": "Переключение между оригинальным и классическим макетом боковой панели",
+      "sideNavLayoutOriginal": "Оригинальный макет",
+      "sideNavLayoutClassic": "Классический макет"
     },
     "network": {
       "apiTitle": "API антигравитационной кабины",

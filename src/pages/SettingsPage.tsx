@@ -10,6 +10,7 @@ import * as accountService from '../services/accountService';
 import { showFloatingCardWindow } from '../services/floatingCardService';
 import { usePlatformRuntimeSupport } from '../hooks/usePlatformRuntimeSupport';
 import { usePlatformLayoutStore } from '../stores/usePlatformLayoutStore';
+import { SideNavLayoutMode, useSideNavLayoutStore } from '../stores/useSideNavLayoutStore';
 import { ALL_PLATFORM_IDS, PlatformId } from '../types/platform';
 import { SettingsAccountTransferSection } from '../components/SettingsAccountTransferSection';
 import './settings/Settings.css';
@@ -152,6 +153,8 @@ const generateReportToken = () => {
 export function SettingsPage() {
   const { t } = useTranslation();
   const isMacOS = usePlatformRuntimeSupport('macos-only');
+  const sideNavLayoutMode = useSideNavLayoutStore((state) => state.mode);
+  const setSideNavLayoutMode = useSideNavLayoutStore((state) => state.setMode);
   const [activeTab, setActiveTab] = useState<'general' | 'network' | 'about'>('general');
   const orderedPlatformIds = usePlatformLayoutStore((state) => state.orderedPlatformIds);
   const platformSettingsOrder = useMemo<Record<PlatformId, number>>(() => {
@@ -1195,6 +1198,23 @@ export function SettingsPage() {
                     <option value="light">{t('settings.general.themeLight')}</option>
                     <option value="dark">{t('settings.general.themeDark')}</option>
                     <option value="system">{t('settings.general.themeSystem')}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="settings-row">
+                <div className="row-label">
+                  <div className="row-title">{t('settings.general.sideNavLayout', '侧边栏布局')}</div>
+                  <div className="row-desc">{t('settings.general.sideNavLayoutDesc', '切换原始布局或经典布局')}</div>
+                </div>
+                <div className="row-control">
+                  <select
+                    className="settings-select"
+                    value={sideNavLayoutMode}
+                    onChange={(e) => setSideNavLayoutMode(e.target.value as SideNavLayoutMode)}
+                  >
+                    <option value="original">{t('settings.general.sideNavLayoutOriginal', '原始布局')}</option>
+                    <option value="classic">{t('settings.general.sideNavLayoutClassic', '经典布局')}</option>
                   </select>
                 </div>
               </div>

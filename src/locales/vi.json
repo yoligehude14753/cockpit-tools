@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Nền tảng Zed"
+    "zed": "Nền tảng Zed",
+    "expandSidebar": "Mở rộng thanh bên",
+    "collapseSidebar": "Thu gọn thanh bên",
+    "logs": "Nhật ký",
+    "switchClassicLayoutEntry": "Chuyển sang bố cục cổ điển",
+    "switchClassicLayoutTitle": "Chuyển sang bố cục thanh bên cổ điển",
+    "switchClassicLayoutDesc": "Bố cục cổ điển hiển thị đầy đủ điều hướng nền tảng và hỗ trợ thu gọn thanh bên. Bạn có thể chuyển lại bất cứ lúc nào tại Cài đặt > Chung > Bố cục thanh bên.",
+    "switchClassicLayoutDontAskAgain": "Không hiển thị lại thông báo này",
+    "switchClassicLayoutConfirm": "Chuyển ngay"
   },
   "platformLayout": {
     "title": "Bố cục nền tảng",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Xóa biểu tượng tùy chỉnh này?",
     "editChildPlatform": "Chỉnh sửa nền tảng con",
     "setAsDefaultInGroup": "Đặt làm nền tảng mặc định trong nhóm này",
-    "removeFromGroup": "Xóa khỏi nhóm"
+    "removeFromGroup": "Xóa khỏi nhóm",
+    "sidebarSelectedUnlimited": "Đã chọn ({count})",
+    "tipWithGroupsUnlimited": "Sắp xếp thủ công các nền tảng và nhóm đã chọn"
   },
   "privacy": {
     "hideSensitive": "Ẩn email",
@@ -560,7 +570,11 @@
       "updateReminder": "Nhắc cập nhật",
       "updateReminderDesc": "Khi phát hiện phiên bản mới, hiển thị nhắc cập nhật và lối tắt nhanh ở thanh bên.",
       "updateReminderOff": "Tắt (không nhắc)",
-      "updateReminderOn": "Bật (hiển thị nhắc)"
+      "updateReminderOn": "Bật (hiển thị nhắc)",
+      "sideNavLayout": "Bố cục thanh bên",
+      "sideNavLayoutDesc": "Chuyển giữa bố cục thanh bên gốc và cổ điển",
+      "sideNavLayoutOriginal": "Bố cục gốc",
+      "sideNavLayoutClassic": "Bố cục cổ điển"
     },
     "network": {
       "apiTitle": "API Antigravity Cockpit",

@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Plateforme Zed"
+    "zed": "Plateforme Zed",
+    "expandSidebar": "Développer la barre latérale",
+    "collapseSidebar": "Réduire la barre latérale",
+    "logs": "Journaux",
+    "switchClassicLayoutEntry": "Passer à la disposition classique",
+    "switchClassicLayoutTitle": "Passer à la disposition classique de la barre latérale",
+    "switchClassicLayoutDesc": "La disposition classique affiche toute la navigation des plateformes et prend en charge le repli de la barre latérale. Vous pouvez revenir à tout moment dans Paramètres > Général > Disposition de la barre latérale.",
+    "switchClassicLayoutDontAskAgain": "Ne plus afficher ce message",
+    "switchClassicLayoutConfirm": "Basculer maintenant"
   },
   "platformLayout": {
     "title": "Disposition des plateformes",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "Supprimer cette icône personnalisée ?",
     "editChildPlatform": "Modifier la sous-plateforme",
     "setAsDefaultInGroup": "Définir comme plateforme par défaut de ce groupe",
-    "removeFromGroup": "Retirer du groupe"
+    "removeFromGroup": "Retirer du groupe",
+    "sidebarSelectedUnlimited": "Sélectionné ({count})",
+    "tipWithGroupsUnlimited": "Triez manuellement les plateformes et les groupes sélectionnés"
   },
   "privacy": {
     "hideSensitive": "Masquer les e-mails",
@@ -560,7 +570,11 @@
       "updateReminder": "Rappels de mise à jour",
       "updateReminderDesc": "Lorsqu'une nouvelle version est détectée, afficher les invites de mise à jour et l'accès rapide dans la barre latérale.",
       "updateReminderOff": "Désactivé (sans rappels)",
-      "updateReminderOn": "Activé (afficher les rappels)"
+      "updateReminderOn": "Activé (afficher les rappels)",
+      "sideNavLayout": "Disposition de la barre latérale",
+      "sideNavLayoutDesc": "Basculer entre la disposition originale et classique de la barre latérale",
+      "sideNavLayoutOriginal": "Disposition originale",
+      "sideNavLayoutClassic": "Disposition classique"
     },
     "network": {
       "apiTitle": "API du cockpit antigravité",

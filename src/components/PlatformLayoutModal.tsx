@@ -35,6 +35,7 @@ import {
   resolveGroupChildName,
   usePlatformLayoutStore,
 } from '../stores/usePlatformLayoutStore';
+import { useSideNavLayoutStore } from '../stores/useSideNavLayoutStore';
 import { getPlatformLabel, renderPlatformIcon } from '../utils/platformMeta';
 
 const PLATFORM_LAYOUT_ICON_STORAGE_KEY = 'agtools.platform_layout.custom_icons.v1';
@@ -342,6 +343,9 @@ export function PlatformLayoutModal({
   onClose,
 }: PlatformLayoutModalProps) {
   const { t } = useTranslation();
+  const sideNavLayoutMode = useSideNavLayoutStore((state) => state.mode);
+  const isSidebarSelectionLimited = sideNavLayoutMode === 'original';
+  const sidebarSelectionLimit = isSidebarSelectionLimited ? 2 : Number.MAX_SAFE_INTEGER;
   const {
     orderedEntryIds,
     hiddenEntryIds,
@@ -715,10 +719,11 @@ export function PlatformLayoutModal({
     if (!enabled) {
       return;
     }
-    entries
-      .filter((entry) => !entry.hidden)
-      .slice(0, 2)
-      .forEach((entry) => setSidebarEntry(entry.id, true));
+    const visibleEntries = entries.filter((entry) => !entry.hidden);
+    const targetEntries = isSidebarSelectionLimited
+      ? visibleEntries.slice(0, sidebarSelectionLimit)
+      : visibleEntries;
+    targetEntries.forEach((entry) => setSidebarEntry(entry.id, true));
   };
 
   const handleBulkDashboard = (enabled: boolean) => {
@@ -735,7 +740,9 @@ export function PlatformLayoutModal({
     () => entries.filter((entry) => !entry.hidden),
     [entries],
   );
-  const sidebarBulkTargetCount = Math.min(2, sidebarVisibleEntries.length);
+  const sidebarBulkTargetCount = isSidebarSelectionLimited
+    ? Math.min(sidebarSelectionLimit, sidebarVisibleEntries.length)
+    : sidebarVisibleEntries.length;
   const sidebarBulkEnabled = sidebarBulkTargetCount > 0
     && sidebarVisibleEntries.filter((entry) => sidebarSet.has(entry.id)).length >= sidebarBulkTargetCount;
   const dashboardBulkEnabled = entries.length > 0 && entries.every((entry) => !entry.hidden);
@@ -1014,11 +1021,16 @@ export function PlatformLayoutModal({
         <div className="modal-body platform-layout-modal-body">
           <div className="platform-layout-summary">
             <span>
-              {t('platformLayout.sidebarSelected', {
-                count: sidebarEntryIds.length,
-                max: 2,
-                defaultValue: '侧边栏已选择 {{count}}/{{max}}',
-              })}
+              {isSidebarSelectionLimited
+                ? t('platformLayout.sidebarSelected', {
+                  count: sidebarEntryIds.length,
+                  max: sidebarSelectionLimit,
+                  defaultValue: '侧边栏已选择 {{count}}/{{max}}',
+                })
+                : t('platformLayout.sidebarSelectedUnlimited', {
+                  count: sidebarEntryIds.length,
+                  defaultValue: '侧边栏已选择 {{count}}',
+                })}
             </span>
             <div className="platform-layout-summary-actions">
               <button className="btn btn-secondary" onClick={openCreateGroupEditor}>
@@ -1032,10 +1044,15 @@ export function PlatformLayoutModal({
           </div>
 
           <div className="platform-layout-tip">
-            {t(
-              'platformLayout.tipWithGroups',
-              '拖拽可排序；最多选择两个入口显示在侧边栏。分组子级不参与侧边栏/仪表盘开关，仅用于菜单栏与默认平台切换。',
-            )}
+            {isSidebarSelectionLimited
+              ? t(
+                'platformLayout.tipWithGroups',
+                '拖拽可排序；最多选择两个入口显示在侧边栏。分组子级不参与侧边栏/仪表盘开关，仅用于菜单栏与默认平台切换。',
+              )
+              : t(
+                'platformLayout.tipWithGroupsUnlimited',
+                '拖拽可排序；可选择任意数量入口显示在侧边栏。分组子级不参与侧边栏/仪表盘开关，仅用于菜单栏与默认平台切换。',
+              )}
           </div>
 
           <div className="platform-layout-bulk-header">
@@ -1097,7 +1114,7 @@ export function PlatformLayoutModal({
           >
             {entries.map((entry) => {
               const selected = sidebarSet.has(entry.id);
-              const sidebarFull = sidebarEntryIds.length >= 2;
+              const sidebarFull = isSidebarSelectionLimited && sidebarEntryIds.length >= sidebarSelectionLimit;
               const sidebarDisabled = entry.hidden || (!selected && sidebarFull);
               const isGroup = entry.type === 'group' && !!entry.group;
               const groupId = entry.id;

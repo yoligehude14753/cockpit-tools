@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Zed 平台"
+    "zed": "Zed 平台",
+    "expandSidebar": "展開側邊欄",
+    "collapseSidebar": "收起側邊欄",
+    "logs": "日誌",
+    "switchClassicLayoutEntry": "切換到經典佈局",
+    "switchClassicLayoutTitle": "切換到經典側邊欄佈局",
+    "switchClassicLayoutDesc": "經典佈局會完整顯示平台導覽，並支援側邊欄收合。你可以隨時在「設定 > 一般 > 側邊欄佈局」切回。",
+    "switchClassicLayoutDontAskAgain": "不再顯示此提示",
+    "switchClassicLayoutConfirm": "立即切換"
   },
   "platformLayout": {
     "title": "平台佈局",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "確認刪除這個自訂圖示嗎？",
     "editChildPlatform": "編輯子平台",
     "setAsDefaultInGroup": "設為群組內預設平台",
-    "removeFromGroup": "移出群組"
+    "removeFromGroup": "移出群組",
+    "sidebarSelectedUnlimited": "已選 ({count})",
+    "tipWithGroupsUnlimited": "手動排序已選擇的平台和分組"
   },
   "privacy": {
     "hideSensitive": "隱藏電子郵件",
@@ -560,7 +570,11 @@
       "updateReminder": "更新提醒",
       "updateReminderDesc": "偵測到新版本時，提示更新並在側邊欄顯示快速入口。",
       "updateReminderOff": "關閉（不提醒）",
-      "updateReminderOn": "開啟（顯示提醒）"
+      "updateReminderOn": "開啟（顯示提醒）",
+      "sideNavLayout": "側邊欄佈局",
+      "sideNavLayoutDesc": "切換原始佈局或經典佈局",
+      "sideNavLayoutOriginal": "原始佈局",
+      "sideNavLayoutClassic": "經典佈局"
     },
     "network": {
       "apiTitle": "反重力駕駛艙 API",

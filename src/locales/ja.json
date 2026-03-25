@@ -187,7 +187,15 @@
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddyCn": "CodeBuddy CN",
-    "zed": "Zed プラットフォーム"
+    "zed": "Zed プラットフォーム",
+    "expandSidebar": "サイドバーを展開",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "logs": "ログ",
+    "switchClassicLayoutEntry": "クラシックレイアウトに切り替え",
+    "switchClassicLayoutTitle": "クラシックサイドバーレイアウトに切り替え",
+    "switchClassicLayoutDesc": "クラシックレイアウトでは、プラットフォームナビゲーションをすべて表示し、サイドバーの折りたたみに対応します。設定 > 一般 > サイドバーレイアウト からいつでも戻せます。",
+    "switchClassicLayoutDontAskAgain": "この案内を今後表示しない",
+    "switchClassicLayoutConfirm": "今すぐ切り替える"
   },
   "platformLayout": {
     "title": "プラットフォームレイアウト",
@@ -226,7 +234,9 @@
     "customIconDeleteConfirm": "このカスタムアイコンを削除しますか？",
     "editChildPlatform": "子プラットフォームを編集",
     "setAsDefaultInGroup": "このグループのデフォルトプラットフォームに設定",
-    "removeFromGroup": "グループから削除"
+    "removeFromGroup": "グループから削除",
+    "sidebarSelectedUnlimited": "選択済み ({count})",
+    "tipWithGroupsUnlimited": "選択したプラットフォームとグループを手動で並べ替える"
   },
   "privacy": {
     "hideSensitive": "メールを隠す",
@@ -560,7 +570,11 @@
       "updateReminder": "アップデート通知",
       "updateReminderDesc": "新しいバージョンが検出されたとき、更新通知とサイドバーのクイック入口を表示します。",
       "updateReminderOff": "オフ（通知しない）",
-      "updateReminderOn": "オン（通知する）"
+      "updateReminderOn": "オン（通知する）",
+      "sideNavLayout": "サイドバーのレイアウト",
+      "sideNavLayoutDesc": "元のサイドバーとクラシックなサイドバーのレイアウトを切り替えます",
+      "sideNavLayoutOriginal": "元のレイアウト",
+      "sideNavLayoutClassic": "クラシックレイアウト"
     },
     "network": {
       "apiTitle": "反重力コックピット API",
