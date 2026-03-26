@@ -679,8 +679,8 @@
     + (var(--side-nav-classic-brand-margin-top) * var(--side-nav-classic-adaptive-scale, 1))
     + ((var(--side-nav-classic-brand-height) * var(--side-nav-classic-adaptive-scale, 1)) - (var(--side-nav-classic-handle-height) * var(--side-nav-classic-adaptive-scale, 1))) / 2
   );
-  left: var(--side-nav-classic-width-expanded);
-  transform: translateY(-50%);
+  left: 0;
+  transform: translate(var(--side-nav-classic-width-expanded), -50%);
   width: calc(var(--side-nav-classic-handle-width) * var(--side-nav-classic-adaptive-scale, 1));
   height: calc(var(--side-nav-classic-handle-height) * var(--side-nav-classic-adaptive-scale, 1));
   border: 1px solid var(--border-light);
@@ -694,7 +694,8 @@
   cursor: pointer;
   z-index: 1001;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
-  transition: top 0.2s ease, left 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  /* 使用 transform 替代 left 的过度动画，开启 GPU 硬件加速避免 Reflow */
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), top 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
   padding: 0 0 0 calc(1px * var(--side-nav-classic-adaptive-scale, 1));
 }
 
@@ -724,7 +725,7 @@ html[data-theme="dark"] .side-nav-classic-handle:hover {
 }
 
 .side-nav-classic-handle-collapsed {
-  left: var(--side-nav-classic-width-collapsed);
+  transform: translate(var(--side-nav-classic-width-collapsed), -50%);
 }
 
 .app-container-side-nav-classic-collapsed .main-wrapper {

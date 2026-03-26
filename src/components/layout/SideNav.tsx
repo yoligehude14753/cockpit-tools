@@ -1,4 +1,4 @@
-import { Settings, Rocket, GaugeCircle, LayoutGrid, SlidersHorizontal, FileText, ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Settings, Rocket, GaugeCircle, LayoutGrid, SlidersHorizontal, FileText, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
@@ -106,7 +106,6 @@ export function SideNav({
   const [showMore, setShowMore] = useState(false);
   const [classicAdaptiveScale, setClassicAdaptiveScale] = useState(1);
   const [classicNavNeedsScroll, setClassicNavNeedsScroll] = useState(false);
-  const [expandedClassicGroupIds, setExpandedClassicGroupIds] = useState<string[]>([]);
   const [classicHandleTop, setClassicHandleTop] = useState<number | null>(null);
   const [morePopoverPosition, setMorePopoverPosition] = useState({
     top: 120,
@@ -230,8 +229,12 @@ export function SideNav({
   );
 
   const moreMenuEntries = useMemo<SideNavEntry[]>(
-    () =>
-      orderedEntries
+    () => {
+      if (isClassicLayout) {
+        return orderedEntries.filter((entry) => !sidebarMenuEntryIdSet.has(entry.id));
+      }
+
+      return orderedEntries
         .map((entry) => {
           const remainingPlatformIds = entry.platformIds.filter(
             (platformId) => !sidebarMenuPlatformIdSet.has(platformId),
@@ -248,14 +251,14 @@ export function SideNav({
             platformIds: remainingPlatformIds,
           };
         })
-        .filter((entry): entry is SideNavEntry => !!entry),
-    [orderedEntries, sidebarMenuPlatformIdSet],
+        .filter((entry): entry is SideNavEntry => !!entry);
+    },
+    [isClassicLayout, orderedEntries, sidebarMenuEntryIdSet, sidebarMenuPlatformIdSet],
   );
 
   const isMoreActive = !!currentEntryId && !sidebarMenuEntryIdSet.has(currentEntryId);
   const shouldLockActiveOnMore = showMore;
 
-  const currentClassicGroupId = currentEntryId ? parseGroupEntryId(currentEntryId) : null;
   const shouldShowUpdateEntry = updateActionState !== 'hidden'
     && (
       updateRemindersEnabled
@@ -390,7 +393,6 @@ export function SideNav({
     };
   }, [
     classicCollapsed,
-    expandedClassicGroupIds,
     classicScaleContentKey,
     isClassicLayout,
     recalculateClassicAdaptiveScale,
@@ -442,8 +444,6 @@ export function SideNav({
   }, [isClassicLayout, recalculateClassicAdaptiveScale]);
 
   const classicMainIconSize = Math.max(14, Math.round(20 * classicAdaptiveScale));
-  const classicSubIconSize = Math.max(12, Math.round(16 * classicAdaptiveScale));
-  const classicChevronIconSize = Math.max(12, Math.round(14 * classicAdaptiveScale));
   const classicBrandLogoIconSize = Math.max(14, Math.round(20 * classicAdaptiveScale));
   const classicHandleIconSize = Math.max(12, Math.round(16 * classicAdaptiveScale));
 
@@ -504,15 +504,6 @@ export function SideNav({
     });
   }, [hideClassicSwitchPrompt, setHideClassicSwitchPrompt, setSideNavLayoutMode, showModal, t]);
 
-  useEffect(() => {
-    if (!isClassicLayout || isClassicCollapsed || !currentClassicGroupId) {
-      return;
-    }
-    setExpandedClassicGroupIds((prev) => (
-      prev.includes(currentClassicGroupId) ? prev : [...prev, currentClassicGroupId]
-    ));
-  }, [currentClassicGroupId, isClassicCollapsed, isClassicLayout]);
-
   useLayoutEffect(() => {
     if (!isClassicLayout || typeof window === 'undefined') {
       setClassicHandleTop(null);
@@ -545,14 +536,6 @@ export function SideNav({
       resizeObserver?.disconnect();
     };
   }, [isClassicLayout, isClassicCollapsed, shouldShowUpdateEntry]);
-
-  const toggleClassicGroup = useCallback((groupId: string) => {
-    setExpandedClassicGroupIds((prev) => (
-      prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
-    ));
-  }, []);
 
   const handleLogoClick = useCallback(() => {
     if (hasBreakoutSession) {
@@ -656,12 +639,14 @@ export function SideNav({
       <div className="side-nav-more-title">{t('nav.morePlatforms', '更多平台')}</div>
       <div className="side-nav-more-list">
         {moreMenuEntries.map((entry) => {
-          const active = !!currentPlatformId && entry.platformIds.includes(currentPlatformId);
+          const active = isClassicLayout
+            ? currentEntryId === entry.id
+            : !!currentPlatformId && entry.platformIds.includes(currentPlatformId);
           const showGroupParent =
             !entry.group || !sidebarMenuEntryIdSet.has(entry.id);
           return (
             <div className="side-nav-more-group" key={entry.id}>
-              {showGroupParent && (
+              {(isClassicLayout || showGroupParent) && (
                 <button
                   className={`side-nav-more-item ${active ? 'active' : ''}`}
                   onClick={() => {
@@ -679,7 +664,7 @@ export function SideNav({
                 </button>
               )}
 
-              {entry.group && entry.platformIds.length > (showGroupParent ? 1 : 0) && (
+              {!isClassicLayout && entry.group && entry.platformIds.length > (showGroupParent ? 1 : 0) && (
                 <div className={`side-nav-more-sub-list${showGroupParent ? '' : ' is-flat'}`}>
                   {entry.platformIds.map((platformId) => {
                     const icon = resolveGroupChildIcon(entry.group!, platformId);
@@ -845,73 +830,6 @@ export function SideNav({
         </button>
 
         {sidebarMenuEntries.map((entry) => {
-          const groupId = parseGroupEntryId(entry.id);
-          const isExpandableClassicGroup =
-            isClassicLayout && !isClassicCollapsed && !!entry.group && entry.platformIds.length > 1 && !!groupId;
-          const groupExpanded = !!groupId && expandedClassicGroupIds.includes(groupId);
-          const groupActive = !!currentPlatformId && entry.platformIds.includes(currentPlatformId);
-
-          if (isExpandableClassicGroup && groupId) {
-            return (
-              <div key={entry.id} className={`nav-group${groupExpanded ? ' expanded' : ''}`}>
-                <button
-                  className={`nav-item nav-group-trigger ${groupActive && !shouldLockActiveOnMore ? 'active' : ''}`}
-                  onClick={() => toggleClassicGroup(groupId)}
-                  title={entry.label}
-                >
-                  <span className="nav-group-main">
-                    {renderEntryIcon(entry, isClassicLayout ? classicMainIconSize : 20)}
-                    <span className="nav-item-text">{entry.label}</span>
-                  </span>
-                  <span className="nav-group-chevron" aria-hidden="true">
-                    {groupExpanded
-                      ? <ChevronDown size={isClassicLayout ? classicChevronIconSize : 14} />
-                      : <ChevronRight size={isClassicLayout ? classicChevronIconSize : 14} />}
-                  </span>
-                </button>
-
-                {groupExpanded && (
-                  <div className="nav-sub-list">
-                    {entry.platformIds.map((platformId) => {
-                      const icon = resolveGroupChildIcon(entry.group!, platformId);
-                      const label = resolveGroupChildName(
-                        entry.group!,
-                        platformId,
-                        getPlatformLabel(platformId, t),
-                      );
-                      const childActive = currentPlatformId === platformId && !shouldLockActiveOnMore;
-                      return (
-                        <button
-                          key={`${entry.id}:${platformId}`}
-                          className={`nav-sub-item ${childActive ? 'active' : ''}`}
-                          onClick={() => setPage(PLATFORM_PAGE_MAP[platformId])}
-                          title={label}
-                        >
-                          <span className="nav-sub-item-icon">
-                            {icon.iconKind === 'custom' && icon.iconCustomDataUrl ? (
-                              <img
-                                src={icon.iconCustomDataUrl}
-                                alt={label}
-                                className="side-nav-group-icon"
-                                style={{
-                                  width: isClassicLayout ? classicSubIconSize : 16,
-                                  height: isClassicLayout ? classicSubIconSize : 16,
-                                }}
-                              />
-                            ) : (
-                              renderPlatformIcon(icon.iconPlatformId, isClassicLayout ? classicSubIconSize : 16)
-                            )}
-                          </span>
-                          <span className="nav-sub-item-text">{label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          }
-
           const active = currentEntryId === entry.id && !shouldLockActiveOnMore;
           return (
             <button

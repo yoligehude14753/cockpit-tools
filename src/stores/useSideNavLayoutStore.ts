@@ -1,11 +1,7 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type SideNavLayoutMode = 'original' | 'classic';
-
-const SIDE_NAV_LAYOUT_STORAGE_KEY = 'agtools.side_nav.layout.v1';
-const SIDE_NAV_CLASSIC_COLLAPSED_STORAGE_KEY = 'agtools.side_nav.classic_collapsed.v1';
-const SIDE_NAV_HIDE_CLASSIC_SWITCH_PROMPT_KEY = 'agtools.side_nav.hide_classic_switch_prompt.v1';
-const SIDE_NAV_CLASSIC_FIRST_SYNC_DONE_KEY = 'agtools.side_nav.classic_first_sync_done.v1';
 
 interface SideNavLayoutState {
   mode: SideNavLayoutMode;
@@ -19,134 +15,46 @@ interface SideNavLayoutState {
   markClassicFirstSyncDone: () => void;
 }
 
-function loadInitialMode(): SideNavLayoutMode {
-  if (typeof window === 'undefined') {
-    return 'original';
-  }
-
+// 兼容迁移旧版本的零散 localStorage 键值
+function getOldStorage<T>(key: string, parse: (val: string) => T, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
   try {
-    const raw = localStorage.getItem(SIDE_NAV_LAYOUT_STORAGE_KEY);
-    return raw === 'classic' ? 'classic' : 'original';
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return parse(raw);
   } catch {
-    return 'original';
+    return fallback;
   }
 }
 
-function persistMode(mode: SideNavLayoutMode) {
-  if (typeof window === 'undefined') {
-    return;
-  }
+export const useSideNavLayoutStore = create<SideNavLayoutState>()(
+  persist(
+    (set) => ({
+      mode: getOldStorage<SideNavLayoutMode>('agtools.side_nav.layout.v1', (v) => (v === 'classic' ? 'classic' : 'original'), 'original'),
+      classicCollapsed: getOldStorage('agtools.side_nav.classic_collapsed.v1', (v) => v === '1', false),
+      hideClassicSwitchPrompt: getOldStorage('agtools.side_nav.hide_classic_switch_prompt.v1', (v) => v === '1', false),
+      classicFirstSyncDone: getOldStorage('agtools.side_nav.classic_first_sync_done.v1', (v) => v === '1', false),
 
-  try {
-    localStorage.setItem(SIDE_NAV_LAYOUT_STORAGE_KEY, mode);
-  } catch {
-    // ignore persistence errors
-  }
-}
-
-function loadInitialClassicCollapsed(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  try {
-    return localStorage.getItem(SIDE_NAV_CLASSIC_COLLAPSED_STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function persistClassicCollapsed(collapsed: boolean) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(
-      SIDE_NAV_CLASSIC_COLLAPSED_STORAGE_KEY,
-      collapsed ? '1' : '0',
-    );
-  } catch {
-    // ignore persistence errors
-  }
-}
-
-function loadInitialHideClassicSwitchPrompt(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  try {
-    return localStorage.getItem(SIDE_NAV_HIDE_CLASSIC_SWITCH_PROMPT_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function persistHideClassicSwitchPrompt(hidden: boolean) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(
-      SIDE_NAV_HIDE_CLASSIC_SWITCH_PROMPT_KEY,
-      hidden ? '1' : '0',
-    );
-  } catch {
-    // ignore persistence errors
-  }
-}
-
-function loadInitialClassicFirstSyncDone(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  try {
-    return localStorage.getItem(SIDE_NAV_CLASSIC_FIRST_SYNC_DONE_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function persistClassicFirstSyncDone(done: boolean) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(SIDE_NAV_CLASSIC_FIRST_SYNC_DONE_KEY, done ? '1' : '0');
-  } catch {
-    // ignore persistence errors
-  }
-}
-
-export const useSideNavLayoutStore = create<SideNavLayoutState>((set) => ({
-  mode: loadInitialMode(),
-  classicCollapsed: loadInitialClassicCollapsed(),
-  hideClassicSwitchPrompt: loadInitialHideClassicSwitchPrompt(),
-  classicFirstSyncDone: loadInitialClassicFirstSyncDone(),
-  setMode: (mode) => {
-    persistMode(mode);
-    set({ mode });
-  },
-  setClassicCollapsed: (classicCollapsed) => {
-    persistClassicCollapsed(classicCollapsed);
-    set({ classicCollapsed });
-  },
-  toggleClassicCollapsed: () =>
-    set((state) => {
-      const next = !state.classicCollapsed;
-      persistClassicCollapsed(next);
-      return { classicCollapsed: next };
+      setMode: (mode) => set({ mode }),
+      setClassicCollapsed: (classicCollapsed) => set({ classicCollapsed }),
+      toggleClassicCollapsed: () => set((state) => ({ classicCollapsed: !state.classicCollapsed })),
+      setHideClassicSwitchPrompt: (hideClassicSwitchPrompt) => set({ hideClassicSwitchPrompt }),
+      markClassicFirstSyncDone: () => set({ classicFirstSyncDone: true }),
     }),
-  setHideClassicSwitchPrompt: (hideClassicSwitchPrompt) => {
-    persistHideClassicSwitchPrompt(hideClassicSwitchPrompt);
-    set({ hideClassicSwitchPrompt });
-  },
-  markClassicFirstSyncDone: () => {
-    persistClassicFirstSyncDone(true);
-    set({ classicFirstSyncDone: true });
-  },
-}));
+    {
+      name: 'agtools.side_nav.store.v2',
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        // 在成功合并旧数据并写入新 JSON 结构后，清理残留的旧键
+        if (state && typeof window !== 'undefined') {
+          setTimeout(() => {
+            localStorage.removeItem('agtools.side_nav.layout.v1');
+            localStorage.removeItem('agtools.side_nav.classic_collapsed.v1');
+            localStorage.removeItem('agtools.side_nav.hide_classic_switch_prompt.v1');
+            localStorage.removeItem('agtools.side_nav.classic_first_sync_done.v1');
+          }, 0);
+        }
+      },
+    }
+  )
+);

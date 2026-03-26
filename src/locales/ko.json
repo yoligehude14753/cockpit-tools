@@ -1107,6 +1107,7 @@
       "testMissingModel": "테스트 모델을 선택하세요",
       "testMissingAccount": "테스트 계정을 선택하세요",
       "testFailed": "테스트가 {{count}}개 요청에서 실패",
+      "testCancelled": "테스트가 취소되었습니다",
       "testCompleted": "테스트 완료",
       "nameRequired": "작업 이름을 입력하세요",
       "accountRequired": "계정을 하나 이상 선택하세요",

@@ -1107,6 +1107,7 @@
       "testMissingModel": "Selecione um modelo de teste",
       "testMissingAccount": "Selecione uma conta de teste",
       "testFailed": "Teste falhou em {{count}} solicitação(ões)",
+      "testCancelled": "Teste cancelado",
       "testCompleted": "Teste concluído",
       "nameRequired": "Informe o nome da tarefa",
       "accountRequired": "Selecione pelo menos uma conta",

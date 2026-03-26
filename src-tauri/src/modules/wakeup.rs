@@ -2,7 +2,9 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::sync::{Mutex, OnceLock};
+use tokio::sync::watch;
 
 use crate::modules;
 
@@ -22,7 +24,10 @@ const WAKEUP_ERROR_JSON_PREFIX: &str = "AG_WAKEUP_ERROR_JSON:";
 const CLIENT_GATEWAY_POLL_INTERVAL_MS: u64 = 250;
 const CLIENT_GATEWAY_MAX_POLL_ROUNDS: usize = 240; // 240 * 250ms = 60s
 const CLIENT_GATEWAY_UPSTREAM_RETRY_DELAY_MS: u64 = 1200;
+const WAKEUP_CANCELLED_MESSAGE: &str = "唤醒测试已取消";
 static BASE_URL_ORDER: OnceLock<Mutex<Vec<&'static str>>> = OnceLock::new();
+static WAKEUP_CANCEL_SCOPES: OnceLock<Mutex<HashMap<String, watch::Sender<bool>>>> =
+    OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,6 +71,116 @@ fn random_suffix(len: usize) -> String {
     (0..len)
         .map(|_| charset[rng.gen_range(0..charset.len())] as char)
         .collect()
+}
+
+fn wakeup_cancel_scopes() -> &'static Mutex<HashMap<String, watch::Sender<bool>>> {
+    WAKEUP_CANCEL_SCOPES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn get_wakeup_cancel_receiver(
+    cancel_scope_id: Option<&str>,
+) -> Result<Option<watch::Receiver<bool>>, String> {
+    let Some(cancel_scope_id) = cancel_scope_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(None);
+    };
+
+    let mut scopes = wakeup_cancel_scopes()
+        .lock()
+        .map_err(|_| "唤醒取消状态锁已损坏".to_string())?;
+
+    let sender = scopes
+        .entry(cancel_scope_id.to_string())
+        .or_insert_with(|| {
+            let (sender, _) = watch::channel(false);
+            sender
+        })
+        .clone();
+
+    Ok(Some(sender.subscribe()))
+}
+
+fn wakeup_cancelled_error() -> String {
+    WAKEUP_CANCELLED_MESSAGE.to_string()
+}
+
+fn is_wakeup_cancelled(cancel_rx: Option<&watch::Receiver<bool>>) -> bool {
+    cancel_rx.map(|receiver| *receiver.borrow()).unwrap_or(false)
+}
+
+fn is_wakeup_cancelled_message(message: &str) -> bool {
+    message.trim() == WAKEUP_CANCELLED_MESSAGE
+}
+
+async fn await_with_cancel<T, F>(
+    cancel_rx: Option<&watch::Receiver<bool>>,
+    future: F,
+) -> Result<T, String>
+where
+    F: Future<Output = T>,
+{
+    if let Some(cancel_rx) = cancel_rx {
+        if *cancel_rx.borrow() {
+            return Err(wakeup_cancelled_error());
+        }
+
+        let mut cancel_rx = cancel_rx.clone();
+        tokio::select! {
+            result = future => Ok(result),
+            changed = cancel_rx.changed() => {
+                match changed {
+                    Ok(_) if *cancel_rx.borrow() => Err(wakeup_cancelled_error()),
+                    Ok(_) => Err(wakeup_cancelled_error()),
+                    Err(_) => Err(wakeup_cancelled_error()),
+                }
+            }
+        }
+    } else {
+        Ok(future.await)
+    }
+}
+
+async fn sleep_with_cancel(
+    duration: std::time::Duration,
+    cancel_rx: Option<&watch::Receiver<bool>>,
+) -> Result<(), String> {
+    await_with_cancel(cancel_rx, tokio::time::sleep(duration)).await?;
+    Ok(())
+}
+
+pub fn cancel_wakeup_scope(cancel_scope_id: &str) -> Result<(), String> {
+    let cancel_scope_id = cancel_scope_id.trim();
+    if cancel_scope_id.is_empty() {
+        return Ok(());
+    }
+
+    let sender = {
+        let mut scopes = wakeup_cancel_scopes()
+            .lock()
+            .map_err(|_| "唤醒取消状态锁已损坏".to_string())?;
+        scopes.remove(cancel_scope_id)
+    };
+
+    if let Some(sender) = sender {
+        let _ = sender.send(true);
+    }
+
+    Ok(())
+}
+
+pub fn release_wakeup_scope(cancel_scope_id: &str) -> Result<(), String> {
+    let cancel_scope_id = cancel_scope_id.trim();
+    if cancel_scope_id.is_empty() {
+        return Ok(());
+    }
+
+    let mut scopes = wakeup_cancel_scopes()
+        .lock()
+        .map_err(|_| "唤醒取消状态锁已损坏".to_string())?;
+    scopes.remove(cancel_scope_id);
+    Ok(())
 }
 
 fn format_prompt_for_log(prompt: &str) -> String {
@@ -336,30 +451,37 @@ async fn send_stream_request(
     client: &reqwest::Client,
     access_token: &str,
     body: &serde_json::Value,
+    cancel_rx: Option<&watch::Receiver<bool>>,
 ) -> Result<StreamParseResult, String> {
     let mut last_error: Option<String> = None;
     for base in get_base_url_order() {
         for attempt in 1..=DEFAULT_ATTEMPTS {
+            if is_wakeup_cancelled(cancel_rx) {
+                return Err(wakeup_cancelled_error());
+            }
             let url = format!("{}{}", base, STREAM_PATH);
             crate::modules::logger::log_info(&format!(
                 "[Wakeup] 发送请求: url={}, attempt={}/{}",
                 url, attempt, DEFAULT_ATTEMPTS
             ));
-            let response = client
-                .post(&url)
-                .bearer_auth(access_token)
-                .header(reqwest::header::USER_AGENT, USER_AGENT)
-                .header(reqwest::header::CONTENT_TYPE, "application/json")
-                .header(reqwest::header::ACCEPT_ENCODING, "gzip")
-                .json(body)
-                .send()
-                .await;
+            let response = await_with_cancel(
+                cancel_rx,
+                client
+                    .post(&url)
+                    .bearer_auth(access_token)
+                    .header(reqwest::header::USER_AGENT, USER_AGENT)
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .header(reqwest::header::ACCEPT_ENCODING, "gzip")
+                    .json(body)
+                    .send(),
+            )
+            .await?;
 
             match response {
                 Ok(res) => {
                     let status = res.status();
                     if status.is_success() {
-                        let text = res.text().await.unwrap_or_default();
+                        let text = await_with_cancel(cancel_rx, res.text()).await?.unwrap_or_default();
                         crate::modules::logger::log_info(&format!(
                             "[Wakeup] stream响应: {}",
                             truncate_log_text(&text, 2000)
@@ -386,8 +508,11 @@ async fn send_stream_request(
                                             "[Wakeup] 准备重试: delay={}ms",
                                             delay
                                         ));
-                                        tokio::time::sleep(std::time::Duration::from_millis(delay))
-                                            .await;
+                                        sleep_with_cancel(
+                                            std::time::Duration::from_millis(delay),
+                                            cancel_rx,
+                                        )
+                                        .await?;
                                     }
                                     continue;
                                 }
@@ -402,7 +527,7 @@ async fn send_stream_request(
                             crate::modules::logger::log_error("[Wakeup] 无权限 (403)");
                             return Err("Cloud Code access forbidden".to_string());
                         }
-                        let text = res.text().await.unwrap_or_default();
+                        let text = await_with_cancel(cancel_rx, res.text()).await?.unwrap_or_default();
                         let retryable = status == reqwest::StatusCode::TOO_MANY_REQUESTS
                             || status.as_u16() >= 500;
                         let message = format!("唤醒请求失败: {} - {}", status, text);
@@ -418,7 +543,11 @@ async fn send_stream_request(
                                     "[Wakeup] 准备重试: delay={}ms",
                                     delay
                                 ));
-                                tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                                sleep_with_cancel(
+                                    std::time::Duration::from_millis(delay),
+                                    cancel_rx,
+                                )
+                                .await?;
                             }
                             continue;
                         }
@@ -589,22 +718,26 @@ async fn post_gateway_json(
     url: &str,
     body: &serde_json::Value,
     op_name: &str,
+    cancel_rx: Option<&watch::Receiver<bool>>,
 ) -> Result<serde_json::Value, String> {
-    let resp = client
-        .post(url)
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .json(body)
-        .send()
-        .await
-        .map_err(|e| {
-            let kind = classify_gateway_transport_error(&e);
-            let message = format!("网关 {} 请求失败[{}]: {} (url={})", op_name, kind, e, url);
-            crate::modules::logger::log_error(&format!("[Wakeup] {}", message));
-            message
-        })?;
+    let resp = await_with_cancel(
+        cancel_rx,
+        client
+            .post(url)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .json(body)
+            .send(),
+    )
+    .await?
+    .map_err(|e| {
+        let kind = classify_gateway_transport_error(&e);
+        let message = format!("网关 {} 请求失败[{}]: {} (url={})", op_name, kind, e, url);
+        crate::modules::logger::log_error(&format!("[Wakeup] {}", message));
+        message
+    })?;
 
     let status = resp.status();
-    let text = resp.text().await.unwrap_or_default();
+    let text = await_with_cancel(cancel_rx, resp.text()).await?.unwrap_or_default();
     if !status.is_success() {
         crate::modules::logger::log_error(&format!(
             "[Wakeup] 网关 {} 返回错误: url={}, status={}, body={}",
@@ -634,6 +767,7 @@ async fn post_gateway_json(
 async fn resolve_requested_model_for_official_ls(
     account_id: &str,
     model: &str,
+    cancel_rx: Option<&watch::Receiver<bool>>,
 ) -> Result<serde_json::Value, String> {
     let trimmed = model.trim();
     if let Ok(num) = trimmed.parse::<i64>() {
@@ -650,7 +784,7 @@ async fn resolve_requested_model_for_official_ls(
         }
     };
 
-    let token = match modules::oauth::ensure_fresh_token(&account.token).await {
+    let token = match await_with_cancel(cancel_rx, modules::oauth::ensure_fresh_token(&account.token)).await? {
         Ok(v) => {
             if v.access_token != account.token.access_token
                 || v.refresh_token != account.token.refresh_token
@@ -677,22 +811,28 @@ async fn resolve_requested_model_for_official_ls(
 
     for base in CLOUD_CODE_BASE_URLS {
         for attempt in 1..=DEFAULT_ATTEMPTS {
+            if is_wakeup_cancelled(cancel_rx) {
+                return Err(wakeup_cancelled_error());
+            }
             let url = format!("{}{}", base, FETCH_MODELS_PATH);
-            let response = client
-                .post(&url)
-                .bearer_auth(&token.access_token)
-                .header(reqwest::header::USER_AGENT, USER_AGENT)
-                .header(reqwest::header::CONTENT_TYPE, "application/json")
-                .header(reqwest::header::ACCEPT_ENCODING, "gzip")
-                .json(&payload)
-                .send()
-                .await;
+            let response = await_with_cancel(
+                cancel_rx,
+                client
+                    .post(&url)
+                    .bearer_auth(&token.access_token)
+                    .header(reqwest::header::USER_AGENT, USER_AGENT)
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .header(reqwest::header::ACCEPT_ENCODING, "gzip")
+                    .json(&payload)
+                    .send(),
+            )
+            .await?;
 
             match response {
                 Ok(res) => {
                     let status = res.status();
                     if status.is_success() {
-                        match res.json::<AvailableModelsResponse>().await {
+                        match await_with_cancel(cancel_rx, res.json::<AvailableModelsResponse>()).await? {
                             Ok(parsed) => {
                                 if let Some(models) = extract_available_models_map(&parsed) {
                                     if let Some(meta) = models.get(trimmed) {
@@ -748,7 +888,7 @@ async fn resolve_requested_model_for_official_ls(
                             }
                         }
                     } else {
-                        let text = res.text().await.unwrap_or_default();
+                        let text = await_with_cancel(cancel_rx, res.text()).await?.unwrap_or_default();
                         let retryable = status == reqwest::StatusCode::TOO_MANY_REQUESTS
                             || status.as_u16() >= 500;
 
@@ -788,7 +928,11 @@ async fn resolve_requested_model_for_official_ls(
                         if retryable && attempt < DEFAULT_ATTEMPTS {
                             let delay = get_backoff_delay_ms(attempt + 1);
                             if delay > 0 {
-                                tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                                sleep_with_cancel(
+                                    std::time::Duration::from_millis(delay),
+                                    cancel_rx,
+                                )
+                                .await?;
                             }
                             continue;
                         }
@@ -799,7 +943,11 @@ async fn resolve_requested_model_for_official_ls(
                     if attempt < DEFAULT_ATTEMPTS {
                         let delay = get_backoff_delay_ms(attempt + 1);
                         if delay > 0 {
-                            tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                            sleep_with_cancel(
+                                std::time::Duration::from_millis(delay),
+                                cancel_rx,
+                            )
+                            .await?;
                         }
                         continue;
                     }
@@ -1239,6 +1387,7 @@ async fn trigger_wakeup_via_client_gateway_once(
     prompt: &str,
     max_output_tokens: u32,
     base_url: &str,
+    cancel_rx: Option<&watch::Receiver<bool>>,
 ) -> Result<WakeupResponse, String> {
     let client = build_gateway_client(base_url, 30)?;
     post_gateway_json(
@@ -1250,6 +1399,7 @@ async fn trigger_wakeup_via_client_gateway_once(
         ),
         &json!({}),
         "HealthCheck",
+        cancel_rx,
     )
     .await?;
 
@@ -1264,16 +1414,19 @@ async fn trigger_wakeup_via_client_gateway_once(
             modules::wakeup_gateway::INTERNAL_PREPARE_START_CONTEXT_PATH
         );
 
-        client
-            .post(&prepare_url)
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .json(&json!({
-                "accountId": account_id,
-                "model": model,
-                "maxOutputTokens": max_output_tokens,
-            }))
-            .send()
-            .await
+        await_with_cancel(
+            cancel_rx,
+            client
+                .post(&prepare_url)
+                .header(reqwest::header::CONTENT_TYPE, "application/json")
+                .json(&json!({
+                    "accountId": account_id,
+                    "model": model,
+                    "maxOutputTokens": max_output_tokens,
+                }))
+                .send(),
+        )
+        .await?
             .map_err(|e| {
                 let kind = classify_gateway_transport_error(&e);
                 let message = format!(
@@ -1296,6 +1449,7 @@ async fn trigger_wakeup_via_client_gateway_once(
             &format!("{}/StartCascade", service_base),
             &json!({}),
             "StartCascade",
+            cancel_rx,
         )
         .await?;
     }
@@ -1312,7 +1466,8 @@ async fn trigger_wakeup_via_client_gateway_once(
     ));
 
     let wakeup_result: Result<WakeupResponse, String> = async {
-        let requested_model = resolve_requested_model_for_official_ls(account_id, model).await?;
+        let requested_model =
+            resolve_requested_model_for_official_ls(account_id, model, cancel_rx).await?;
 
         let send_body = json!({
             "cascadeId": cascade_id,
@@ -1325,6 +1480,7 @@ async fn trigger_wakeup_via_client_gateway_once(
             &format!("{}/SendUserCascadeMessage", service_base),
             &send_body,
             "SendUserCascadeMessage",
+            cancel_rx,
         )
         .await?;
         crate::modules::logger::log_info(&format!(
@@ -1344,6 +1500,7 @@ async fn trigger_wakeup_via_client_gateway_once(
                 &format!("{}/GetCascadeTrajectory", service_base),
                 &get_body,
                 "GetCascadeTrajectory",
+                cancel_rx,
             )
             .await?;
 
@@ -1396,10 +1553,11 @@ async fn trigger_wakeup_via_client_gateway_once(
                         ));
                     }
                     last_running_error = Some(err);
-                    tokio::time::sleep(std::time::Duration::from_millis(
-                        CLIENT_GATEWAY_POLL_INTERVAL_MS,
-                    ))
-                    .await;
+                    sleep_with_cancel(
+                        std::time::Duration::from_millis(CLIENT_GATEWAY_POLL_INTERVAL_MS),
+                        cancel_rx,
+                    )
+                    .await?;
                     continue;
                 }
 
@@ -1426,10 +1584,11 @@ async fn trigger_wakeup_via_client_gateway_once(
                 return Err(encode_wakeup_ui_error_payload(&err));
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(
-                CLIENT_GATEWAY_POLL_INTERVAL_MS,
-            ))
-            .await;
+            sleep_with_cancel(
+                std::time::Duration::from_millis(CLIENT_GATEWAY_POLL_INTERVAL_MS),
+                cancel_rx,
+            )
+            .await?;
         }
 
         if let Some(err) = last_running_error {
@@ -1455,6 +1614,28 @@ async fn trigger_wakeup_via_client_gateway_once(
         Err(message)
     }
     .await;
+
+    if matches!(&wakeup_result, Err(err) if is_wakeup_cancelled_message(err)) {
+        let cleanup_client = client.clone();
+        let cleanup_url = format!("{}/DeleteCascadeTrajectory", service_base);
+        let cleanup_cascade_id = cascade_id.clone();
+        tokio::spawn(async move {
+            let delete_resp = cleanup_client
+                .post(cleanup_url)
+                .header(reqwest::header::CONTENT_TYPE, "application/json")
+                .json(&json!({ "cascadeId": cleanup_cascade_id }))
+                .send()
+                .await;
+
+            if let Err(err) = delete_resp {
+                crate::modules::logger::log_warn(&format!(
+                    "[Wakeup] 取消后异步删除网关轨迹失败: cascade_id={}, error={}",
+                    cascade_id, err
+                ));
+            }
+        });
+        return wakeup_result;
+    }
 
     let delete_resp = client
         .post(format!("{}/DeleteCascadeTrajectory", service_base))
@@ -1485,6 +1666,7 @@ async fn trigger_wakeup_via_client_gateway(
     model: &str,
     prompt: &str,
     max_output_tokens: u32,
+    cancel_rx: Option<&watch::Receiver<bool>>,
 ) -> Result<WakeupResponse, String> {
     crate::modules::logger::log_info(&format!(
         "[Wakeup] 开始唤醒(网关): account_id={}, model={}, max_tokens={}, prompt={}",
@@ -1507,11 +1689,15 @@ async fn trigger_wakeup_via_client_gateway(
             prompt,
             max_output_tokens,
             &base_url,
+            cancel_rx,
         )
         .await
         {
             Ok(resp) => return Ok(resp),
             Err(err) => {
+                if is_wakeup_cancelled_message(&err) {
+                    return Err(err);
+                }
                 if attempt == 1 && !from_env && is_local_gateway_recoverable_error_message(&err) {
                     crate::modules::logger::log_warn(&format!(
                         "[Wakeup] 检测到本地网关可恢复错误（传输或官方 LS 启动超时），尝试重建网关并重试一次: {}",
@@ -1525,10 +1711,11 @@ async fn trigger_wakeup_via_client_gateway(
                         "[Wakeup] 检测到上游临时错误，等待后自动重试一次: {}",
                         err
                     ));
-                    tokio::time::sleep(std::time::Duration::from_millis(
-                        CLIENT_GATEWAY_UPSTREAM_RETRY_DELAY_MS,
-                    ))
-                    .await;
+                    sleep_with_cancel(
+                        std::time::Duration::from_millis(CLIENT_GATEWAY_UPSTREAM_RETRY_DELAY_MS),
+                        cancel_rx,
+                    )
+                    .await?;
                     continue;
                 }
                 return Err(err);
@@ -1545,6 +1732,7 @@ pub(crate) async fn trigger_wakeup_direct(
     model: &str,
     prompt: &str,
     max_output_tokens: u32,
+    cancel_rx: Option<&watch::Receiver<bool>>,
 ) -> Result<WakeupResponse, String> {
     let mut account = modules::load_account(account_id)?;
     crate::modules::logger::log_info(&format!(
@@ -1554,10 +1742,15 @@ pub(crate) async fn trigger_wakeup_direct(
         max_output_tokens,
         format_prompt_for_log(prompt)
     ));
-    let mut token = modules::oauth::ensure_fresh_token(&account.token).await?;
+    let mut token =
+        await_with_cancel(cancel_rx, modules::oauth::ensure_fresh_token(&account.token)).await??;
 
     let (project_id, _, _) =
-        modules::quota::fetch_project_id_for_token(&token, &account.email).await;
+        await_with_cancel(
+            cancel_rx,
+            modules::quota::fetch_project_id_for_token(&token, &account.email),
+        )
+        .await?;
     let final_project_id = project_id
         .clone()
         .or_else(|| token.project_id.clone())
@@ -1580,7 +1773,7 @@ pub(crate) async fn trigger_wakeup_direct(
     let body = build_request_body(&final_project_id, model, prompt, max_output_tokens);
     let started = std::time::Instant::now();
 
-    match send_stream_request(&client, &token.access_token, &body).await {
+    match send_stream_request(&client, &token.access_token, &body, cancel_rx).await {
         Ok(parsed) => {
             let duration_ms = started.elapsed().as_millis() as u64;
             crate::modules::logger::log_info(&format!(
@@ -1598,7 +1791,11 @@ pub(crate) async fn trigger_wakeup_direct(
             })
         }
         Err(err) => {
-            crate::modules::logger::log_error(&format!("[Wakeup] 唤醒失败: {}", err));
+            if is_wakeup_cancelled_message(&err) {
+                crate::modules::logger::log_info("[Wakeup] 唤醒测试已取消");
+            } else {
+                crate::modules::logger::log_error(&format!("[Wakeup] 唤醒失败: {}", err));
+            }
             Err(err)
         }
     }
@@ -1610,18 +1807,28 @@ pub async fn trigger_wakeup(
     model: &str,
     prompt: &str,
     max_output_tokens: u32,
+    cancel_scope_id: Option<&str>,
 ) -> Result<WakeupResponse, String> {
     // 执行前检查：唤醒链路依赖官方 LS 二进制，未就绪时不再发起网络请求。
     let _ = ensure_wakeup_runtime_ready()?;
+    let cancel_rx = get_wakeup_cancel_receiver(cancel_scope_id)?;
 
     match resolve_wakeup_transport_mode() {
         WakeupTransportMode::LegacyCloudCode => {
             crate::modules::logger::log_info("[Wakeup] 通道=legacy_cloudcode");
-            trigger_wakeup_direct(account_id, model, prompt, max_output_tokens).await
+            trigger_wakeup_direct(account_id, model, prompt, max_output_tokens, cancel_rx.as_ref())
+                .await
         }
         WakeupTransportMode::ClientGateway => {
             crate::modules::logger::log_info("[Wakeup] 通道=client_gateway");
-            trigger_wakeup_via_client_gateway(account_id, model, prompt, max_output_tokens).await
+            trigger_wakeup_via_client_gateway(
+                account_id,
+                model,
+                prompt,
+                max_output_tokens,
+                cancel_rx.as_ref(),
+            )
+            .await
         }
     }
 }

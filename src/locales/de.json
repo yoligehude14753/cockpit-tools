@@ -1107,6 +1107,7 @@
       "testMissingModel": "Bitte ein Testmodell auswählen",
       "testMissingAccount": "Bitte ein Testkonto auswählen",
       "testFailed": "Test fehlgeschlagen ({{count}} Anfrage(n))",
+      "testCancelled": "Test abgebrochen",
       "testCompleted": "Test abgeschlossen",
       "nameRequired": "Bitte Aufgabenname eingeben",
       "accountRequired": "Mindestens ein Konto auswählen",

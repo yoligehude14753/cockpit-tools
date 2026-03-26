@@ -1153,6 +1153,7 @@
       "testMissingModel": "يرجى اختيار نموذج للاختبار",
       "testMissingAccount": "يرجى اختيار حساب للاختبار",
       "testFailed": "فشل الاختبار لعدد {{count}} من الطلبات",
+      "testCancelled": "تم إلغاء الاختبار",
       "testCompleted": "اكتمل الاختبار",
       "nameRequired": "يرجى إدخال اسم المهمة",
       "accountRequired": "اختر حساباً واحداً على الأقل",

@@ -402,6 +402,7 @@ pub async fn run_batch(
                 &model_for_task,
                 &prompt_for_task,
                 max_output_tokens,
+                None,
             )
             .await;
 

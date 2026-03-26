@@ -615,7 +615,7 @@ async fn run_task_with_models(
         for model in &models {
             let started = chrono::Utc::now();
             let result =
-                modules::wakeup::trigger_wakeup(&account.id, model, &prompt, max_tokens).await;
+                modules::wakeup::trigger_wakeup(&account.id, model, &prompt, max_tokens, None).await;
             let duration = chrono::Utc::now()
                 .signed_duration_since(started)
                 .num_milliseconds()

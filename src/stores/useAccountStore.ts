@@ -1,51 +1,10 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Account, RefreshStats } from '../types/account';
 import * as accountService from '../services/accountService';
 import { emitAccountsChanged, emitCurrentAccountChanged } from '../utils/accountSyncEvents';
 
-const ACCOUNTS_CACHE_KEY = 'agtools.accounts.cache';
-const CURRENT_ACCOUNT_CACHE_KEY = 'agtools.accounts.current';
-
-const loadCachedAccounts = () => {
-    try {
-        const raw = localStorage.getItem(ACCOUNTS_CACHE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
-};
-
-const loadCachedCurrentAccount = () => {
-    try {
-        const raw = localStorage.getItem(CURRENT_ACCOUNT_CACHE_KEY);
-        if (!raw) return null;
-        return JSON.parse(raw) as Account;
-    } catch {
-        return null;
-    }
-};
-
-const persistAccountsCache = (accounts: Account[]) => {
-    try {
-        localStorage.setItem(ACCOUNTS_CACHE_KEY, JSON.stringify(accounts));
-    } catch {
-        // ignore cache write failures
-    }
-};
-
-const persistCurrentAccountCache = (account: Account | null) => {
-    try {
-        if (!account) {
-            localStorage.removeItem(CURRENT_ACCOUNT_CACHE_KEY);
-            return;
-        }
-        localStorage.setItem(CURRENT_ACCOUNT_CACHE_KEY, JSON.stringify(account));
-    } catch {
-        // ignore cache write failures
-    }
-};
+const ACCOUNTS_STORE_KEY = 'agtools.accounts.store.v1';
 
 // 防抖状态（在 store 外部维护，避免触发 re-render）
 let fetchAccountsPromise: Promise<void> | null = null;
@@ -74,68 +33,68 @@ interface AccountState {
     updateAccountTags: (accountId: string, tags: string[]) => Promise<Account>;
 }
 
-export const useAccountStore = create<AccountState>((set, get) => ({
-    accounts: loadCachedAccounts(),
-    currentAccount: loadCachedCurrentAccount(),
-    loading: false,
-    error: null,
+export const useAccountStore = create<AccountState>()(
+  persist(
+    (set, get) => ({
+      accounts: [],
+      currentAccount: null,
+      loading: false,
+      error: null,
 
-    fetchAccounts: async () => {
-        const now = Date.now();
-        
-        // 如果正在请求中，且距离上次请求不足 DEBOUNCE_MS，复用现有 Promise
-        if (fetchAccountsPromise && now - fetchAccountsLastTime < DEBOUNCE_MS) {
-            return fetchAccountsPromise;
-        }
-        
-        fetchAccountsLastTime = now;
-        
-        fetchAccountsPromise = (async () => {
-            set({ loading: true, error: null });
-            try {
-                const accounts = await accountService.listAccounts();
-                set({ accounts, loading: false });
-                persistAccountsCache(accounts);
-            } catch (e) {
-                set({ error: String(e), loading: false });
-            } finally {
-                // 请求完成后延迟清除 Promise，允许短时间内的后续调用也复用结果
-                setTimeout(() => {
-                    fetchAccountsPromise = null;
-                }, 100);
-            }
-        })();
-        
-        return fetchAccountsPromise;
-    },
+      fetchAccounts: async () => {
+          const now = Date.now();
+          
+          // 如果正在请求中，且距离上次请求不足 DEBOUNCE_MS，复用现有 Promise
+          if (fetchAccountsPromise && now - fetchAccountsLastTime < DEBOUNCE_MS) {
+              return fetchAccountsPromise;
+          }
+          
+          fetchAccountsLastTime = now;
+          
+          fetchAccountsPromise = (async () => {
+              set({ loading: true, error: null });
+              try {
+                  const accounts = await accountService.listAccounts();
+                  set({ accounts, loading: false });
+              } catch (e) {
+                  set({ error: String(e), loading: false });
+              } finally {
+                  // 请求完成后延迟清除 Promise，允许短时间内的后续调用也复用结果
+                  setTimeout(() => {
+                      fetchAccountsPromise = null;
+                  }, 100);
+              }
+          })();
+          
+          return fetchAccountsPromise;
+      },
 
-    fetchCurrentAccount: async () => {
-        const now = Date.now();
-        
-        // 防抖：复用正在进行的请求
-        if (fetchCurrentPromise && now - fetchCurrentLastTime < DEBOUNCE_MS) {
-            return fetchCurrentPromise;
-        }
-        
-        fetchCurrentLastTime = now;
-        
-        fetchCurrentPromise = (async () => {
-            try {
-                await accountService.syncCurrentFromClient();
-                const account = await accountService.getCurrentAccount();
-                set({ currentAccount: account });
-                persistCurrentAccountCache(account);
-            } catch (e) {
-                console.error('Failed to fetch current account:', e);
-            } finally {
-                setTimeout(() => {
-                    fetchCurrentPromise = null;
-                }, 100);
-            }
-        })();
-        
-        return fetchCurrentPromise;
-    },
+      fetchCurrentAccount: async () => {
+          const now = Date.now();
+          
+          // 防抖：复用正在进行的请求
+          if (fetchCurrentPromise && now - fetchCurrentLastTime < DEBOUNCE_MS) {
+              return fetchCurrentPromise;
+          }
+          
+          fetchCurrentLastTime = now;
+          
+          fetchCurrentPromise = (async () => {
+              try {
+                  await accountService.syncCurrentFromClient();
+                  const account = await accountService.getCurrentAccount();
+                  set({ currentAccount: account });
+              } catch (e) {
+                  console.error('Failed to fetch current account:', e);
+              } finally {
+                  setTimeout(() => {
+                      fetchCurrentPromise = null;
+                  }, 100);
+              }
+          })();
+          
+          return fetchCurrentPromise;
+      },
 
     addAccount: async (email: string, refreshToken: string) => {
         const account = await accountService.addAccount(email, refreshToken);
@@ -275,7 +234,6 @@ export const useAccountStore = create<AccountState>((set, get) => ({
             try {
                 const account = await accountService.getCurrentAccount();
                 set({ currentAccount: account });
-                persistCurrentAccountCache(account);
                 const nextCurrentAccountId = account?.id ?? null;
                 if (previousCurrentAccountId !== nextCurrentAccountId) {
                     await emitCurrentAccountChanged({
@@ -295,4 +253,49 @@ export const useAccountStore = create<AccountState>((set, get) => ({
         await get().fetchAccounts();
         return account;
     },
-}));
+  }),
+  {
+    name: ACCOUNTS_STORE_KEY,
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state) => ({
+      accounts: state.accounts,
+      currentAccount: state.currentAccount,
+    }),
+    onRehydrateStorage: () => (state) => {
+      // Migrate from old ACCOUNTS_CACHE_KEY if the new state is empty
+      if (state && state.accounts.length === 0 && typeof window !== 'undefined') {
+        setTimeout(() => {
+          try {
+            const oldAccountsRaw = localStorage.getItem('agtools.accounts.cache');
+            const oldCurrentRaw = localStorage.getItem('agtools.accounts.current');
+            let hasMigrated = false;
+            
+            if (oldAccountsRaw) {
+              const oldAccounts = JSON.parse(oldAccountsRaw);
+              if (Array.isArray(oldAccounts) && oldAccounts.length > 0) {
+                useAccountStore.setState({ accounts: oldAccounts });
+                hasMigrated = true;
+              }
+            }
+            if (oldCurrentRaw) {
+              const oldCurrent = JSON.parse(oldCurrentRaw);
+              if (oldCurrent && oldCurrent.id) {
+                useAccountStore.setState({ currentAccount: oldCurrent });
+                hasMigrated = true;
+              }
+            }
+            
+            // Cleanup the old keys if we migrated successfully
+            if (hasMigrated) {
+              localStorage.removeItem('agtools.accounts.cache');
+              localStorage.removeItem('agtools.accounts.current');
+            }
+          } catch (error) {
+            // ignore migration errors
+          }
+        }, 0);
+      }
+    },
+  }
+));
+

@@ -1107,6 +1107,7 @@
       "testMissingModel": "Lütfen bir test modeli seçin",
       "testMissingAccount": "Lütfen bir test hesabı seçin",
       "testFailed": "Test, {{count}} istek için başarısız oldu",
+      "testCancelled": "Test iptal edildi",
       "testCompleted": "Test tamamlandı",
       "nameRequired": "Lütfen bir görev adı girin",
       "accountRequired": "En az bir hesap seçin",

@@ -1107,6 +1107,7 @@
       "testMissingModel": "請先選擇測試模型",
       "testMissingAccount": "請先選擇測試帳號",
       "testFailed": "測試失敗 {{count}} 個請求",
+      "testCancelled": "測試已取消",
       "testCompleted": "測試已完成",
       "nameRequired": "請輸入任務名稱",
       "accountRequired": "請至少選擇一個帳號",

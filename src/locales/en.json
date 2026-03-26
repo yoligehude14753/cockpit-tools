@@ -1153,6 +1153,7 @@
       "testMissingModel": "Please select a test model",
       "testMissingAccount": "Please select a test account",
       "testFailed": "Test failed for {{count}} request(s)",
+      "testCancelled": "Test cancelled",
       "testCompleted": "Test completed",
       "nameRequired": "Please enter a task name",
       "accountRequired": "Select at least one account",

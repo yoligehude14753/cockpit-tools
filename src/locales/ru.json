@@ -1107,6 +1107,7 @@
       "testMissingModel": "Выберите модель для теста",
       "testMissingAccount": "Выберите аккаунт для теста",
       "testFailed": "Тест не удался для {{count}} запросов",
+      "testCancelled": "Тест отменён",
       "testCompleted": "Тест завершён",
       "nameRequired": "Введите имя задачи",
       "accountRequired": "Выберите хотя бы один аккаунт",

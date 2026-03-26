@@ -1107,6 +1107,7 @@
       "testMissingModel": "Vyberte model pro test",
       "testMissingAccount": "Vyberte účet pro test",
       "testFailed": "Test selhal pro {{count}} požadavků",
+      "testCancelled": "Test byl zrušen",
       "testCompleted": "Test dokončen",
       "nameRequired": "Zadejte název úlohy",
       "accountRequired": "Vyberte alespoň jeden účet",

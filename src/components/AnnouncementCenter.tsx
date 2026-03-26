@@ -86,6 +86,7 @@ export function AnnouncementCenter({
   const [detailFromList, setDetailFromList] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [handledPopupId, setHandledPopupId] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchState(false);
@@ -104,6 +105,24 @@ export function AnnouncementCenter({
   useEffect(() => {
     setFailedImages(new Set());
   }, [detailAnnouncement?.id]);
+
+  useEffect(() => {
+    const popupAnnouncement = announcementState.popupAnnouncement;
+    if (!popupAnnouncement) {
+      return;
+    }
+    if (detailAnnouncement?.id === popupAnnouncement.id) {
+      return;
+    }
+    if (handledPopupId === popupAnnouncement.id) {
+      return;
+    }
+
+    setListOpen(false);
+    setDetailFromList(false);
+    setDetailAnnouncement(popupAnnouncement);
+    setHandledPopupId(popupAnnouncement.id);
+  }, [announcementState.popupAnnouncement, detailAnnouncement?.id, handledPopupId]);
 
   const unreadCount = announcementState.unreadIds.length;
 

@@ -1153,6 +1153,7 @@
       "testMissingModel": "请先选择测试模型",
       "testMissingAccount": "请先选择测试账号",
       "testFailed": "测试失败 {{count}} 个请求",
+      "testCancelled": "测试已取消",
       "testCompleted": "测试已完成",
       "nameRequired": "请输入任务名称",
       "accountRequired": "请选择至少一个账号",

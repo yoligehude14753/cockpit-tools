@@ -1107,6 +1107,7 @@
       "testMissingModel": "Vui lòng chọn một mô hình thử nghiệm",
       "testMissingAccount": "Vui lòng chọn một tài khoản thử nghiệm",
       "testFailed": "Thử nghiệm thất bại cho {{count}} yêu cầu",
+      "testCancelled": "Đã hủy thử nghiệm",
       "testCompleted": "Thử nghiệm đã hoàn thành",
       "nameRequired": "Vui lòng nhập tên nhiệm vụ",
       "accountRequired": "Chọn ít nhất một tài khoản",

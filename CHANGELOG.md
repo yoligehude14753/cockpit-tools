@@ -7,6 +7,16 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [0.20.10] - 2026-03-27
+
+### Added
+- **Antigravity wakeup manual tests can now be cancelled directly from the active test dialog**: each test run now carries a cancellation scope through the desktop wakeup pipeline, so cancelling stops in-flight wakeup requests cleanly and shows a dedicated cancellation notice instead of waiting for every request to finish.
+
+### Changed
+- **Classic sidebar navigation is now flatter and keeps existing layout preferences through a unified local-store migration**: classic mode no longer depends on expandable grouped sections, remaining entries appear directly in `More`, the collapse handle moves with transform-based animation, and legacy sidebar preference keys are migrated into the new persisted store on upgrade.
+- **Antigravity account cache persistence is now consolidated into a unified persisted store with legacy-key migration**: cached account lists and current-account snapshots are rehydrated from the new store while older local keys are migrated and cleaned up automatically.
+
+---
 ## [0.20.9] - 2026-03-25
 
 ### Added

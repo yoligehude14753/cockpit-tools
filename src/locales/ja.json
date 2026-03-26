@@ -1107,6 +1107,7 @@
       "testMissingModel": "テストモデルを選択してください",
       "testMissingAccount": "テストアカウントを選択してください",
       "testFailed": "テストが {{count}} 件失敗しました",
+      "testCancelled": "テストをキャンセルしました",
       "testCompleted": "テスト完了",
       "nameRequired": "タスク名を入力してください",
       "accountRequired": "少なくとも 1 つのアカウントを選択してください",

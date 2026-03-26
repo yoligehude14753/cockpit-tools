@@ -45,6 +45,10 @@ const BASE_TIME_OPTIONS = [
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const DEFAULT_PROMPT = 'hi';
+const buildWakeupTestScopeId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? `wakeup-test-${crypto.randomUUID()}`
+    : `wakeup-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
 const getReadableModelLabel = (id: string) => getAntigravityModelDisplayName(id);
@@ -515,6 +519,8 @@ export function WakeupTasksPage({ onNavigate }: WakeupPageProps) {
 
   const tasksRef = useRef(tasks);
   const wakeupEnabledRef = useRef(wakeupEnabled);
+  const activeTestRunTokenRef = useRef(0);
+  const activeTestScopeIdRef = useRef<string | null>(null);
   const accountEmails = useMemo(() => accounts.map((account) => account.email), [accounts]);
   const accountByEmail = useMemo(() => {
     const map = new Map<string, (typeof accounts)[number]>();
@@ -531,11 +537,29 @@ export function WakeupTasksPage({ onNavigate }: WakeupPageProps) {
     [availableModels, quotaModelKeys],
   );
 
+  const cancelImmediateTest = useCallback(() => {
+    const scopeId = activeTestScopeIdRef.current;
+    activeTestRunTokenRef.current = 0;
+    activeTestScopeIdRef.current = null;
+    clearTestModalError();
+    setTesting(false);
+    setShowTestModal(false);
+    setNotice({ text: t('wakeup.notice.testCancelled'), tone: 'warning' });
+    if (scopeId) {
+      invoke('wakeup_cancel_scope', { cancelScopeId: scopeId }).catch((error) => {
+        console.error('取消唤醒测试失败:', error);
+      });
+    }
+  }, [clearTestModalError, t]);
+
   const closeTestModal = useCallback(() => {
-    if (testing) return;
+    if (testing) {
+      cancelImmediateTest();
+      return;
+    }
     clearTestModalError();
     setShowTestModal(false);
-  }, [clearTestModalError, testing]);
+  }, [cancelImmediateTest, clearTestModalError, testing]);
   const modelById = useMemo(() => {
     const map = new Map<string, AvailableModel>();
     filteredModels.forEach((model) => map.set(model.id, model));
@@ -921,6 +945,10 @@ export function WakeupTasksPage({ onNavigate }: WakeupPageProps) {
       return;
     }
 
+    const runToken = activeTestRunTokenRef.current + 1;
+    const cancelScopeId = buildWakeupTestScopeId();
+    activeTestRunTokenRef.current = runToken;
+    activeTestScopeIdRef.current = cancelScopeId;
     setTesting(true);
     const trimmedPrompt = testCustomPrompt && testCustomPrompt.trim()
       ? testCustomPrompt.trim()
@@ -946,59 +974,85 @@ export function WakeupTasksPage({ onNavigate }: WakeupPageProps) {
             model,
             prompt: trimmedPrompt,
             maxOutputTokens: resolvedMaxTokens,
+            cancelScopeId,
           }),
         });
       });
     });
 
-    const results = await Promise.allSettled(actions.map((action) => action.promise));
-    const failed = results.filter((res) => res.status === 'rejected');
-    const timestamp = Date.now();
-    const historyItems = results.map((result, index) => {
-      const action = actions[index];
-      let duration = Date.now() - action.startedAt;
-      let message: string | undefined;
-      if (result.status === 'fulfilled') {
-        const value = result.value;
-        if (typeof value.durationMs === 'number') {
-          duration = value.durationMs;
+    try {
+      const results = await Promise.allSettled(actions.map((action) => action.promise));
+      if (activeTestRunTokenRef.current !== runToken) {
+        return;
+      }
+
+      const failed = results.filter((res) => res.status === 'rejected');
+      const timestamp = Date.now();
+      const historyItems = results.map((result, index) => {
+        const action = actions[index];
+        let duration = Date.now() - action.startedAt;
+        let message: string | undefined;
+        if (result.status === 'fulfilled') {
+          const value = result.value;
+          if (typeof value.durationMs === 'number') {
+            duration = value.durationMs;
+          }
+          message = formatWakeupMessage(action.modelId, value, duration, t);
+        } else {
+          message = formatErrorMessage(result.reason);
         }
-        message = formatWakeupMessage(action.modelId, value, duration, t);
+        return {
+          id: crypto.randomUUID ? crypto.randomUUID() : `${timestamp}-${index}`,
+          timestamp,
+          triggerType: 'manual' as HistoryTriggerType,
+          triggerSource: 'manual' as HistoryTriggerSource,
+          taskName: '',
+          accountEmail: action.accountEmail,
+          modelId: action.modelId,
+          prompt: promptText,
+          success: result.status === 'fulfilled',
+          message,
+          duration,
+        };
+      });
+      if (historyItems.length > 0) {
+        try {
+          await invoke('wakeup_add_history', { items: historyItems });
+          if (activeTestRunTokenRef.current !== runToken) {
+            return;
+          }
+          const latest = await loadHistory();
+          if (activeTestRunTokenRef.current !== runToken) {
+            return;
+          }
+          setHistoryRecords(latest);
+        } catch (error) {
+          console.error('写入唤醒历史失败:', error);
+          if (activeTestRunTokenRef.current !== runToken) {
+            return;
+          }
+          appendHistoryRecords(historyItems);
+        }
+      }
+      if (activeTestRunTokenRef.current !== runToken) {
+        return;
+      }
+      if (failed.length > 0) {
+        reportTestModalError(t('wakeup.notice.testFailed', { count: failed.length }));
       } else {
-        message = formatErrorMessage(result.reason);
+        clearTestModalError();
+        setShowTestModal(false);
+        setNotice({ text: t('wakeup.notice.testCompleted'), tone: 'success' });
       }
-      return {
-        id: crypto.randomUUID ? crypto.randomUUID() : `${timestamp}-${index}`,
-        timestamp,
-        triggerType: 'manual' as HistoryTriggerType,
-        triggerSource: 'manual' as HistoryTriggerSource,
-        taskName: '',
-        accountEmail: action.accountEmail,
-        modelId: action.modelId,
-        prompt: promptText,
-        success: result.status === 'fulfilled',
-        message,
-        duration,
-      };
-    });
-    if (historyItems.length > 0) {
-      try {
-        await invoke('wakeup_add_history', { items: historyItems });
-        const latest = await loadHistory();
-        setHistoryRecords(latest);
-      } catch (error) {
-        console.error('写入唤醒历史失败:', error);
-        appendHistoryRecords(historyItems);
+    } finally {
+      if (activeTestRunTokenRef.current === runToken) {
+        activeTestRunTokenRef.current = 0;
+        activeTestScopeIdRef.current = null;
+        setTesting(false);
       }
-    }
-    if (failed.length > 0) {
-      setTesting(false);
-      reportTestModalError(t('wakeup.notice.testFailed', { count: failed.length }));
-    } else {
-      setTesting(false);
-      clearTestModalError();
-      setShowTestModal(false);
-      setNotice({ text: t('wakeup.notice.testCompleted'), tone: 'success' });
+      invoke('wakeup_release_scope', { cancelScopeId }).catch((error) => {
+        console.error('释放唤醒测试取消作用域失败:', error);
+      });
     }
   };
 
