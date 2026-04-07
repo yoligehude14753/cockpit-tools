@@ -13,7 +13,7 @@
 
 | 赞助商 (Sponsor) | 简介 (Description) |
 | :---: | :--- |
-| **🛒 [https://xiangzili.xyz](https://xiangzili.xyz)** | 作者自营买号地址，提供 Gemini Pro 成品号与 Plus 兑换码；购买账号即送 Antigravity 无感切号方案。感谢大家长期支持，另外如有合适的卡商资源，也欢迎联系我合作。 |
+| **🛒 [https://xiangzili.xyz](https://xiangzili.xyz)** | 作者自营买号地址，提供 Gemini Pro 成品号与 Codex Plus 兑换码；购买账号即送 Antigravity 无感切号方案。感谢大家长期支持，另外有号商有合适的账号资源，也欢迎联系我合作。 |
 
 > 本工具旨在帮助用户高效管理多个 AI IDE 账号，支持一键切换、配额监控、自动唤醒与多开实例并行运行，助您充分利用不同账号的资源。
 

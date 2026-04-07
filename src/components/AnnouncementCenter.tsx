@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, ChevronLeft, X } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
@@ -213,6 +214,13 @@ export function AnnouncementCenter({
     return t('announcement.type.info', 'ℹ️ 信息');
   };
 
+  const renderInBody = (node: ReactNode) => {
+    if (typeof document === 'undefined') {
+      return node;
+    }
+    return createPortal(node, document.body);
+  };
+
   return (
     <>
       <div className={`announcement-center-anchor ${variant === 'inline' ? 'inline' : 'floating'}`}>
@@ -233,169 +241,172 @@ export function AnnouncementCenter({
         </button>
       </div>
 
-      {listOpen && (
-        <div className="modal-overlay announcement-modal-overlay" onClick={() => setListOpen(false)}>
-          <div className="modal announcement-list-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{t('announcement.title', '公告')}</h2>
-              <button className="modal-close" onClick={() => setListOpen(false)} aria-label={t('common.close', '关闭')}>
-                <X size={16} />
-              </button>
-            </div>
-            <div className="modal-body announcement-list-body">
-              <div className="announcement-toolbar">
-                <div className="announcement-toolbar-actions">
-                  <button
-                    className="announcement-toolbar-text-btn"
-                    onClick={() => {
-                      void markAllAsRead();
-                    }}
-                    disabled={unreadCount === 0}
-                  >
-                    {t('announcement.markAllRead', '全部已读')}
-                  </button>
-                  <button
-                    className="announcement-toolbar-text-btn"
-                    onClick={() => {
-                      void fetchState(true);
-                    }}
-                    disabled={loading}
-                  >
-                    {t('common.refresh', '刷新')}
-                  </button>
+      {listOpen &&
+        renderInBody(
+          <div className="modal-overlay announcement-modal-overlay" onClick={() => setListOpen(false)}>
+            <div className="modal announcement-list-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{t('announcement.title', '公告')}</h2>
+                <button className="modal-close" onClick={() => setListOpen(false)} aria-label={t('common.close', '关闭')}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="modal-body announcement-list-body">
+                <div className="announcement-toolbar">
+                  <div className="announcement-toolbar-actions">
+                    <button
+                      className="announcement-toolbar-text-btn"
+                      onClick={() => {
+                        void markAllAsRead();
+                      }}
+                      disabled={unreadCount === 0}
+                    >
+                      {t('announcement.markAllRead', '全部已读')}
+                    </button>
+                    <button
+                      className="announcement-toolbar-text-btn"
+                      onClick={() => {
+                        void fetchState(true);
+                      }}
+                      disabled={loading}
+                    >
+                      {t('common.refresh', '刷新')}
+                    </button>
+                  </div>
                 </div>
+
+                {sortedAnnouncements.length === 0 && (
+                  <div className="announcement-empty">{t('announcement.empty', '暂无公告')}</div>
+                )}
+
+                {sortedAnnouncements.map((announcement) => {
+                  const unread = announcementState.unreadIds.includes(announcement.id);
+                  return (
+                    <button
+                      key={announcement.id}
+                      className={`announcement-list-item ${unread ? 'is-unread' : ''}`}
+                      onClick={() => {
+                        void handleAnnouncementClick(announcement);
+                      }}
+                    >
+                      <div className="announcement-list-item-top">
+                        <div className="announcement-title-meta">
+                          <span className={`announcement-type-chip ${sanitizeTypeClass(String(announcement.type))}`}>
+                            {currentTypeLabel(String(announcement.type))}
+                          </span>
+                          <strong className="announcement-item-title">{announcement.title}</strong>
+                          {unread && <span className="announcement-unread-dot" />}
+                        </div>
+                        <span className="announcement-time">{formatTimeAgo(announcement.createdAt, translateText)}</span>
+                      </div>
+                      <p className="announcement-summary">{announcement.summary}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>,
+        )}
+
+      {detailAnnouncement &&
+        renderInBody(
+          <div className="modal-overlay announcement-modal-overlay" onClick={() => void closeDetail(false)}>
+            <div className="modal announcement-detail-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <div className="announcement-detail-header-left">
+                  {detailFromList ? (
+                    <button
+                      className="btn btn-secondary icon-only"
+                      onClick={() => {
+                        void closeDetail(true);
+                      }}
+                      title={t('common.back', '返回')}
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                  ) : null}
+                  <span className={`announcement-type-chip ${sanitizeTypeClass(String(detailAnnouncement.type))}`}>
+                    {currentTypeLabel(String(detailAnnouncement.type))}
+                  </span>
+                  <h2 className="announcement-detail-header-title">{detailAnnouncement.title}</h2>
+                </div>
+                <button className="modal-close" onClick={() => void closeDetail(false)} aria-label={t('common.close', '关闭')}>
+                  <X size={16} />
+                </button>
               </div>
 
-              {sortedAnnouncements.length === 0 && (
-                <div className="announcement-empty">{t('announcement.empty', '暂无公告')}</div>
-              )}
+              <div className="modal-body announcement-detail-body">
+                <div className="announcement-detail-time">{formatTimeAgo(detailAnnouncement.createdAt, translateText)}</div>
+                <div className="announcement-detail-content">{detailAnnouncement.content}</div>
 
-              {sortedAnnouncements.map((announcement) => {
-                const unread = announcementState.unreadIds.includes(announcement.id);
-                return (
+                {detailAnnouncement.images && detailAnnouncement.images.length > 0 && (
+                  <div className="announcement-images-grid">
+                    {detailAnnouncement.images.map((image) => {
+                      const imageKey = `${detailAnnouncement.id}-${image.url}`;
+                      const imageFailed = failedImages.has(imageKey);
+                      return (
+                        <div key={imageKey} className="announcement-image-card">
+                          {!imageFailed ? (
+                            <img
+                              src={image.url}
+                              alt={image.alt || image.label || ''}
+                              className="announcement-image"
+                              onClick={() => {
+                                if (isSafeUrl(image.url)) {
+                                  setImagePreviewUrl(image.url);
+                                }
+                              }}
+                              onError={() => {
+                                setFailedImages((previous) => {
+                                  const next = new Set(previous);
+                                  next.add(imageKey);
+                                  return next;
+                                });
+                              }}
+                            />
+                          ) : (
+                            <div className="announcement-image-error">
+                              {t('announcement.imageLoadFailed', '图片加载失败')}
+                            </div>
+                          )}
+                          {image.label ? <span>{image.label}</span> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => void closeDetail(false)}>
+                  {detailAnnouncement.action ? t('announcement.later', '稍后再说') : t('announcement.gotIt', '知道了')}
+                </button>
+                {detailAnnouncement.action ? (
                   <button
-                    key={announcement.id}
-                    className={`announcement-list-item ${unread ? 'is-unread' : ''}`}
+                    className="btn btn-primary"
                     onClick={() => {
-                      void handleAnnouncementClick(announcement);
+                      void runAction(detailAnnouncement.action as AnnouncementAction);
                     }}
                   >
-                    <div className="announcement-list-item-top">
-                      <div className="announcement-title-meta">
-                        <span className={`announcement-type-chip ${sanitizeTypeClass(String(announcement.type))}`}>
-                          {currentTypeLabel(String(announcement.type))}
-                        </span>
-                        <strong className="announcement-item-title">{announcement.title}</strong>
-                        {unread && <span className="announcement-unread-dot" />}
-                      </div>
-                      <span className="announcement-time">{formatTimeAgo(announcement.createdAt, translateText)}</span>
-                    </div>
-                    <p className="announcement-summary">{announcement.summary}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {detailAnnouncement && (
-        <div className="modal-overlay announcement-modal-overlay" onClick={() => void closeDetail(false)}>
-          <div className="modal announcement-detail-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <div className="announcement-detail-header-left">
-                {detailFromList ? (
-                  <button
-                    className="btn btn-secondary icon-only"
-                    onClick={() => {
-                      void closeDetail(true);
-                    }}
-                    title={t('common.back', '返回')}
-                  >
-                    <ChevronLeft size={14} />
+                    {(detailAnnouncement.action as AnnouncementAction).label || t('common.open', '打开')}
                   </button>
                 ) : null}
-                <span className={`announcement-type-chip ${sanitizeTypeClass(String(detailAnnouncement.type))}`}>
-                  {currentTypeLabel(String(detailAnnouncement.type))}
-                </span>
-                <h2 className="announcement-detail-header-title">{detailAnnouncement.title}</h2>
               </div>
-              <button className="modal-close" onClick={() => void closeDetail(false)} aria-label={t('common.close', '关闭')}>
-                <X size={16} />
-              </button>
             </div>
+          </div>,
+        )}
 
-            <div className="modal-body announcement-detail-body">
-              <div className="announcement-detail-time">{formatTimeAgo(detailAnnouncement.createdAt, translateText)}</div>
-              <div className="announcement-detail-content">{detailAnnouncement.content}</div>
-
-              {detailAnnouncement.images && detailAnnouncement.images.length > 0 && (
-                <div className="announcement-images-grid">
-                  {detailAnnouncement.images.map((image) => {
-                    const imageKey = `${detailAnnouncement.id}-${image.url}`;
-                    const imageFailed = failedImages.has(imageKey);
-                    return (
-                      <div key={imageKey} className="announcement-image-card">
-                        {!imageFailed ? (
-                          <img
-                            src={image.url}
-                            alt={image.alt || image.label || ''}
-                            className="announcement-image"
-                            onClick={() => {
-                              if (isSafeUrl(image.url)) {
-                                setImagePreviewUrl(image.url);
-                              }
-                            }}
-                            onError={() => {
-                              setFailedImages((previous) => {
-                                const next = new Set(previous);
-                                next.add(imageKey);
-                                return next;
-                              });
-                            }}
-                          />
-                        ) : (
-                          <div className="announcement-image-error">
-                            {t('announcement.imageLoadFailed', '图片加载失败')}
-                          </div>
-                        )}
-                        {image.label ? <span>{image.label}</span> : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+      {imagePreviewUrl &&
+        renderInBody(
+          <div className="announcement-image-preview-overlay" onClick={() => setImagePreviewUrl(null)}>
+            <div className="announcement-image-preview-wrapper">
+              <img src={imagePreviewUrl} alt="preview" className="announcement-image-preview" />
+              <div className="announcement-image-preview-hint">
+                {t('announcement.clickToClose', '点击关闭')}
+              </div>
             </div>
-
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => void closeDetail(false)}>
-                {detailAnnouncement.action ? t('announcement.later', '稍后再说') : t('announcement.gotIt', '知道了')}
-              </button>
-              {detailAnnouncement.action ? (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    void runAction(detailAnnouncement.action as AnnouncementAction);
-                  }}
-                >
-                  {(detailAnnouncement.action as AnnouncementAction).label || t('common.open', '打开')}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {imagePreviewUrl && (
-        <div className="announcement-image-preview-overlay" onClick={() => setImagePreviewUrl(null)}>
-          <div className="announcement-image-preview-wrapper">
-            <img src={imagePreviewUrl} alt="preview" className="announcement-image-preview" />
-            <div className="announcement-image-preview-hint">
-              {t('announcement.clickToClose', '点击关闭')}
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+        )}
     </>
   );
 }

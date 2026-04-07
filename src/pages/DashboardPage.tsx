@@ -75,6 +75,7 @@ import { WorkbuddyIcon } from '../components/icons/WorkbuddyIcon';
 import { PlatformId, PLATFORM_PAGE_MAP } from '../types/platform';
 import { getPlatformLabel, renderPlatformIcon } from '../utils/platformMeta';
 import { ManualHelpIconButton } from '../components/ManualHelpIconButton';
+import { AnnouncementCenter } from '../components/AnnouncementCenter';
 import { isPrivacyModeEnabledByDefault, maskSensitiveValue } from '../utils/privacy';
 import { DisplayGroup, getDisplayGroups } from '../services/groupService';
 import {
@@ -2691,6 +2692,7 @@ export function DashboardPage({
            <button className="header-action-btn" onClick={onOpenPlatformLayout}>
              <span>{t('platformLayout.title', '平台布局')}</span>
            </button>
+           <AnnouncementCenter onNavigate={onNavigate} variant="inline" trigger="button" />
          </div>
       </div>
 

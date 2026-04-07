@@ -38,8 +38,7 @@ export function TopCenterPromoBanner({ reserveWhenEmpty = true }: TopCenterPromo
           {ad.badge || t('common.topRightAd.badge', '广告')}
         </span>
         <div className="global-promo-main">
-          <strong className="global-ad-slot-title">{ad.title}</strong>
-          <p className="global-promo-desc">{ad.summary}</p>
+          <p className="global-promo-text">{ad.text}</p>
         </div>
         {ad.ctaUrl ? (
           <button className="global-ad-slot-action" onClick={handleClick}>

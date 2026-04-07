@@ -5668,6 +5668,8 @@ pub fn close_antigravity_instances(
     user_data_dirs: &[String],
     timeout_secs: u64,
 ) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let _ = timeout_secs;
     let default_dir = crate::modules::instance::get_default_user_data_dir()
         .ok()
         .map(|value| normalize_path_for_compare(&value.to_string_lossy()))
@@ -5693,13 +5695,93 @@ pub fn close_antigravity_instances(
                 default_dir.as_deref(),
             )
         },
-        None,
-        None,
+        Some(request_antigravity_graceful_close as fn(u32)),
+        Some(2),
         #[cfg(target_os = "windows")]
         Some(log_antigravity_process_details_for_pids as fn(&[u32])),
         #[cfg(not(target_os = "windows"))]
         None,
     )
+}
+
+fn request_antigravity_graceful_close(pid: u32) {
+    if pid == 0 || !is_pid_running(pid) {
+        return;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let script = format!(
+            "tell application \"System Events\" to set frontmost of (first process whose unix id is {}) to true\n\
+tell application \"System Events\" to keystroke \"q\" using command down",
+            pid
+        );
+        match Command::new("osascript").args(["-e", &script]).output() {
+            Ok(output) => {
+                if output.status.success() {
+                    crate::modules::logger::log_info(&format!(
+                        "[AG Close] 已发送优雅退出请求 pid={}",
+                        pid
+                    ));
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    crate::modules::logger::log_warn(&format!(
+                        "[AG Close] 优雅退出失败 pid={} err={}",
+                        pid,
+                        stderr.trim()
+                    ));
+                }
+            }
+            Err(err) => {
+                crate::modules::logger::log_warn(&format!(
+                    "[AG Close] 调用 osascript 失败 pid={} err={}",
+                    pid, err
+                ));
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+
+        crate::modules::logger::log_info(&format!("[AG Close] graceful taskkill start pid={}", pid));
+        let output = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .output();
+        match output {
+            Ok(value) => {
+                if value.status.success() {
+                    crate::modules::logger::log_info(&format!(
+                        "[AG Close] graceful taskkill success pid={} status={}",
+                        pid, value.status
+                    ));
+                } else {
+                    crate::modules::logger::log_warn(&format!(
+                        "[AG Close] graceful taskkill failed pid={} status={}",
+                        pid, value.status
+                    ));
+                }
+            }
+            Err(err) => {
+                crate::modules::logger::log_warn(&format!(
+                    "[AG Close] graceful taskkill error pid={} err={}",
+                    pid, err
+                ));
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = Command::new("kill")
+            .args(["-15", &pid.to_string()])
+            .output();
+    }
 }
 
 pub fn close_pid(pid: u32, timeout_secs: u64) -> Result<(), String> {

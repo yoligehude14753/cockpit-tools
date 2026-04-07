@@ -97,9 +97,7 @@ pub struct Announcement {
 #[serde(rename_all = "camelCase")]
 pub struct TopRightAdLocale {
     #[serde(default)]
-    pub title: Option<String>,
-    #[serde(default)]
-    pub summary: Option<String>,
+    pub text: Option<String>,
     #[serde(default)]
     pub badge: Option<String>,
     #[serde(default)]
@@ -112,10 +110,7 @@ pub struct TopRightAd {
     pub id: String,
     #[serde(default)]
     pub priority: i64,
-    #[serde(default)]
-    pub title: String,
-    #[serde(default)]
-    pub summary: String,
+    pub text: String,
     #[serde(default)]
     pub badge: Option<String>,
     #[serde(default)]
@@ -486,11 +481,8 @@ fn apply_localized_top_right_ad(ad: &TopRightAd, locale: &str) -> TopRightAd {
 
         if let Some(key) = matched_key {
             if let Some(localized_data) = locales.get(key) {
-                if let Some(title) = &localized_data.title {
-                    localized.title = title.clone();
-                }
-                if let Some(summary) = &localized_data.summary {
-                    localized.summary = summary.clone();
+                if let Some(text) = &localized_data.text {
+                    localized.text = text.clone();
                 }
                 if let Some(badge) = &localized_data.badge {
                     localized.badge = Some(badge.clone());

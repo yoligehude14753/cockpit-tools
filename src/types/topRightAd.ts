@@ -1,8 +1,7 @@
 export interface TopRightAd {
   id: string;
   priority: number;
-  title: string;
-  summary: string;
+  text: string;
   badge?: string | null;
   ctaLabel?: string | null;
   ctaUrl?: string | null;

@@ -2874,8 +2874,7 @@ function MainApp() {
                         {topRightAdState.ad.badge || t('common.topRightAd.badge', '广告')}
                       </span>
                       <div className="global-promo-main">
-                        <strong className="global-ad-slot-title">{topRightAdState.ad.title}</strong>
-                        <p className="global-promo-desc">{topRightAdState.ad.summary}</p>
+                        <p className="global-promo-text">{topRightAdState.ad.text}</p>
                       </div>
                       {topRightAdState.ad.ctaUrl ? (
                         <button className="global-ad-slot-action" onClick={handleTopRightAdClick}>
