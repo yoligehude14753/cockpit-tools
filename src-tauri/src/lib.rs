@@ -278,6 +278,7 @@ pub fn run() {
                     }
                     CloseWindowBehavior::Quit => {
                         info!("[Window] 用户选择退出应用");
+                        window.app_handle().exit(0);
                     }
                     CloseWindowBehavior::Ask => {
                         api.prevent_close();
