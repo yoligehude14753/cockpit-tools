@@ -7,6 +7,16 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [0.23.8] - 2026-05-17
+
+### Added
+- **Codex OAuth bindings can now be cleared from the binding dialog**: API Key accounts and the Local API Service expose an explicit unbind action when an OAuth account is already linked.
+
+### Changed
+- **Codex API Key accounts and the Local API Service now treat OAuth binding as optional**: unbound entries continue to run through their original API Key flow, while bound entries keep using the selected OAuth login state with the configured provider.
+- **Codex OAuth binding copy now matches the optional behavior**: the binding dialog explains the unbound and bound runtime paths instead of presenting OAuth binding as required.
+
+---
 ## [0.23.7] - 2026-05-16
 
 ### Added

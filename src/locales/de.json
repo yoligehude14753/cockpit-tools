@@ -1886,7 +1886,7 @@
         "empty": "Noch keine Kontingentstatistik"
       },
       "oauthBinding": {
-        "desc": "Beim Wechsel zur API-Dienst-Konfiguration oder beim Testen verwendet der Anmeldestatus das gebundene OAuth-Konto, während der Provider die aktuelle API-Dienst-Konfiguration nutzt.",
+        "desc": "Optional. Ohne Verknüpfung nutzt der API-Dienst weiter den bisherigen API-Key-Ablauf; nach der Verknüpfung verwendet die Anmeldung das OAuth-Konto und der Provider die API-Dienst-Konfiguration.",
         "currentService": "API-Dienst: {{name}}"
       }
     },
@@ -2299,14 +2299,17 @@
         "action": "OAuth binden",
         "actionShort": "Binden",
         "title": "OAuth-Konto binden",
-        "desc": "Beim Wechsel zu diesem API-Key-Konto nutzt die Anmeldung das gebundene OAuth-Konto; der Provider nutzt die Konfiguration dieses API-Key-Kontos.",
+        "desc": "Optional. Ohne Verknüpfung wechselt dieses Konto mit dem bisherigen API-Key-Ablauf; nach der Verknüpfung verwendet die Anmeldung das OAuth-Konto und der Provider die Konfiguration dieses API-Key-Kontos.",
         "currentAccount": "API-Key-Konto: {{name}}",
         "selectLabel": "OAuth-Konto wählen",
         "empty": "Noch kein OAuth-Konto vorhanden. Bitte zuerst ein OAuth-Konto hinzufügen.",
         "validationRequired": "Bitte ein OAuth-Konto wählen",
         "saveSuccess": "OAuth-Bindung aktualisiert",
         "saveFailed": "OAuth-Bindung fehlgeschlagen: {{error}}",
-        "switchRequiresBinding": "Bitte zuerst ein OAuth-Konto binden"
+        "switchRequiresBinding": "Bitte zuerst ein OAuth-Konto binden",
+        "clearAction": "Trennen",
+        "clearSuccess": "OAuth-Verknüpfung entfernt.",
+        "clearFailed": "OAuth-Verknüpfung konnte nicht entfernt werden: {{error}}"
       }
     },
     "modelProviders": {

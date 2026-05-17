@@ -1886,7 +1886,7 @@
         "empty": "クォータ統計はまだありません"
       },
       "oauthBinding": {
-        "desc": "API サービスへの切り替えまたはテスト時は、ログイン状態に紐付けた OAuth アカウントを使い、Provider は現在の API サービス設定を使います。",
+        "desc": "任意です。未連携の場合、API サービスは従来の API Key ロジックで動作します。連携後はログイン状態に OAuth アカウントを使い、Provider は現在の API サービス設定を使います。",
         "currentService": "API サービス：{{name}}"
       }
     },
@@ -2299,14 +2299,17 @@
         "action": "OAuth 連携",
         "actionShort": "連携",
         "title": "OAuth アカウントを連携",
-        "desc": "この API Key アカウントへ切り替えると、ログイン状態は連携した OAuth アカウントを使い、Provider はこの API Key アカウントの設定を使います。",
+        "desc": "任意です。未連携の場合、このアカウントは従来の API Key ロジックで切り替わります。連携後はログイン状態に OAuth アカウントを使い、Provider はこの API Key アカウント設定を使います。",
         "currentAccount": "API Key アカウント：{{name}}",
         "selectLabel": "OAuth アカウントを選択",
         "empty": "OAuth アカウントがありません。先に OAuth 認証アカウントを追加してください。",
         "validationRequired": "OAuth アカウントを選択してください",
         "saveSuccess": "OAuth 連携を更新しました",
         "saveFailed": "OAuth 連携に失敗しました：{{error}}",
-        "switchRequiresBinding": "先に OAuth アカウントを連携してください"
+        "switchRequiresBinding": "先に OAuth アカウントを連携してください",
+        "clearAction": "連携解除",
+        "clearSuccess": "OAuth 連携を解除しました",
+        "clearFailed": "OAuth 連携の解除に失敗しました：{{error}}"
       }
     },
     "modelProviders": {

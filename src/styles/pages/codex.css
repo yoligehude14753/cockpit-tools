@@ -3625,6 +3625,20 @@
   border-radius: 12px;
 }
 
+.codex-oauth-binding-modal .api-key-edit-actions .codex-oauth-binding-clear {
+  margin-right: auto;
+  border-color: color-mix(in srgb, var(--danger) 20%, var(--border));
+  background:
+    linear-gradient(135deg, rgba(254, 226, 226, 0.78), rgba(255, 237, 213, 0.62)),
+    rgba(255, 255, 255, 0.72);
+  color: var(--danger);
+}
+
+.codex-oauth-binding-modal .api-key-edit-actions .codex-oauth-binding-clear:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--border));
+  background: linear-gradient(135deg, rgba(254, 202, 202, 0.86), rgba(254, 215, 170, 0.72));
+}
+
 .codex-oauth-binding-modal .api-key-edit-actions .btn-primary {
   border-color: transparent;
   background: linear-gradient(135deg, var(--primary), #0891b2);
@@ -3664,6 +3678,11 @@
 
 [data-theme="dark"] .codex-oauth-binding-row.is-selected {
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(20, 184, 166, 0.13));
+}
+
+[data-theme="dark"] .codex-oauth-binding-modal .api-key-edit-actions .codex-oauth-binding-clear {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.32), rgba(124, 45, 18, 0.26));
+  border-color: rgba(248, 113, 113, 0.26);
 }
 
 [data-theme="dark"] .codex-oauth-binding-toolbar .tag-filter-panel {

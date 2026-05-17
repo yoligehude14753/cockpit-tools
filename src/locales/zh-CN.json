@@ -1957,7 +1957,7 @@
         "save": "保存集合"
       },
       "oauthBinding": {
-        "desc": "切换或测试 API 服务时，登录态使用绑定的 OAuth 账号，Provider 使用当前 API 服务配置。",
+        "desc": "可选绑定。未绑定时 API 服务按原 API Key 逻辑运行；绑定后登录态使用 OAuth 账号，Provider 使用当前 API 服务配置。",
         "currentService": "API 服务：{{name}}"
       }
     },
@@ -2057,14 +2057,17 @@
         "action": "绑定 OAuth",
         "actionShort": "绑定",
         "title": "绑定 OAuth 账号",
-        "desc": "切换该 API Key 账号时，登录态使用绑定的 OAuth 账号，Provider 使用当前 API Key 账号配置。",
+        "desc": "可选绑定。未绑定时该账号按原 API Key 逻辑切换；绑定后登录态使用 OAuth 账号，Provider 使用当前 API Key 账号配置。",
         "currentAccount": "API Key 账号：{{name}}",
         "selectLabel": "选择 OAuth 账号",
         "empty": "暂无 OAuth 账号，请先添加 OAuth 授权账号。",
         "validationRequired": "请选择 OAuth 账号",
         "saveSuccess": "OAuth 绑定已更新",
         "saveFailed": "OAuth 绑定失败：{{error}}",
-        "switchRequiresBinding": "请先绑定 OAuth 账号"
+        "switchRequiresBinding": "请先绑定 OAuth 账号",
+        "clearAction": "解除绑定",
+        "clearSuccess": "OAuth 绑定已解除",
+        "clearFailed": "解除 OAuth 绑定失败：{{error}}"
       }
     },
     "cockpitApi": {

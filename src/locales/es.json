@@ -1886,7 +1886,7 @@
         "empty": "Aún no hay estadísticas de cuota"
       },
       "oauthBinding": {
-        "desc": "Al cambiar al servicio API o probarlo, la sesión usa la cuenta OAuth vinculada y el Provider usa la configuración actual del servicio API.",
+        "desc": "Opcional. Sin enlace, el servicio API mantiene el flujo de API Key anterior; al enlazar, la sesión usa la cuenta OAuth y el Provider usa la configuración del servicio API.",
         "currentService": "Servicio API: {{name}}"
       }
     },
@@ -2299,14 +2299,17 @@
         "action": "Vincular OAuth",
         "actionShort": "Vincular",
         "title": "Vincular cuenta OAuth",
-        "desc": "Al cambiar a esta cuenta API Key, la sesión usa la cuenta OAuth vinculada y el Provider usa la configuración de esta cuenta API Key.",
+        "desc": "Opcional. Sin enlace, esta cuenta cambia con el flujo de API Key anterior; al enlazar, la sesión usa la cuenta OAuth y el Provider usa la configuración de esta cuenta API Key.",
         "currentAccount": "Cuenta API Key: {{name}}",
         "selectLabel": "Selecciona cuenta OAuth",
         "empty": "No hay cuentas OAuth. Añade primero una cuenta autorizada con OAuth.",
         "validationRequired": "Selecciona una cuenta OAuth",
         "saveSuccess": "Vínculo OAuth actualizado",
         "saveFailed": "Error al vincular OAuth: {{error}}",
-        "switchRequiresBinding": "Vincula primero una cuenta OAuth"
+        "switchRequiresBinding": "Vincula primero una cuenta OAuth",
+        "clearAction": "Desvincular",
+        "clearSuccess": "Vínculo OAuth eliminado.",
+        "clearFailed": "No se pudo eliminar el vínculo OAuth: {{error}}"
       }
     },
     "modelProviders": {

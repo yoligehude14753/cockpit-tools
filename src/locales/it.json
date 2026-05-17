@@ -1886,7 +1886,7 @@
         "empty": "Nessuna statistica quota"
       },
       "oauthBinding": {
-        "desc": "Quando passi al servizio API o lo testi, lo stato di accesso usa l’account OAuth associato e il Provider usa la configurazione attuale del servizio API.",
+        "desc": "Opzionale. Senza collegamento, il servizio API usa il flusso API Key esistente; dopo il collegamento, l’accesso usa l’account OAuth e il Provider usa la configurazione del servizio API.",
         "currentService": "Servizio API: {{name}}"
       }
     },
@@ -2299,14 +2299,17 @@
         "action": "Collega OAuth",
         "actionShort": "Collega",
         "title": "Collega account OAuth",
-        "desc": "Quando passi a questo account API Key, lo stato di accesso usa l'account OAuth collegato e il Provider usa la configurazione di questo account API Key.",
+        "desc": "Opzionale. Senza collegamento, questo account cambia con il flusso API Key esistente; dopo il collegamento, l’accesso usa l’account OAuth e il Provider usa la configurazione di questo account API Key.",
         "currentAccount": "Account API Key: {{name}}",
         "selectLabel": "Seleziona account OAuth",
         "empty": "Nessun account OAuth. Aggiungi prima un account autorizzato OAuth.",
         "validationRequired": "Seleziona un account OAuth",
         "saveSuccess": "Collegamento OAuth aggiornato",
         "saveFailed": "Collegamento OAuth non riuscito: {{error}}",
-        "switchRequiresBinding": "Collega prima un account OAuth"
+        "switchRequiresBinding": "Collega prima un account OAuth",
+        "clearAction": "Scollega",
+        "clearSuccess": "Collegamento OAuth rimosso.",
+        "clearFailed": "Rimozione del collegamento OAuth non riuscita: {{error}}"
       }
     },
     "modelProviders": {

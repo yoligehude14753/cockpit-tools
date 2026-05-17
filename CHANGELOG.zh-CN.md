@@ -7,6 +7,16 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
 ---
+## [0.23.8] - 2026-05-17
+
+### 新增
+- **Codex OAuth 绑定弹框现可直接解除绑定**：API Key 账号与本地 API 服务在已绑定 OAuth 账号时，会展示明确的解除绑定操作。
+
+### 变更
+- **Codex API Key 账号与本地 API 服务现将 OAuth 绑定作为可选项**：未绑定时继续按原 API Key 流程运行；绑定后则继续使用所选 OAuth 登录态，并叠加对应 provider 配置。
+- **Codex OAuth 绑定说明已对齐可选绑定行为**：绑定弹框会说明未绑定和已绑定两条运行路径，不再把 OAuth 绑定描述为必选前置条件。
+
+---
 ## [0.23.7] - 2026-05-16
 
 ### 新增

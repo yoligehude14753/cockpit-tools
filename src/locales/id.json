@@ -1935,7 +1935,7 @@
         "empty": "Belum ada statistik kuota"
       },
       "oauthBinding": {
-        "desc": "Saat beralih ke layanan API atau mengujinya, status login memakai akun OAuth yang terikat, sementara Provider memakai konfigurasi layanan API saat ini.",
+        "desc": "Opsional. Tanpa tautan, layanan API tetap memakai alur API Key lama; setelah ditautkan, status masuk memakai akun OAuth dan Provider memakai konfigurasi layanan API.",
         "currentService": "Layanan API: {{name}}"
       }
     },
@@ -2035,14 +2035,17 @@
         "action": "Tautkan OAuth",
         "actionShort": "Tautkan",
         "title": "Tautkan Akun OAuth",
-        "desc": "Saat beralih ke akun API Key ini, status login memakai akun OAuth tertaut, sementara Provider memakai konfigurasi akun API Key ini.",
+        "desc": "Opsional. Tanpa tautan, akun ini beralih dengan alur API Key lama; setelah ditautkan, status masuk memakai akun OAuth dan Provider memakai konfigurasi akun API Key ini.",
         "currentAccount": "Akun API Key: {{name}}",
         "selectLabel": "Pilih akun OAuth",
         "empty": "Belum ada akun OAuth. Tambahkan akun berotorisasi OAuth terlebih dahulu.",
         "validationRequired": "Pilih akun OAuth",
         "saveSuccess": "Tautan OAuth diperbarui",
         "saveFailed": "Gagal menautkan OAuth: {{error}}",
-        "switchRequiresBinding": "Tautkan akun OAuth terlebih dahulu"
+        "switchRequiresBinding": "Tautkan akun OAuth terlebih dahulu",
+        "clearAction": "Lepas tautan",
+        "clearSuccess": "Tautan OAuth dihapus.",
+        "clearFailed": "Gagal menghapus tautan OAuth: {{error}}"
       }
     },
     "local": {

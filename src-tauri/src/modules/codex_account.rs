@@ -3093,14 +3093,14 @@ fn validate_api_key_bound_oauth_account(
     Ok(oauth_account)
 }
 
-fn load_bound_oauth_account_for_api_key(
+fn load_optional_bound_oauth_account_for_api_key(
     api_key_account: &CodexAccount,
-) -> Result<CodexAccount, String> {
-    let bound_id = api_key_account
-        .bound_oauth_account_id
-        .as_deref()
-        .ok_or_else(|| "API Key 账号需先绑定 OAuth 账号".to_string())?;
-    validate_api_key_bound_oauth_account(api_key_account, bound_id)
+) -> Result<Option<CodexAccount>, String> {
+    let Some(bound_id) = normalize_optional_ref(api_key_account.bound_oauth_account_id.as_deref())
+    else {
+        return Ok(None);
+    };
+    validate_api_key_bound_oauth_account(api_key_account, &bound_id).map(Some)
 }
 
 fn write_api_key_provider_override_to_config_toml(
@@ -3154,8 +3154,14 @@ fn write_api_key_account_bundle_with_oauth_to_dir(
 
 pub fn write_account_bundle_to_dir(base_dir: &Path, account: &CodexAccount) -> Result<(), String> {
     if account.is_api_key_auth() {
-        let oauth_account = load_bound_oauth_account_for_api_key(account)?;
-        return write_api_key_account_bundle_with_oauth_to_dir(base_dir, account, &oauth_account);
+        if let Some(oauth_account) = load_optional_bound_oauth_account_for_api_key(account)? {
+            return write_api_key_account_bundle_with_oauth_to_dir(
+                base_dir,
+                account,
+                &oauth_account,
+            );
+        }
+        return write_prepared_account_bundle_to_dir(base_dir, account);
     }
 
     let account = resolve_account_for_bundle_write(base_dir, account)?;
@@ -3485,26 +3491,41 @@ where
     let api_key_account =
         load_account(account_id).ok_or_else(|| format!("账号不存在: {}", account_id))?;
     if api_key_account.is_api_key_auth() {
-        let oauth_account =
-            refresh_bound_oauth_account_for_api_key(&api_key_account, reason).await?;
-        write_api_key_account_bundle_with_oauth_to_dir(auth_dir, &api_key_account, &oauth_account)?;
+        let sync_error = if normalize_optional_ref(
+            api_key_account.bound_oauth_account_id.as_deref(),
+        )
+        .is_some()
+        {
+            let oauth_account =
+                refresh_bound_oauth_account_for_api_key(&api_key_account, reason).await?;
+            write_api_key_account_bundle_with_oauth_to_dir(
+                auth_dir,
+                &api_key_account,
+                &oauth_account,
+            )?;
 
-        let result = operation(&api_key_account);
-        let sync_error = match sync_managed_projection_from_auth_dir(&oauth_account.id, auth_dir) {
-            Ok(_) => {
-                let latest_oauth_account =
-                    load_account(&oauth_account.id).unwrap_or_else(|| oauth_account.clone());
-                match write_api_key_account_bundle_with_oauth_to_dir(
-                    auth_dir,
-                    &api_key_account,
-                    &latest_oauth_account,
-                ) {
-                    Ok(_) => None,
+            let sync_result =
+                match sync_managed_projection_from_auth_dir(&oauth_account.id, auth_dir) {
+                    Ok(_) => {
+                        let latest_oauth_account = load_account(&oauth_account.id)
+                            .unwrap_or_else(|| oauth_account.clone());
+                        match write_api_key_account_bundle_with_oauth_to_dir(
+                            auth_dir,
+                            &api_key_account,
+                            &latest_oauth_account,
+                        ) {
+                            Ok(_) => None,
+                            Err(err) => Some(err),
+                        }
+                    }
                     Err(err) => Some(err),
-                }
-            }
-            Err(err) => Some(err),
+                };
+            sync_result
+        } else {
+            write_prepared_account_bundle_to_dir(auth_dir, &api_key_account)?;
+            None
         };
+        let result = operation(&api_key_account);
         let latest_account = load_account(account_id).unwrap_or(api_key_account);
 
         return Ok((latest_account, result, sync_error));
@@ -3533,9 +3554,13 @@ pub async fn prepare_account_for_injection_from_auth_dir(
     let account = load_account(account_id).ok_or_else(|| format!("账号不存在: {}", account_id))?;
     if account.is_api_key_auth() {
         if let Some(dir) = auth_dir {
-            let oauth_account =
-                refresh_bound_oauth_account_for_api_key(&account, "prepare").await?;
-            write_api_key_account_bundle_with_oauth_to_dir(dir, &account, &oauth_account)?;
+            if normalize_optional_ref(account.bound_oauth_account_id.as_deref()).is_some() {
+                let oauth_account =
+                    refresh_bound_oauth_account_for_api_key(&account, "prepare").await?;
+                write_api_key_account_bundle_with_oauth_to_dir(dir, &account, &oauth_account)?;
+            } else {
+                write_prepared_account_bundle_to_dir(dir, &account)?;
+            }
         }
         return Ok(account);
     }
@@ -3598,6 +3623,9 @@ fn switch_account_with_prepared(
 pub async fn switch_account_managed(account_id: &str) -> Result<CodexAccount, String> {
     let account = load_account(account_id).ok_or_else(|| format!("账号不存在: {}", account_id))?;
     if account.is_api_key_auth() {
+        if normalize_optional_ref(account.bound_oauth_account_id.as_deref()).is_none() {
+            return switch_account_with_prepared(account_id, account);
+        }
         let oauth_account = refresh_bound_oauth_account_for_api_key(&account, "switch").await?;
         let codex_home = get_codex_home();
         let auth_path = codex_home.join("auth.json");
@@ -5384,7 +5412,7 @@ pub fn update_account_app_speed(
 
 pub async fn update_api_key_bound_oauth_account(
     account_id: &str,
-    bound_oauth_account_id: String,
+    bound_oauth_account_id: Option<String>,
 ) -> Result<CodexAccount, String> {
     let mut account =
         load_account(account_id).ok_or_else(|| format!("账号不存在: {}", account_id))?;
@@ -5393,11 +5421,11 @@ pub async fn update_api_key_bound_oauth_account(
         return Err("仅 API Key 账号支持绑定 OAuth 账号".to_string());
     }
 
-    let bound_id = normalize_optional_ref(Some(bound_oauth_account_id.as_str()))
-        .ok_or_else(|| "请选择要绑定的 OAuth 账号".to_string())?;
-    let _ = validate_api_key_bound_oauth_account(&account, &bound_id)?;
-
-    account.bound_oauth_account_id = Some(bound_id.clone());
+    let bound_id = normalize_optional_ref(bound_oauth_account_id.as_deref());
+    if let Some(bound_id) = bound_id.as_deref() {
+        let _ = validate_api_key_bound_oauth_account(&account, bound_id)?;
+    }
+    account.bound_oauth_account_id = bound_id.clone();
     save_account(&account)?;
 
     let is_current = load_account_index()
@@ -5406,9 +5434,14 @@ pub async fn update_api_key_bound_oauth_account(
         .map(|current_id| current_id == account.id)
         .unwrap_or(false);
     if is_current {
-        let oauth_account = refresh_bound_oauth_account_for_api_key(&account, "bind-oauth").await?;
         let codex_home = get_codex_home();
-        write_api_key_account_bundle_with_oauth_to_dir(&codex_home, &account, &oauth_account)?;
+        if bound_id.is_some() {
+            let oauth_account =
+                refresh_bound_oauth_account_for_api_key(&account, "bind-oauth").await?;
+            write_api_key_account_bundle_with_oauth_to_dir(&codex_home, &account, &oauth_account)?;
+        } else {
+            write_prepared_account_bundle_to_dir(&codex_home, &account)?;
+        }
     }
 
     Ok(account)
