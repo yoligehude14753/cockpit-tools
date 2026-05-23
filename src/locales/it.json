@@ -2517,6 +2517,7 @@
       "column": "Scade",
       "unknown": "Riautorizza",
       "missingDetail": "Riautorizza per leggere",
+      "refresh": "Aggiorna abbonamento",
       "expired": "Scaduto",
       "hoursLeft": "{{count}} h",
       "daysLeft": "{{count}} g",

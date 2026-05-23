@@ -2563,6 +2563,7 @@
       "column": "Berakhir",
       "unknown": "Otorisasi ulang",
       "missingDetail": "Otorisasi ulang untuk ambil",
+      "refresh": "Segarkan langganan",
       "expired": "Kedaluwarsa",
       "hoursLeft": "{{count}} jam",
       "daysLeft": "{{count}} hr",

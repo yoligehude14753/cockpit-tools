@@ -487,6 +487,7 @@ pub fn run() {
             commands::codex::export_codex_accounts,
             commands::codex::import_codex_from_files,
             commands::codex::refresh_codex_quota,
+            commands::codex::refresh_codex_subscription_info,
             commands::codex::refresh_all_codex_quotas,
             commands::codex::refresh_current_codex_quota,
             commands::codex::codex_oauth_login_start,

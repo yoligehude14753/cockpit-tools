@@ -2517,6 +2517,7 @@
       "column": "訂閱到期",
       "unknown": "重新授權",
       "missingDetail": "重新授權後取得",
+      "refresh": "刷新訂閱",
       "expired": "已到期",
       "hoursLeft": "{{count}} 小時",
       "daysLeft": "{{count}} 天",

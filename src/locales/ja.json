@@ -2517,6 +2517,7 @@
       "column": "期限",
       "unknown": "再認証",
       "missingDetail": "再認証して取得",
+      "refresh": "契約を更新",
       "expired": "期限切れ",
       "hoursLeft": "{{count}}時間",
       "daysLeft": "{{count}}日",

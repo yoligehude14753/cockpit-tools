@@ -512,6 +512,18 @@ pub async fn refresh_codex_quota(app: AppHandle, account_id: String) -> Result<C
 }
 
 #[tauri::command]
+pub async fn refresh_codex_subscription_info(
+    app: AppHandle,
+    account_id: String,
+) -> Result<CodexAccount, String> {
+    let result = codex_quota::refresh_account_subscription_info(&account_id, true).await;
+    if result.is_ok() {
+        let _ = crate::modules::tray::update_tray_menu(&app);
+    }
+    result
+}
+
+#[tauri::command]
 pub async fn refresh_current_codex_quota(app: AppHandle) -> Result<(), String> {
     let Some(account) = codex_account::get_current_account() else {
         return Err("未找到当前 Codex 账号".to_string());

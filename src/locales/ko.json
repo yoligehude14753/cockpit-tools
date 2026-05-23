@@ -2517,6 +2517,7 @@
       "column": "만료",
       "unknown": "재인증",
       "missingDetail": "재인증 후 가져오기",
+      "refresh": "구독 새로고침",
       "expired": "만료됨",
       "hoursLeft": "{{count}}시간",
       "daysLeft": "{{count}}일",

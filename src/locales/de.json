@@ -2517,6 +2517,7 @@
       "column": "Ablauf",
       "unknown": "Neu autorisieren",
       "missingDetail": "Zum Abrufen neu autorisieren",
+      "refresh": "Abo aktualisieren",
       "expired": "Abgelaufen",
       "hoursLeft": "{{count}} h",
       "daysLeft": "{{count}} T.",

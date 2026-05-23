@@ -2517,6 +2517,7 @@
       "column": "Истекает",
       "unknown": "Повторить вход",
       "missingDetail": "Повторите вход для получения",
+      "refresh": "Обновить подписку",
       "expired": "Истекла",
       "hoursLeft": "{{count}} ч",
       "daysLeft": "{{count}} дн.",

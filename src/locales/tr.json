@@ -2517,6 +2517,7 @@
       "column": "Bitiş",
       "unknown": "Yeniden yetkilendir",
       "missingDetail": "Almak icin yeniden yetkilendir",
+      "refresh": "Aboneliği yenile",
       "expired": "Süresi doldu",
       "hoursLeft": "{{count}} sa",
       "daysLeft": "{{count}} gün",

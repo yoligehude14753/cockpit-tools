@@ -2517,6 +2517,7 @@
       "column": "Expire",
       "unknown": "Réautoriser",
       "missingDetail": "Réautoriser pour récupérer",
+      "refresh": "Actualiser l’abonnement",
       "expired": "Expiré",
       "hoursLeft": "{{count}} h",
       "daysLeft": "{{count}} j",

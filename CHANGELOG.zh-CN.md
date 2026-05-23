@@ -7,6 +7,19 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
 ---
+## [0.24.5] - 2026-05-23
+
+### 新增
+- **Codex API 服务现改由内置 CLIProxyAPI sidecar 运行**：Cockpit Tools 会构建并打包 `cockpit-cliproxy`，根据受管账号和客户端 Key 生成 sidecar 配置、manifest 与认证文件，同时保持现有 Base URL/API Key 使用方式，并将 sidecar 用量事件写入 Cockpit 统计与请求日志。
+- **Codex 账号订阅期限现可手动刷新**：订阅信息缺失或已过期的 OAuth 账号会在卡片与表格视图中显示刷新操作，并在账号记录中保存查询尝试、成功时间、重试窗口和最近错误。
+
+### 变更
+- **Codex API 服务运行时接管现会保留官方 Codex profile 文件**：启用服务前会备份 profile 下的 `auth.json` 与 `config.toml`，再写入受管 `codex_local_access` provider 状态；停用服务时会恢复已备份文件，或只移除 Cockpit 写入的条目。
+- **Codex 历史会话可见性修复现同时更新 rollout 元数据与 `state_5.sqlite` thread 记录**：需要时会把 SQLite 数据库纳入备份，无效数据库会跳过并给出明确结果，修复摘要会展示已更新的 SQLite 记录数。
+- **本地运行时与配置持久化现统一使用原子写入和损坏文件隔离**：配置、公告、实例列表、OAuth pending 文件、唤醒状态/历史/验证、托盘布局、更新状态、指纹、Zed 运行时与 Codex API 日志存储会先隔离无效文件，再重建安全默认状态。
+- **文档现说明 Codex API 服务的 sidecar 集成方式**：README 与致谢文案明确 CLIProxyAPI 是内置 sidecar，Cockpit Tools 负责账号同步、配置投影、状态与用量统计。
+
+---
 ## [0.24.4] - 2026-05-23
 
 ### 新增

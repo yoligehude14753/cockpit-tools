@@ -2517,6 +2517,7 @@
       "column": "Wygasa",
       "unknown": "Autoryzuj ponownie",
       "missingDetail": "Autoryzuj ponownie, aby pobrać",
+      "refresh": "Odśwież subskrypcję",
       "expired": "Wygasła",
       "hoursLeft": "{{count}} godz.",
       "daysLeft": "{{count}} dni",

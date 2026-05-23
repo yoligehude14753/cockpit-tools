@@ -2517,6 +2517,7 @@
       "column": "Hết hạn",
       "unknown": "Ủy quyền lại",
       "missingDetail": "Ủy quyền lại để lấy",
+      "refresh": "Làm mới gói",
       "expired": "Đã hết hạn",
       "hoursLeft": "{{count}} giờ",
       "daysLeft": "{{count}} ngày",

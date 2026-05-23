@@ -7,6 +7,19 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [0.24.5] - 2026-05-23
+
+### Added
+- **Codex API Service now runs through a bundled CLIProxyAPI sidecar**: Cockpit Tools builds and packages `cockpit-cliproxy`, generates sidecar config, manifest, and auth files from managed accounts and client keys, keeps the existing Base URL/API key workflow, and records sidecar usage events in Cockpit statistics and request logs.
+- **Codex account subscription terms can now be refreshed manually**: OAuth accounts with missing or expired subscription information expose a refresh action in card and table views, with query attempts, successes, retry windows, and last errors persisted on the account record.
+
+### Changed
+- **Codex API Service runtime takeover now preserves official Codex profile files**: enabling the service backs up profile `auth.json` and `config.toml` before writing the managed `codex_local_access` provider state, and disabling the service restores backed-up files or removes only Cockpit-owned entries.
+- **Codex history visibility repair now updates both rollout metadata and `state_5.sqlite` thread rows**: repair backups include the SQLite database when needed, invalid databases are skipped with a clear result message, and the summary reports the number of updated SQLite records.
+- **Local runtime and configuration persistence now uses shared atomic writes and corrupt-file quarantine**: config, announcements, instance stores, OAuth pending files, wakeup state/history/verification, tray layout, update state, fingerprints, Zed runtime, and Codex API log storage isolate invalid files before rebuilding safe defaults.
+- **Documentation now describes the Codex API Service sidecar integration**: README copy and acknowledgments identify CLIProxyAPI as the bundled sidecar while keeping Cockpit Tools responsible for account sync, config projection, status, and usage statistics.
+
+---
 ## [0.24.4] - 2026-05-23
 
 ### Added
