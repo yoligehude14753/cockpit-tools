@@ -549,7 +549,8 @@
     "tabs": {
       "general": "General",
       "network": "Red",
-      "about": "Acerca de"
+      "about": "Acerca de",
+      "data": "Gestión de datos"
     },
     "general": {
       "appearance": "Apariencia",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "El tipo de datos seleccionado no está presente en esta copia",
         "unsupportedLegacyFile": "No se reconoce este formato heredado de copia de cuentas",
         "unsupportedVersion": "Esta versión de la app no admite esa versión del paquete"
+      }
+    },
+    "webdav": {
+      "groupTitle": "Sincronización WebDAV",
+      "enabledTitle": "Sincronización de copia de seguridad WebDAV",
+      "enabledDesc": "Por defecto Jianguoyun, se puede cambiar a cualquier servicio WebDAV.",
+      "urlTitle": "Dirección del servicio",
+      "urlDesc": "Dirección por defecto de Jianguoyun: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Cuenta",
+      "usernameDesc": "Jianguoyun utiliza el correo electrónico de su cuenta.",
+      "usernamePlaceholder": "Correo electrónico o nombre de usuario",
+      "passwordTitle": "Contraseña de la aplicación",
+      "passwordDesc": "Guardada localmente; dejar en blanco para mantener la contraseña existente.",
+      "passwordPlaceholder": "Contraseña de aplicación de terceros de Jianguoyun",
+      "passwordSavedPlaceholder": "Guardada; dejar en blanco para mantenerla",
+      "clearPassword": "Limpiar",
+      "remoteDirTitle": "Carpeta remota",
+      "remoteDirDesc": "Solo se gestionan los archivos de copia de seguridad de Cockpit en esta carpeta.",
+      "statusTitle": "Estado de sincronización",
+      "statusDesc": "La restauración remota requiere una selección manual y nunca sobrescribe silenciosamente los datos locales.",
+      "lastUpload": "Última subida: {{time}}",
+      "lastDownload": "Última restauración: {{time}}",
+      "never": "No sincronizado todavía",
+      "testAction": "Probar/Guardar configuración",
+      "uploadAction": "Crear y subir",
+      "syncAction": "Sincronizar configuración",
+      "syncLatestConfirm": "¿Está seguro de que desea descargar la última copia de seguridad remota {{name}} y sincronizarla localmente? Esto sobrescribirá los datos locales existentes.",
+      "remoteListTitle": "Copias de seguridad remotas",
+      "remoteListDesc": "Solo se muestran los archivos JSON y ZIP que coinciden con los nombres de copias de seguridad automáticas/manuales de Cockpit.",
+      "emptyTitle": "No hay copias de seguridad remotas",
+      "emptyDesc": "Guarde la configuración, luego cree y suba una copia de seguridad.",
+      "unknownTime": "Desconocido",
+      "restoreAction": "Restaurar",
+      "restoreConfirm": "¿Restaurar datos de la copia de seguridad remota {{name}}?",
+      "deleteConfirm": "¿Eliminar copia de seguridad remota {{name}}?",
+      "feedback": {
+        "testingAndSaving": "Guardando y probando la conexión WebDAV...",
+        "saveAndTestSuccess": "¡Configuración guardada y prueba de conexión exitosa!",
+        "saveSuccessTestFailed": "Configuración guardada, pero la prueba de conexión falló: {{message}}",
+        "saveAndTestFailed": "Error al guardar y probar la conexión: {{error}}",
+        "uploading": "Creando y subiendo copia de seguridad...",
+        "uploadSuccess": "Subido(s) {{count}} archivo(s), limpiada(s) {{deleted}} copia(s) de seguridad remota(s) expirada(s)",
+        "uploadFailed": "La subida a WebDAV falló: {{error}}",
+        "listFailed": "Error al cargar las copias de seguridad remotas: {{error}}",
+        "loadSettingsFailed": "Error al cargar la configuración de WebDAV: {{error}}",
+        "restoring": "Leyendo copia de seguridad remota e importando...",
+        "restoreEmpty": "No se restauró ningún dato de la copia de seguridad remota",
+        "deleteSuccess": "Copia de seguridad remota eliminada",
+        "deleteFailed": "Error al eliminar la copia de seguridad remota: {{error}}",
+        "syncingLatest": "Sincronizando la última configuración remota...",
+        "syncFailed": "Error al sincronizar la última configuración: {{error}}",
+        "noRemoteBackup": "No se encontraron archivos de copia de seguridad restaurables en el control remoto"
+      },
+      "errors": {
+        "notEnabled": "Primero active la sincronización WebDAV"
       }
     }
   },

@@ -549,7 +549,8 @@
     "tabs": {
       "general": "Genel",
       "network": "Ağ",
-      "about": "Hakkında"
+      "about": "Hakkında",
+      "data": "Veri Yönetimi"
     },
     "general": {
       "appearance": "Görünüm",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "Seçilen veri türü bu yedekte yok",
         "unsupportedLegacyFile": "Bu eski hesap yedeği biçimi tanınmadı",
         "unsupportedVersion": "Bu uygulama sürümü bu paket sürümünü desteklemiyor"
+      }
+    },
+    "webdav": {
+      "groupTitle": "WebDAV Senkronizasyonu",
+      "enabledTitle": "WebDAV Yedekleme Senkronizasyonu",
+      "enabledDesc": "Varsayılan olarak Jianguoyun'dur ve herhangi bir WebDAV servisiyle değiştirilebilir.",
+      "urlTitle": "Servis Adresi",
+      "urlDesc": "Jianguoyun varsayılan adresi: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Hesap",
+      "usernameDesc": "Jianguoyun hesap e-postanızı kullanır.",
+      "usernamePlaceholder": "E-posta veya kullanıcı adı",
+      "passwordTitle": "Uygulama Şifresi",
+      "passwordDesc": "Yerel olarak kaydedilir; mevcut şifreyi korumak için boş bırakın.",
+      "passwordPlaceholder": "Jianguoyun üçüncü taraf uygulama şifresi",
+      "passwordSavedPlaceholder": "Kaydedildi; korumak için boş bırakın",
+      "clearPassword": "Temizle",
+      "remoteDirTitle": "Uzak Klasör",
+      "remoteDirDesc": "Sadece bu klasördeki Cockpit yedekleme dosyaları yönetilir.",
+      "statusTitle": "Senkronizasyon Durumu",
+      "statusDesc": "Uzak yedekten geri yükleme manuel seçim gerektirir ve yerel verileri asla sessizce üzerine yazmaz.",
+      "lastUpload": "Son yükleme: {{time}}",
+      "lastDownload": "Son geri yükleme: {{time}}",
+      "never": "Henüz senkronize edilmedi",
+      "testAction": "Test Et/Kaydet",
+      "uploadAction": "Oluştur & Yükle",
+      "syncAction": "Ayarları Senkronize Et",
+      "syncLatestConfirm": "En son uzak yedeği {{name}} çekmek ve yerel verilerle senkronize etmek istediğinizden emin misiniz? Bu işlem mevcut yerel verilerin üzerine yazacaktır.",
+      "remoteListTitle": "Uzak Yedekler",
+      "remoteListDesc": "Sadece Cockpit otomatik/manuel yedekleme adlarıyla eşleşen JSON ve ZIP dosyaları gösterilir.",
+      "emptyTitle": "Uzak yedek yok",
+      "emptyDesc": "Ayarları kaydedin, ardından bir yedek oluşturup yükleyin.",
+      "unknownTime": "Bilinmeyen",
+      "restoreAction": "Geri Yükle",
+      "restoreConfirm": "{{name}} uzak yedeğinden veriler geri yüklensin mi?",
+      "deleteConfirm": "{{name}} uzak yedeği silinsin mi?",
+      "feedback": {
+        "testingAndSaving": "WebDAV bağlantısı kaydediliyor ve test ediliyor...",
+        "saveAndTestSuccess": "Ayarlar kaydedildi ve bağlantı testi başarılı oldu!",
+        "saveSuccessTestFailed": "Ayarlar kaydedildi, ancak bağlantı testi başarısız oldu: {{message}}",
+        "saveAndTestFailed": "Ayarları kaydetme ve bağlantı testi başarısız oldu: {{error}}",
+        "uploading": "Yedek oluşturuluyor ve yükleniyor...",
+        "uploadSuccess": "{{count}} dosya yüklendi, {{deleted}} süresi dolmuş uzak yedek temizlendi",
+        "uploadFailed": "WebDAV yüklemesi başarısız oldu: {{error}}",
+        "listFailed": "Uzak yedekler yüklenemedi: {{error}}",
+        "loadSettingsFailed": "WebDAV ayarları yüklenemedi: {{error}}",
+        "restoring": "Uzak yedek okunuyor ve içe aktarılıyor...",
+        "restoreEmpty": "Uzak yedekten hiçbir veri geri yüklenmedi",
+        "deleteSuccess": "Uzak yedek silindi",
+        "deleteFailed": "Uzak yedeği silme başarısız oldu: {{error}}",
+        "syncingLatest": "En son uzak ayarlar senkronize ediliyor...",
+        "syncFailed": "En son ayarları senkronize etme başarısız oldu: {{error}}",
+        "noRemoteBackup": "Uzak sunucuda geri yüklenebilir yedekleme dosyası bulunamadı"
+      },
+      "errors": {
+        "notEnabled": "Önce WebDAV senkronizasyonunu etkinleştirin"
       }
     }
   },

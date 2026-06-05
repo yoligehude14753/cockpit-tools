@@ -549,7 +549,8 @@
     "tabs": {
       "general": "일반",
       "network": "네트워크",
-      "about": "정보"
+      "about": "정보",
+      "data": "데이터 관리"
     },
     "general": {
       "appearance": "디자인",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "선택한 데이터 유형이 이 백업에 없습니다",
         "unsupportedLegacyFile": "이 구버전 계정 백업 형식은 인식할 수 없습니다",
         "unsupportedVersion": "현재 앱 버전은 해당 묶음 버전을 지원하지 않습니다"
+      }
+    },
+    "webdav": {
+      "groupTitle": "WebDAV 동기화",
+      "enabledTitle": "WebDAV 백업 동기화",
+      "enabledDesc": "기본값은 Jianguoyun이며 모든 WebDAV 서비스로 변경할 수 있습니다.",
+      "urlTitle": "서비스 주소",
+      "urlDesc": "Jianguoyun 기본 주소: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "계정",
+      "usernameDesc": "Jianguoyun은 계정 이메일을 사용합니다.",
+      "usernamePlaceholder": "이메일 또는 사용자 이름",
+      "passwordTitle": "앱 비밀번호",
+      "passwordDesc": "로컬에 저장됩니다. 기존 비밀번호를 유지하려면 비워 두십시오.",
+      "passwordPlaceholder": "Jianguoyun 제3자 앱 비밀번호",
+      "passwordSavedPlaceholder": "저장됨; 유지하려면 비워 두십시오",
+      "clearPassword": "지우기",
+      "remoteDirTitle": "원격 디렉토리",
+      "remoteDirDesc": "이 디렉토리 내의 Cockpit 백업 파일만 관리됩니다.",
+      "statusTitle": "동기화 상태",
+      "statusDesc": "원격 복구는 수동 선택이 필요하며 로컬 데이터를 자동으로 덮어쓰지 않습니다.",
+      "lastUpload": "최근 업로드: {{time}}",
+      "lastDownload": "최근 복구: {{time}}",
+      "never": "아직 동기화되지 않음",
+      "testAction": "테스트/설정 저장",
+      "uploadAction": "생성 및 업로드",
+      "syncAction": "설정 동기화",
+      "syncLatestConfirm": "최신 원격 백업 {{name}}을 가져와 로컬로 동기화하시겠습니까? 이렇게 하면 기존 로컬 데이터가 덮어씌워집니다.",
+      "remoteListTitle": "원격 백업",
+      "remoteListDesc": "Cockpit 자동/수동 백업 이름과 일치하는 JSON 및 ZIP 파일만 표시됩니다.",
+      "emptyTitle": "원격 백업 없음",
+      "emptyDesc": "설정을 저장한 다음 백업을 생성하고 업로드하십시오.",
+      "unknownTime": "미상",
+      "restoreAction": "복구",
+      "restoreConfirm": "원격 백업 {{name}}에서 데이터를 복구하시겠습니까?",
+      "deleteConfirm": "원격 백업 {{name}}을(를) 삭제하시겠습니까?",
+      "feedback": {
+        "testingAndSaving": "WebDAV 연결을 저장하고 테스트하는 중...",
+        "saveAndTestSuccess": "설정이 저장되고 연결 테스트에 성공했습니다!",
+        "saveSuccessTestFailed": "설정은 저장되었으나 연결 테스트에 실패했습니다: {{message}}",
+        "saveAndTestFailed": "연결 저장 및 테스트 실패: {{error}}",
+        "uploading": "백업 생성 및 업로드 중...",
+        "uploadSuccess": "{{count}}개 파일 업로드 완료, 만료된 원격 백업 {{deleted}}개 정리됨",
+        "uploadFailed": "WebDAV 업로드 실패: {{error}}",
+        "listFailed": "원격 백업 로드 실패: {{error}}",
+        "loadSettingsFailed": "WebDAV 설정 로드 실패: {{error}}",
+        "restoring": "원격 백업을 읽고 가져오는 중...",
+        "restoreEmpty": "원격 백업에서 복구된 데이터가 없습니다",
+        "deleteSuccess": "원격 백업이 삭제되었습니다",
+        "deleteFailed": "원격 백업 삭제 실패: {{error}}",
+        "syncingLatest": "최신 원격 구성 동기화 중...",
+        "syncFailed": "최신 구성 동기화 실패: {{error}}",
+        "noRemoteBackup": "원격에서 복구 가능한 백업 파일을 찾을 수 없습니다"
+      },
+      "errors": {
+        "notEnabled": "먼저 WebDAV 동기화를 활성화하십시오"
       }
     }
   },

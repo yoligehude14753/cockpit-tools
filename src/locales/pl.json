@@ -549,7 +549,8 @@
     "tabs": {
       "general": "Ogólne",
       "network": "Sieć",
-      "about": "O aplikacji"
+      "about": "O aplikacji",
+      "data": "Zarządzanie danymi"
     },
     "general": {
       "appearance": "Wygląd",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "Wybrany typ danych nie występuje w tej kopii",
         "unsupportedLegacyFile": "Ten starszy format kopii kont nie jest rozpoznawany",
         "unsupportedVersion": "Ta wersja aplikacji nie obsługuje tej wersji pakietu"
+      }
+    },
+    "webdav": {
+      "groupTitle": "Synchronizacja WebDAV",
+      "enabledTitle": "Synchronizacja kopii zapasowych WebDAV",
+      "enabledDesc": "Domyślnie Jianguoyun, można zmienić na dowolną usługę WebDAV.",
+      "urlTitle": "Adres usługi",
+      "urlDesc": "Domyślny adres Jianguoyun: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Konto",
+      "usernameDesc": "Jianguoyun używa adresu e-mail Twojego konta.",
+      "usernamePlaceholder": "E-mail lub nazwa użytkownika",
+      "passwordTitle": "Hasło aplikacji",
+      "passwordDesc": "Zapisane lokalnie; pozostaw puste, aby zachować dotychczasowe hasło.",
+      "passwordPlaceholder": "Hasło do aplikacji zewnętrznej Jianguoyun",
+      "passwordSavedPlaceholder": "Zapisano; pozostaw puste, aby zachować",
+      "clearPassword": "Wyczyść",
+      "remoteDirTitle": "Katalog zdalny",
+      "remoteDirDesc": "Zarządzane są tylko pliki kopii zapasowych Cockpit w tym katalogu.",
+      "statusTitle": "Status synchronizacji",
+      "statusDesc": "Przywracanie zdalne wymaga ręcznego wyboru i nigdy nie nadpisuje cicho danych lokalnych.",
+      "lastUpload": "Ostatnie przesłanie: {{time}}",
+      "lastDownload": "Ostatnie przywrócenie: {{time}}",
+      "never": "Jeszcze nie zsynchronizowano",
+      "testAction": "Testuj/Zapisz konfigurację",
+      "uploadAction": "Utwórz i prześlij",
+      "syncAction": "Synchronizuj konfigurację",
+      "syncLatestConfirm": "Czy na pewno chcesz pobrać najnowszą zdalną kopię zapasową {{name}} i zsynchronizować ją lokalnie? Spowoduje to nadpisanie istniejących danych lokalnych.",
+      "remoteListTitle": "Kopie zapasowe zdalne",
+      "remoteListDesc": "Wyświetlane są tylko pliki JSON i ZIP pasujące do nazw automatycznych/ręcznych kopii zapasowych Cockpit.",
+      "emptyTitle": "Brak zdalnych kopii zapasowych",
+      "emptyDesc": "Zapisz ustawienia, a następnie utwórz i prześlij kopię zapasową.",
+      "unknownTime": "Nieznany",
+      "restoreAction": "Przywróć",
+      "restoreConfirm": "Przywrócić dane ze zdalnej kopii zapasowej {{name}}?",
+      "deleteConfirm": "Usunąć zdalną kopię zapasową {{name}}?",
+      "feedback": {
+        "testingAndSaving": "Zapisywanie i testowanie połączenia WebDAV...",
+        "saveAndTestSuccess": "Konfiguracja zapisana i test połączenia powiódł się!",
+        "saveSuccessTestFailed": "Konfiguracja zapisana, ale test połączenia nie powiódł się: {{message}}",
+        "saveAndTestFailed": "Nie udało się zapisać i przetestować połączenia: {{error}}",
+        "uploading": "Tworzenie i przesyłanie kopii zapasowej...",
+        "uploadSuccess": "Przesłano {{count}} plik(ów), oczyszczono {{deleted}} wygasłe zdalne kopie zapasowe",
+        "uploadFailed": "Przesyłanie na WebDAV nie powiodło się: {{error}}",
+        "listFailed": "Nie udało się załadować zdalnych kopii zapasowych: {{error}}",
+        "loadSettingsFailed": "Nie udało się załadować ustawień WebDAV: {{error}}",
+        "restoring": "Odczytywanie zdalnej kopii zapasowej i importowanie...",
+        "restoreEmpty": "Nie przywrócono żadnych danych ze zdalnej kopii zapasowej",
+        "deleteSuccess": "Zdalna kopia zapasowa została usunięta",
+        "deleteFailed": "Nie udało się usunąć zdalnej kopii zapasowej: {{error}}",
+        "syncingLatest": "Synchronizowanie najnowszej konfiguracji zdalnej...",
+        "syncFailed": "Nie udało się zsynchronizować najnowszej konfiguracji: {{error}}",
+        "noRemoteBackup": "Nie znaleziono plików kopii zapasowych do przywrócenia na zdalnym serwerze"
+      },
+      "errors": {
+        "notEnabled": "Najpierw włącz synchronizację WebDAV"
       }
     }
   },

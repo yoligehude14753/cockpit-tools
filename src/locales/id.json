@@ -595,7 +595,8 @@
     "tabs": {
       "general": "Umum",
       "network": "Jaringan",
-      "about": "Tentang"
+      "about": "Tentang",
+      "data": "Manajemen Data"
     },
     "general": {
       "appearance": "Tampilan",
@@ -973,6 +974,61 @@
         "selectedSectionsMissing": "Jenis data yang dipilih tidak ada di cadangan ini",
         "unsupportedLegacyFile": "Format cadangan akun lama ini tidak dikenali",
         "unsupportedVersion": "Versi aplikasi ini tidak mendukung versi bundel tersebut"
+      }
+    },
+    "webdav": {
+      "groupTitle": "Sinkronisasi WebDAV",
+      "enabledTitle": "Sinkronisasi Cadangan WebDAV",
+      "enabledDesc": "Default Jianguoyun, dapat diubah ke layanan WebDAV apa pun.",
+      "urlTitle": "Alamat Layanan",
+      "urlDesc": "Alamat default Jianguoyun: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Akun",
+      "usernameDesc": "Jianguoyun menggunakan email akun Anda.",
+      "usernamePlaceholder": "Email atau nama pengguna",
+      "passwordTitle": "Kata Sandi Aplikasi",
+      "passwordDesc": "Disimpan secara lokal; biarkan kosong untuk mempertahankan kata sandi saat ini.",
+      "passwordPlaceholder": "Kata sandi aplikasi pihak ketiga Jianguoyun",
+      "passwordSavedPlaceholder": "Disimpan; biarkan kosong untuk mempertahankan",
+      "clearPassword": "Bersihkan",
+      "remoteDirTitle": "Folder Jarak Jauh",
+      "remoteDirDesc": "Hanya file cadangan Cockpit di folder ini yang dikelola.",
+      "statusTitle": "Status Sinkronisasi",
+      "statusDesc": "Pemulihan jarak jauh memerlukan pemilihan manual dan tidak pernah menimpa data lokal secara diam-diam.",
+      "lastUpload": "Unggahan terakhir: {{time}}",
+      "lastDownload": "Pemulihan terakhir: {{time}}",
+      "never": "Belum disinkronkan",
+      "testAction": "Uji/Simpan Konfigurasi",
+      "uploadAction": "Buat & Unggah",
+      "syncAction": "Sinkronisasi Konfigurasi",
+      "syncLatestConfirm": "Apakah Anda yakin ingin mengunduh cadangan jarak jauh terbaru {{name}} dan menyinkronkannya secara lokal? Ini akan menimpa data lokal yang ada.",
+      "remoteListTitle": "Cadangan Jarak Jauh",
+      "remoteListDesc": "Hanya file JSON dan ZIP yang cocok dengan nama cadangan otomatis/manual Cockpit yang ditampilkan.",
+      "emptyTitle": "Tidak ada cadangan jarak jauh",
+      "emptyDesc": "Simpan pengaturan, lalu buat dan unggah cadangan.",
+      "unknownTime": "Tidak diketahui",
+      "restoreAction": "Pulihkan",
+      "restoreConfirm": "Pulihkan data dari cadangan jarak jauh {{name}}?",
+      "deleteConfirm": "Hapus cadangan jarak jauh {{name}}?",
+      "feedback": {
+        "testingAndSaving": "Menyimpan dan menguji koneksi WebDAV...",
+        "saveAndTestSuccess": "Konfigurasi disimpan dan uji koneksi berhasil!",
+        "saveSuccessTestFailed": "Konfigurasi disimpan, tetapi uji koneksi gagal: {{message}}",
+        "saveAndTestFailed": "Gagal menyimpan dan menguji koneksi: {{error}}",
+        "uploading": "Membuat dan mengunggah cadangan...",
+        "uploadSuccess": "Berhasil mengunggah {{count}} file, membersihkan {{deleted}} cadangan jarak jauh yang kedaluwarsa",
+        "uploadFailed": "Unggahan WebDAV gagal: {{error}}",
+        "listFailed": "Gagal memuat cadangan jarak jauh: {{error}}",
+        "loadSettingsFailed": "Gagal memuat pengaturan WebDAV: {{error}}",
+        "restoring": "Membaca cadangan jarak jauh dan mengimpor...",
+        "restoreEmpty": "Tidak ada data yang dipulihkan dari cadangan jarak jauh",
+        "deleteSuccess": "Cadangan jarak jauh dihapus",
+        "deleteFailed": "Gagal menghapus cadangan jarak jauh: {{error}}",
+        "syncingLatest": "Menyinkronkan konfigurasi jarak jauh terbaru...",
+        "syncFailed": "Gagal menyinkronkan konfigurasi terbaru: {{error}}",
+        "noRemoteBackup": "Tidak ada file cadangan yang dapat dipulihkan di remote"
+      },
+      "errors": {
+        "notEnabled": "Aktifkan sinkronisasi WebDAV terlebih dahulu"
       }
     }
   },

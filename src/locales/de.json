@@ -549,7 +549,8 @@
     "tabs": {
       "general": "Allgemein",
       "network": "Netzwerk",
-      "about": "Über"
+      "about": "Über",
+      "data": "Datenverwaltung"
     },
     "general": {
       "appearance": "Erscheinungsbild",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "Der ausgewählte Datentyp ist in dieser Sicherung nicht enthalten",
         "unsupportedLegacyFile": "Dieses Legacy-Konto-Backup-Format wird nicht erkannt",
         "unsupportedVersion": "Diese App-Version unterstützt diese Bundle-Version nicht"
+      }
+    },
+    "webdav": {
+      "groupTitle": "WebDAV-Synchronisierung",
+      "enabledTitle": "WebDAV-Backup-Synchronisierung",
+      "enabledDesc": "Standardmäßig Jianguoyun, kann in jeden WebDAV-Dienst geändert werden.",
+      "urlTitle": "Dienstadresse",
+      "urlDesc": "Standardadresse von Jianguoyun: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Konto",
+      "usernameDesc": "Jianguoyun verwendet Ihre E-Mail-Adresse.",
+      "usernamePlaceholder": "E-Mail oder Benutzername",
+      "passwordTitle": "App-Passwort",
+      "passwordDesc": "Lokal gespeichert; leer lassen, um das bestehende Passwort zu behalten.",
+      "passwordPlaceholder": "Jianguoyun-Drittanbieter-App-Passwort",
+      "passwordSavedPlaceholder": "Gespeichert; leer lassen, um es zu behalten",
+      "clearPassword": "Löschen",
+      "remoteDirTitle": "Remote-Ordner",
+      "remoteDirDesc": "Es werden nur Cockpit-Backup-Dateien in diesem Ordner verwaltet.",
+      "statusTitle": "Synchronisationsstatus",
+      "statusDesc": "Die Remote-Wiederherstellung erfordert eine manuelle Auswahl und überschreibt lokale Daten niemals stillschweigend.",
+      "lastUpload": "Letzter Upload: {{time}}",
+      "lastDownload": "Letzte Wiederherstellung: {{time}}",
+      "never": "Noch nicht synchronisiert",
+      "testAction": "Testen/Einstellungen speichern",
+      "uploadAction": "Erstellen & Hochladen",
+      "syncAction": "Einstellungen synchronisieren",
+      "syncLatestConfirm": "Möchten Sie wirklich das neueste Remote-Backup {{name}} herunterladen und lokal synchronisieren? Dadurch werden bestehende lokale Daten überschrieben.",
+      "remoteListTitle": "Remote-Backups",
+      "remoteListDesc": "Es werden nur JSON- und ZIP-Dateien angezeigt, die den Namen der automatischen/manuellen Cockpit-Backups entsprechen.",
+      "emptyTitle": "Keine Remote-Backups",
+      "emptyDesc": "Einstellungen speichern, dann ein Backup erstellen und hochladen.",
+      "unknownTime": "Unbekannt",
+      "restoreAction": "Wiederherstellen",
+      "restoreConfirm": "Daten aus dem Remote-Backup {{name}} wiederherstellen?",
+      "deleteConfirm": "Remote-Backup {{name}} löschen?",
+      "feedback": {
+        "testingAndSaving": "Speichern und Testen der WebDAV-Verbindung...",
+        "saveAndTestSuccess": "Einstellungen gespeichert und Verbindungstest erfolgreich!",
+        "saveSuccessTestFailed": "Einstellungen gespeichert, aber Verbindungstest fehlgeschlagen: {{message}}",
+        "saveAndTestFailed": "Speichern und Testen der Verbindung fehlgeschlagen: {{error}}",
+        "uploading": "Backup wird erstellt und hochgeladen...",
+        "uploadSuccess": "{{count}} Datei(en) hochgeladen, {{deleted}} abgelaufene Remote-Backup(s) bereinigt",
+        "uploadFailed": "WebDAV-Upload fehlgeschlagen: {{error}}",
+        "listFailed": "Laden der Remote-Backups fehlgeschlagen: {{error}}",
+        "loadSettingsFailed": "Laden der WebDAV-Einstellungen fehlgeschlagen: {{error}}",
+        "restoring": "Remote-Backup wird gelesen und importiert...",
+        "restoreEmpty": "Es wurden keine Daten aus dem Remote-Backup wiederhergestellt",
+        "deleteSuccess": "Remote-Backup gelöscht",
+        "deleteFailed": "Löschen des Remote-Backups fehlgeschlagen: {{error}}",
+        "syncingLatest": "Synchronisierung der neuesten Remote-Konfiguration...",
+        "syncFailed": "Synchronisierung der neuesten Konfiguration fehlgeschlagen: {{error}}",
+        "noRemoteBackup": "Keine wiederherstellbaren Backup-Dateien auf Remote gefunden"
+      },
+      "errors": {
+        "notEnabled": "Aktivieren Sie zuerst die WebDAV-Synchronisierung"
       }
     }
   },

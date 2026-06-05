@@ -169,6 +169,33 @@ pub struct UserConfig {
     /// 最近一次自动备份时间（ISO 8601）
     #[serde(default)]
     pub auto_backup_last_backup_at: Option<String>,
+    /// WebDAV 备份同步是否启用
+    #[serde(default = "default_webdav_sync_enabled")]
+    pub webdav_sync_enabled: bool,
+    /// WebDAV 服务地址
+    #[serde(default = "default_webdav_sync_url")]
+    pub webdav_sync_url: String,
+    /// WebDAV 用户名
+    #[serde(default = "default_webdav_sync_username")]
+    pub webdav_sync_username: String,
+    /// WebDAV 密码或应用密码
+    #[serde(default = "default_webdav_sync_password")]
+    pub webdav_sync_password: String,
+    /// WebDAV 远端备份目录
+    #[serde(default = "default_webdav_sync_remote_dir")]
+    pub webdav_sync_remote_dir: String,
+    /// 最近一次 WebDAV 上传时间（ISO 8601）
+    #[serde(default)]
+    pub webdav_sync_last_upload_at: Option<String>,
+    /// 最近一次 WebDAV 上传文件名
+    #[serde(default)]
+    pub webdav_sync_last_upload_file_name: Option<String>,
+    /// 最近一次 WebDAV 下载时间（ISO 8601）
+    #[serde(default)]
+    pub webdav_sync_last_download_at: Option<String>,
+    /// 最近一次 WebDAV 下载文件名
+    #[serde(default)]
+    pub webdav_sync_last_download_file_name: Option<String>,
     /// 悬浮卡片保存的横向位置（物理像素）
     #[serde(default)]
     pub floating_card_position_x: Option<i32>,
@@ -583,6 +610,21 @@ pub fn normalize_auto_backup_selection(
         (include_accounts, include_config)
     }
 }
+pub fn default_webdav_sync_enabled() -> bool {
+    false
+}
+pub fn default_webdav_sync_url() -> String {
+    "https://dav.jianguoyun.com/dav/".to_string()
+}
+pub fn default_webdav_sync_username() -> String {
+    String::new()
+}
+pub fn default_webdav_sync_password() -> String {
+    String::new()
+}
+pub fn default_webdav_sync_remote_dir() -> String {
+    "cockpit-tools".to_string()
+}
 fn default_opencode_app_path() -> String {
     String::new()
 }
@@ -827,6 +869,15 @@ impl Default for UserConfig {
             auto_backup_retention_days: default_auto_backup_retention_days(),
             auto_backup_retention_days_migrated: default_auto_backup_retention_days_migrated(),
             auto_backup_last_backup_at: None,
+            webdav_sync_enabled: default_webdav_sync_enabled(),
+            webdav_sync_url: default_webdav_sync_url(),
+            webdav_sync_username: default_webdav_sync_username(),
+            webdav_sync_password: default_webdav_sync_password(),
+            webdav_sync_remote_dir: default_webdav_sync_remote_dir(),
+            webdav_sync_last_upload_at: None,
+            webdav_sync_last_upload_file_name: None,
+            webdav_sync_last_download_at: None,
+            webdav_sync_last_download_file_name: None,
             floating_card_position_x: None,
             floating_card_position_y: None,
             opencode_app_path: default_opencode_app_path(),
@@ -1307,6 +1358,60 @@ pub fn load_user_config() -> Result<UserConfig, String> {
                 serde_json::Value::Null,
             );
         }
+        if !obj.contains_key("webdav_sync_enabled") {
+            obj.insert(
+                "webdav_sync_enabled".to_string(),
+                json!(default_webdav_sync_enabled()),
+            );
+        }
+        if !obj.contains_key("webdav_sync_url") {
+            obj.insert(
+                "webdav_sync_url".to_string(),
+                json!(default_webdav_sync_url()),
+            );
+        }
+        if !obj.contains_key("webdav_sync_username") {
+            obj.insert(
+                "webdav_sync_username".to_string(),
+                json!(default_webdav_sync_username()),
+            );
+        }
+        if !obj.contains_key("webdav_sync_password") {
+            obj.insert(
+                "webdav_sync_password".to_string(),
+                json!(default_webdav_sync_password()),
+            );
+        }
+        if !obj.contains_key("webdav_sync_remote_dir") {
+            obj.insert(
+                "webdav_sync_remote_dir".to_string(),
+                json!(default_webdav_sync_remote_dir()),
+            );
+        }
+        if !obj.contains_key("webdav_sync_last_upload_at") {
+            obj.insert(
+                "webdav_sync_last_upload_at".to_string(),
+                serde_json::Value::Null,
+            );
+        }
+        if !obj.contains_key("webdav_sync_last_upload_file_name") {
+            obj.insert(
+                "webdav_sync_last_upload_file_name".to_string(),
+                serde_json::Value::Null,
+            );
+        }
+        if !obj.contains_key("webdav_sync_last_download_at") {
+            obj.insert(
+                "webdav_sync_last_download_at".to_string(),
+                serde_json::Value::Null,
+            );
+        }
+        if !obj.contains_key("webdav_sync_last_download_file_name") {
+            obj.insert(
+                "webdav_sync_last_download_file_name".to_string(),
+                serde_json::Value::Null,
+            );
+        }
 
         if !obj.contains_key("report_enabled") {
             obj.insert(
@@ -1753,5 +1858,28 @@ mod tests {
         let cfg: UserConfig =
             serde_json::from_value(serde_json::json!({})).expect("反序列化默认配置应成功");
         assert!(!cfg.openclaw_auth_overwrite_on_switch);
+    }
+
+    #[test]
+    fn webdav_sync_defaults_are_safe_for_jianguoyun_backup_sync() {
+        let cfg = UserConfig::default();
+        assert!(!cfg.webdav_sync_enabled);
+        assert_eq!(cfg.webdav_sync_url, "https://dav.jianguoyun.com/dav/");
+        assert_eq!(cfg.webdav_sync_username, "");
+        assert_eq!(cfg.webdav_sync_password, "");
+        assert_eq!(cfg.webdav_sync_remote_dir, "cockpit-tools");
+        assert_eq!(cfg.webdav_sync_last_upload_at, None);
+        assert_eq!(cfg.webdav_sync_last_upload_file_name, None);
+        assert_eq!(cfg.webdav_sync_last_download_at, None);
+        assert_eq!(cfg.webdav_sync_last_download_file_name, None);
+    }
+
+    #[test]
+    fn webdav_sync_missing_fields_fall_back_to_defaults() {
+        let cfg: UserConfig =
+            serde_json::from_value(serde_json::json!({})).expect("反序列化默认配置应成功");
+        assert!(!cfg.webdav_sync_enabled);
+        assert_eq!(cfg.webdav_sync_url, "https://dav.jianguoyun.com/dav/");
+        assert_eq!(cfg.webdav_sync_remote_dir, "cockpit-tools");
     }
 }

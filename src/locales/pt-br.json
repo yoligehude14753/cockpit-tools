@@ -549,7 +549,8 @@
     "tabs": {
       "general": "Geral",
       "network": "Rede",
-      "about": "Sobre"
+      "about": "Sobre",
+      "data": "Gerenciamento de Dados"
     },
     "general": {
       "appearance": "Aparência",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "O tipo de dado selecionado não está presente neste backup",
         "unsupportedLegacyFile": "Este formato legado de backup de contas não foi reconhecido",
         "unsupportedVersion": "Esta versão do app não oferece suporte a essa versão do pacote"
+      }
+    },
+    "webdav": {
+      "groupTitle": "Sincronização WebDAV",
+      "enabledTitle": "Sincronização de backup WebDAV",
+      "enabledDesc": "O padrão é Jianguoyun e pode ser alterado para qualquer serviço WebDAV.",
+      "urlTitle": "Endereço do serviço",
+      "urlDesc": "Endereço padrão do Jianguoyun: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Conta",
+      "usernameDesc": "O Jianguoyun usa o e-mail da sua conta.",
+      "usernamePlaceholder": "E-mail ou nome de usuário",
+      "passwordTitle": "Senha do aplicativo",
+      "passwordDesc": "Salva localmente; deixe em branco para manter a senha existente.",
+      "passwordPlaceholder": "Senha do aplicativo de terceiros Jianguoyun",
+      "passwordSavedPlaceholder": "Salva; deixe em branco para manter",
+      "clearPassword": "Limpar",
+      "remoteDirTitle": "Pasta remota",
+      "remoteDirDesc": "Somente os arquivos de backup do Cockpit nesta pasta são gerenciados.",
+      "statusTitle": "Status de sincronização",
+      "statusDesc": "A restauração remota requer uma seleção manual e nunca sobrescreve silenciosamente os dados locais.",
+      "lastUpload": "Último envio: {{time}}",
+      "lastDownload": "Última restauração: {{time}}",
+      "never": "Ainda não sincronizado",
+      "testAction": "Testar/Salvar configuração",
+      "uploadAction": "Criar & Enviar",
+      "syncAction": "Sincronizar configuração",
+      "syncLatestConfirm": "Tem certeza de que deseja baixar o backup remoto mais recente {{name}} e sincronizá-lo localmente? Isso substituirá os dados locais existentes.",
+      "remoteListTitle": "Backups remotos",
+      "remoteListDesc": "Somente arquivos JSON e ZIP que correspondem aos nomes dos backups automáticos/manuais do Cockpit são exibidos.",
+      "emptyTitle": "Nenhum backup remoto",
+      "emptyDesc": "Salve as configurações, crie e faça o upload de um backup.",
+      "unknownTime": "Desconhecido",
+      "restoreAction": "Restaurar",
+      "restoreConfirm": "Restaurar dados do backup remoto {{name}}?",
+      "deleteConfirm": "Excluir o backup remoto {{name}}?",
+      "feedback": {
+        "testingAndSaving": "Salvando e testando a conexão WebDAV...",
+        "saveAndTestSuccess": "Configuração salva e teste de conexão bem-sucedido!",
+        "saveSuccessTestFailed": "Configuração salva, mas o teste de conexão falhou: {{message}}",
+        "saveAndTestFailed": "Falha ao salvar e testar a conexão: {{error}}",
+        "uploading": "Criando e enviando backup...",
+        "uploadSuccess": "Enviado(s) {{count}} arquivo(s), limpo(s) {{deleted}} backup(s) remoto(s) expirado(s)",
+        "uploadFailed": "Falha no envio do WebDAV: {{error}}",
+        "listFailed": "Falha ao carregar os backups remotos: {{error}}",
+        "loadSettingsFailed": "Falha ao carregar as configurações do WebDAV: {{error}}",
+        "restoring": "Lendo backup remoto e importando...",
+        "restoreEmpty": "Nenhum dado foi restaurado do backup remoto",
+        "deleteSuccess": "Backup remoto excluído",
+        "deleteFailed": "Falha ao excluir o backup remoto: {{error}}",
+        "syncingLatest": "Sincronizando a configuração remota mais recente...",
+        "syncFailed": "Falha ao sincronizar a configuração mais recente: {{error}}",
+        "noRemoteBackup": "Nenhum arquivo de backup restaurável encontrado no controle remoto"
+      },
+      "errors": {
+        "notEnabled": "Ative a sincronização WebDAV primeiro"
       }
     }
   },

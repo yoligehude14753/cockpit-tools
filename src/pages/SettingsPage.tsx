@@ -72,6 +72,7 @@ import { getTraeAccountDisplayEmail } from '../types/trae';
 import { getZedAccountDisplayEmail } from '../types/zed';
 import { ALL_PLATFORM_IDS, PlatformId } from '../types/platform';
 import { SettingsAccountTransferSection } from '../components/SettingsAccountTransferSection';
+import { SettingsWebdavSyncSection } from '../components/SettingsWebdavSyncSection';
 import { useEscClose } from '../hooks/useEscClose';
 import './settings/Settings.css';
 import { 
@@ -282,7 +283,7 @@ export function SettingsPage() {
   const isLinux = usePlatformRuntimeSupport('linux-only');
   const sideNavLayoutMode = useSideNavLayoutStore((state) => state.mode);
   const setSideNavLayoutMode = useSideNavLayoutStore((state) => state.setMode);
-  const [activeTab, setActiveTab] = useState<'general' | 'network' | 'about'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'network' | 'data' | 'about'>('general');
   const [availableTerminals, setAvailableTerminals] = useState<string[]>(['system']);
 
   useEffect(() => {
@@ -2038,7 +2039,7 @@ export function SettingsPage() {
 
   return (
     <main className="main-content">
-      <div className="page-tabs-row">
+      <div className="page-tabs-row settings-page-tabs-row">
         <div className="page-tabs-label">{t('settings.title')}</div>
         <div className="page-tabs filter-tabs">
           <button 
@@ -2052,6 +2053,12 @@ export function SettingsPage() {
             onClick={() => setActiveTab('network')}
           >
             {t('settings.tabs.network')}
+          </button>
+          <button 
+            className={`filter-tab ${activeTab === 'data' ? 'active' : ''}`}
+            onClick={() => setActiveTab('data')}
+          >
+            {t('settings.tabs.data', '数据管理')}
           </button>
           <button 
             className={`filter-tab ${activeTab === 'about' ? 'active' : ''}`}
@@ -2366,9 +2373,6 @@ export function SettingsPage() {
                 </div>
               </div>
             </div>
-
-            <SettingsAccountTransferSection />
-
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ order: platformSettingsOrder.antigravity }}>
                 <div className="group-title">{t('settings.general.antigravitySettingsTitle', 'Antigravity IDE 设置')}</div>
@@ -5276,6 +5280,13 @@ export function SettingsPage() {
               </div>
             </div>
 
+          </>
+        )}
+
+        {activeTab === 'data' && (
+          <>
+            <SettingsAccountTransferSection />
+            <SettingsWebdavSyncSection />
           </>
         )}
 

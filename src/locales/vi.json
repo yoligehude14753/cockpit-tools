@@ -549,7 +549,8 @@
     "tabs": {
       "general": "Chung",
       "network": "Dịch vụ mạng",
-      "about": "Giới thiệu"
+      "about": "Giới thiệu",
+      "data": "Quản lý dữ liệu"
     },
     "general": {
       "appearance": "Giao diện",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "Loại dữ liệu đã chọn không có trong bản sao lưu này",
         "unsupportedLegacyFile": "Không nhận ra định dạng bản sao lưu tài khoản kiểu cũ này",
         "unsupportedVersion": "Phiên bản ứng dụng này không hỗ trợ phiên bản gói đó"
+      }
+    },
+    "webdav": {
+      "groupTitle": "Đồng bộ hóa WebDAV",
+      "enabledTitle": "Đồng bộ hóa sao lưu WebDAV",
+      "enabledDesc": "Mặc định là Jianguoyun và có thể thay đổi thành bất kỳ dịch vụ WebDAV nào.",
+      "urlTitle": "Địa chỉ dịch vụ",
+      "urlDesc": "Địa chỉ mặc định của Jianguoyun: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Tài khoản",
+      "usernameDesc": "Jianguoyun sử dụng email tài khoản của bạn.",
+      "usernamePlaceholder": "Email hoặc tên người dùng",
+      "passwordTitle": "Mật khẩu ứng dụng",
+      "passwordDesc": "Được lưu cục bộ; để trống để giữ mật khẩu hiện có.",
+      "passwordPlaceholder": "Mật khẩu ứng dụng bên thứ ba Jianguoyun",
+      "passwordSavedPlaceholder": "Đã lưu; để trống để giữ lại",
+      "clearPassword": "Xóa",
+      "remoteDirTitle": "Thư mục từ xa",
+      "remoteDirDesc": "Chỉ các tệp sao lưu Cockpit trong thư mục này mới được quản lý.",
+      "statusTitle": "Trạng thái đồng bộ",
+      "statusDesc": "Khôi phục từ xa yêu cầu chọn thủ công và không bao giờ âm thầm ghi đè lên dữ liệu cục bộ.",
+      "lastUpload": "Tải lên cuối: {{time}}",
+      "lastDownload": "Khôi phục cuối: {{time}}",
+      "never": "Chưa đồng bộ hóa",
+      "testAction": "Kiểm tra/Lưu cấu hình",
+      "uploadAction": "Tạo & Tải lên",
+      "syncAction": "Đồng bộ cấu hình",
+      "syncLatestConfirm": "Bạn có chắc chắn muốn tải bản sao lưu từ xa mới nhất {{name}} và đồng bộ hóa cục bộ không? Việc này sẽ ghi đè lên dữ liệu cục bộ hiện có.",
+      "remoteListTitle": "Bản sao lưu từ xa",
+      "remoteListDesc": "Chỉ hiển thị các tệp JSON và ZIP khớp với tên sao lưu tự động/thủ công của Cockpit.",
+      "emptyTitle": "Không có bản sao lưu từ xa",
+      "emptyDesc": "Lưu cài đặt, sau đó tạo và tải bản sao lưu lên.",
+      "unknownTime": "Không xác định",
+      "restoreAction": "Khôi phục",
+      "restoreConfirm": "Khôi phục dữ liệu từ bản sao lưu từ xa {{name}}?",
+      "deleteConfirm": "Xóa bản sao lưu từ xa {{name}}?",
+      "feedback": {
+        "testingAndSaving": "Đang lưu và kiểm tra kết nối WebDAV...",
+        "saveAndTestSuccess": "Đã lưu cấu hình và kiểm tra kết nối thành công!",
+        "saveSuccessTestFailed": "Đã lưu cấu hình, nhưng kiểm tra kết nối thất bại: {{message}}",
+        "saveAndTestFailed": "Lưu và kiểm tra kết nối thất bại: {{error}}",
+        "uploading": "Đang tạo và tải bản sao lưu lên...",
+        "uploadSuccess": "Đã tải lên {{count}} tệp, dọn dẹp {{deleted}} bản sao lưu từ xa hết hạn",
+        "uploadFailed": "Tải lên WebDAV thất bại: {{error}}",
+        "listFailed": "Tải bản sao lưu từ xa thất bại: {{error}}",
+        "loadSettingsFailed": "Tải cài đặt WebDAV thất bại: {{error}}",
+        "restoring": "Đang đọc bản sao lưu từ xa và nhập...",
+        "restoreEmpty": "Không có dữ liệu nào được khôi phục từ bản sao lưu từ xa",
+        "deleteSuccess": "Đã xóa bản sao lưu từ xa",
+        "deleteFailed": "Xóa bản sao lưu từ xa thất bại: {{error}}",
+        "syncingLatest": "Đang đồng bộ cấu hình từ xa mới nhất...",
+        "syncFailed": "Đồng bộ cấu hình mới nhất thất bại: {{error}}",
+        "noRemoteBackup": "Không tìm thấy tệp sao lưu nào có thể khôi phục từ xa"
+      },
+      "errors": {
+        "notEnabled": "Hãy bật đồng bộ hóa WebDAV trước"
       }
     }
   },

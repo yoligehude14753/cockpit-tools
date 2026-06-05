@@ -549,7 +549,8 @@
     "tabs": {
       "general": "全般",
       "network": "ネットワーク設定",
-      "about": "本アプリについて"
+      "about": "本アプリについて",
+      "data": "データ管理"
     },
     "general": {
       "appearance": "外観",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "選択したデータ種別はこのバックアップに含まれていません",
         "unsupportedLegacyFile": "この旧形式のアカウントバックアップは認識できません",
         "unsupportedVersion": "このアプリのバージョンではそのパッケージ版をサポートしていません"
+      }
+    },
+    "webdav": {
+      "groupTitle": "WebDAV同期",
+      "enabledTitle": "WebDAVバックアップ同期",
+      "enabledDesc": "デフォルトは堅果雲（Jianguoyun）ですが、任意のWebDAVサービスに変更できます。",
+      "urlTitle": "サービスアドレス",
+      "urlDesc": "堅果雲のデフォルトアドレス：https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "アカウント",
+      "usernameDesc": "堅果雲はアカウントのメールアドレスを使用します。",
+      "usernamePlaceholder": "メールアドレスまたはユーザー名",
+      "passwordTitle": "アプリパスワード",
+      "passwordDesc": "ローカルに保存されます。既存のパスワードを保持する場合は空白のままにしてください。",
+      "passwordPlaceholder": "堅果雲のサードパーティ製アプリ用パスワード",
+      "passwordSavedPlaceholder": "保存済み。変更しない場合は空白のままにします",
+      "clearPassword": "消去",
+      "remoteDirTitle": "リモートディレクトリ",
+      "remoteDirDesc": "このディレクトリ内のCockpitバックアップファイルのみが管理されます。",
+      "statusTitle": "同期ステータス",
+      "statusDesc": "リモートからの復元は手動で選択する必要があり、ローカルデータがサイレントに上書きされることはありません。",
+      "lastUpload": "最終アップロード：{{time}}",
+      "lastDownload": "最終復元：{{time}}",
+      "never": "未同期",
+      "testAction": "テスト/設定保存",
+      "uploadAction": "作成してアップロード",
+      "syncAction": "設定同期",
+      "syncLatestConfirm": "最新のリモートバックアップ {{name}} を取得してローカルに同期しますか？これにより、既存のローカルデータが上書きされます。",
+      "remoteListTitle": "リモートバックアップ",
+      "remoteListDesc": "Cockpitの自動/手動バックアップ名に一致するJSONおよびZIPファイルのみが表示されます。",
+      "emptyTitle": "リモートバックアップがありません",
+      "emptyDesc": "設定を保存してから、バックアップを作成してアップロードしてください。",
+      "unknownTime": "不明",
+      "restoreAction": "復元",
+      "restoreConfirm": "リモートバックアップ {{name}} からデータを復元しますか？",
+      "deleteConfirm": "リモートバックアップ {{name}} を削除しますか？",
+      "feedback": {
+        "testingAndSaving": "WebDAV接続を保存し、テスト中...",
+        "saveAndTestSuccess": "設定が保存され、接続テストに成功しました！",
+        "saveSuccessTestFailed": "設定は保存されましたが、接続テストに失敗しました：{{message}}",
+        "saveAndTestFailed": "接続の保存とテストに失敗しました：{{error}}",
+        "uploading": "バックアップを作成してアップロード中...",
+        "uploadSuccess": "{{count}}個のファイルをアップロードし、{{deleted}}個の期限切れリモートバックアップをクリーンアップしました",
+        "uploadFailed": "WebDAVアップロードに失敗しました：{{error}}",
+        "listFailed": "リモートバックアップの読み込みに失敗しました：{{error}}",
+        "loadSettingsFailed": "WebDAV設定の読み込みに失敗しました：{{error}}",
+        "restoring": "リモートバックアップを読み込んでインポート中...",
+        "restoreEmpty": "リモートバックアップから復元されたデータはありません",
+        "deleteSuccess": "リモートバックアップが削除されました",
+        "deleteFailed": "リモートバックアップの削除に失敗しました：{{error}}",
+        "syncingLatest": "最新のリモート設定を同期中...",
+        "syncFailed": "最新の設定同期に失敗しました：{{error}}",
+        "noRemoteBackup": "リモートで復元可能なバックアップファイルが見つかりません"
+      },
+      "errors": {
+        "notEnabled": "先にWebDAV同期を有効にしてください"
       }
     }
   },

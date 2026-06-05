@@ -549,7 +549,8 @@
     "tabs": {
       "general": "通用",
       "network": "網路服務",
-      "about": "關於"
+      "about": "關於",
+      "data": "數據管理"
     },
     "general": {
       "appearance": "介面外觀",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "所選資料類型不在目前備份中",
         "unsupportedLegacyFile": "無法識別此舊版帳號備份格式",
         "unsupportedVersion": "目前版本暫不支援此資料包版本"
+      }
+    },
+    "webdav": {
+      "groupTitle": "WebDAV 同步",
+      "enabledTitle": "WebDAV 備份同步",
+      "enabledDesc": "默認使用堅果雲，也可改為任意 WebDAV 服務。",
+      "urlTitle": "服務地址",
+      "urlDesc": "堅果雲默認地址：https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "帳號",
+      "usernameDesc": "堅果雲使用帳號電子郵件。",
+      "usernamePlaceholder": "電子郵件或使用者名稱",
+      "passwordTitle": "應用密碼",
+      "passwordDesc": "保存到本地設定；留空會保留已保存密碼。",
+      "passwordPlaceholder": "堅果雲第三方應用密碼",
+      "passwordSavedPlaceholder": "已保存，留空保持不變",
+      "clearPassword": "清除",
+      "remoteDirTitle": "遠端目錄",
+      "remoteDirDesc": "只管理該目錄下的 Cockpit 備份檔案。",
+      "statusTitle": "同步狀態",
+      "statusDesc": "遠端復原需要手動選擇備份，不會靜默覆蓋本地數據。",
+      "lastUpload": "最近上傳：{{time}}",
+      "lastDownload": "最近復原：{{time}}",
+      "never": "尚未同步",
+      "testAction": "測試/保存設定",
+      "uploadAction": "生成並上傳",
+      "syncAction": "同步設定",
+      "syncLatestConfirm": "確認拉取最新的遠端備份 {{name}} 並同步到本地？此操作將覆蓋本地現有數據。",
+      "remoteListTitle": "遠端備份",
+      "remoteListDesc": "僅顯示匹配 Cockpit 自動/手動備份命名的 JSON 與 ZIP 檔案。",
+      "emptyTitle": "暫無遠端備份",
+      "emptyDesc": "保存設定後可以生成並上傳一份備份。",
+      "unknownTime": "未知",
+      "restoreAction": "復原",
+      "restoreConfirm": "確認從遠端備份 {{name}} 復原數據？",
+      "deleteConfirm": "確認刪除遠端備份 {{name}}？",
+      "feedback": {
+        "testingAndSaving": "正在保存並測試 WebDAV 連線...",
+        "saveAndTestSuccess": "設定已保存，連線測試成功！",
+        "saveSuccessTestFailed": "設定已保存，但連線測試失敗：{{message}}",
+        "saveAndTestFailed": "保存並測試連線失敗：{{error}}",
+        "uploading": "正在生成並上傳備份...",
+        "uploadSuccess": "已上傳 {{count}} 個檔案，清理 {{deleted}} 個遠端過期備份",
+        "uploadFailed": "WebDAV 上傳失敗：{{error}}",
+        "listFailed": "載入遠端備份失敗：{{error}}",
+        "loadSettingsFailed": "載入 WebDAV 設定失敗：{{error}}",
+        "restoring": "正在讀取遠端備份並匯入...",
+        "restoreEmpty": "遠端備份未復原任何數據",
+        "deleteSuccess": "遠端備份已刪除",
+        "deleteFailed": "刪除遠端備份失敗：{{error}}",
+        "syncingLatest": "正在同步遠端最新設定...",
+        "syncFailed": "同步最新設定失敗：{{error}}",
+        "noRemoteBackup": "遠端未發現可同步的備份文件"
+      },
+      "errors": {
+        "notEnabled": "請先啟用 WebDAV 同步"
       }
     }
   },

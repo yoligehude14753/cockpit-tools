@@ -549,7 +549,8 @@
     "tabs": {
       "general": "Generale",
       "network": "Rete",
-      "about": "Informazioni"
+      "about": "Informazioni",
+      "data": "Gestione dati"
     },
     "general": {
       "appearance": "Aspetto",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "Il tipo di dato selezionato non è presente in questo backup",
         "unsupportedLegacyFile": "Questo formato di backup account legacy non è riconosciuto",
         "unsupportedVersion": "Questa versione dell'app non supporta quella versione del pacchetto"
+      }
+    },
+    "webdav": {
+      "groupTitle": "Sincronizzazione WebDAV",
+      "enabledTitle": "Sincronizzazione backup WebDAV",
+      "enabledDesc": "Predefinito Jianguoyun, può essere modificato in qualsiasi servizio WebDAV.",
+      "urlTitle": "Indirizzo del servizio",
+      "urlDesc": "Indirizzo predefinito di Jianguoyun: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Account",
+      "usernameDesc": "Jianguoyun utilizza l'e-mail del tuo account.",
+      "usernamePlaceholder": "E-mail o nome utente",
+      "passwordTitle": "Password dell'applicazione",
+      "passwordDesc": "Salvata localmente; lascia vuoto per mantenere la password esistente.",
+      "passwordPlaceholder": "Password dell'applicazione di terze parti Jianguoyun",
+      "passwordSavedPlaceholder": "Salvata; lascia vuoto per mantenerla",
+      "clearPassword": "Cancella",
+      "remoteDirTitle": "Cartella remota",
+      "remoteDirDesc": "Vengono gestiti solo i file di backup di Cockpit in questa cartella.",
+      "statusTitle": "Stato di sincronizzazione",
+      "statusDesc": "Il ripristino remoto richiede una selezione manuale e non sovrascrive mai silenziosamente i dati locali.",
+      "lastUpload": "Ultimo caricamento: {{time}}",
+      "lastDownload": "Ultimo ripristino: {{time}}",
+      "never": "Non ancora sincronizzato",
+      "testAction": "Testa/Salva configurazione",
+      "uploadAction": "Crea e carica",
+      "syncAction": "Sincronizza configurazione",
+      "syncLatestConfirm": "Sei sicuro di voler scaricare l'ultimo backup remoto {{name}} e sincronizzarlo localmente? Questo sovrascriverà i dati locali esistenti.",
+      "remoteListTitle": "Backup remoti",
+      "remoteListDesc": "Vengono mostrati solo i file JSON e ZIP che corrispondono ai nomi dei backup automatici/manuali di Cockpit.",
+      "emptyTitle": "Nessun backup remoto",
+      "emptyDesc": "Salva le impostazioni, quindi crea e carica un backup.",
+      "unknownTime": "Sconosciuto",
+      "restoreAction": "Ripristina",
+      "restoreConfirm": "Ripristinare i dati dal backup remoto {{name}}?",
+      "deleteConfirm": "Eliminare il backup remoto {{name}}?",
+      "feedback": {
+        "testingAndSaving": "Salvataggio e test della connessione WebDAV...",
+        "saveAndTestSuccess": "Configurazione salvata e test di connessione riuscito!",
+        "saveSuccessTestFailed": "Configurazione salvata, ma il test di connessione è fallito: {{message}}",
+        "saveAndTestFailed": "Salvataggio e test della connessione falliti: {{error}}",
+        "uploading": "Creazione e caricamento del backup...",
+        "uploadSuccess": "Caricato/i {{count}} file, ripulito/i {{deleted}} backup remoto/i scaduto/i",
+        "uploadFailed": "Caricamento su WebDAV fallito: {{error}}",
+        "listFailed": "Caricamento dei backup remoti fallito: {{error}}",
+        "loadSettingsFailed": "Caricamento delle impostazioni WebDAV fallito: {{error}}",
+        "restoring": "Lettura del backup remoto e importazione...",
+        "restoreEmpty": "Nessun dato è stato ripristinato dal backup remoto",
+        "deleteSuccess": "Backup remoto eliminato",
+        "deleteFailed": "Eliminazione del backup remoto fallita: {{error}}",
+        "syncingLatest": "Sincronizzazione dell'ultima configurazione remota...",
+        "syncFailed": "Sincronizzazione dell'ultima configurazione fallita: {{error}}",
+        "noRemoteBackup": "Nessun file di backup ripristinabile trovato sul telecomando"
+      },
+      "errors": {
+        "notEnabled": "Abilita prima la sincronizzazione WebDAV"
       }
     }
   },

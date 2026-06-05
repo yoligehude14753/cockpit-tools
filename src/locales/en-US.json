@@ -595,7 +595,8 @@
     "tabs": {
       "general": "General",
       "network": "Network",
-      "about": "About"
+      "about": "About",
+      "data": "Data"
     },
     "transfer": {
       "backup": {
@@ -974,7 +975,62 @@
       "releaseHistorySectionRemoved": "Removed",
       "downloadThisVersion": "Download"
     },
-    "saveSettings": "Save Settings"
+    "saveSettings": "Save Settings",
+    "webdav": {
+      "groupTitle": "WebDAV Sync",
+      "enabledTitle": "WebDAV Backup Sync",
+      "enabledDesc": "Defaults to Jianguoyun and can be changed to any WebDAV service.",
+      "urlTitle": "Service URL",
+      "urlDesc": "Jianguoyun default: https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Account",
+      "usernameDesc": "Jianguoyun uses your account email.",
+      "usernamePlaceholder": "Email or username",
+      "passwordTitle": "App Password",
+      "passwordDesc": "Saved locally; leave blank to keep the saved password.",
+      "passwordPlaceholder": "Jianguoyun third-party app password",
+      "passwordSavedPlaceholder": "Saved; leave blank to keep it",
+      "clearPassword": "Clear",
+      "remoteDirTitle": "Remote Folder",
+      "remoteDirDesc": "Only Cockpit backup files in this folder are managed.",
+      "statusTitle": "Sync Status",
+      "statusDesc": "Remote restore requires a manual selection and never silently overwrites local data.",
+      "lastUpload": "Last upload: {{time}}",
+      "lastDownload": "Last restore: {{time}}",
+      "never": "Not synced yet",
+      "testAction": "Test/Save Config",
+      "uploadAction": "Create & Upload",
+      "syncAction": "Sync Config",
+      "syncLatestConfirm": "Are you sure you want to pull the latest remote backup {{name}} and sync to local? This will overwrite existing local data.",
+      "remoteListTitle": "Remote Backups",
+      "remoteListDesc": "Only JSON and ZIP files matching Cockpit auto/manual backup names are shown.",
+      "emptyTitle": "No remote backups",
+      "emptyDesc": "Save settings, then create and upload a backup.",
+      "unknownTime": "Unknown",
+      "restoreAction": "Restore",
+      "restoreConfirm": "Restore data from remote backup {{name}}?",
+      "deleteConfirm": "Delete remote backup {{name}}?",
+      "feedback": {
+        "testingAndSaving": "Saving and testing WebDAV connection...",
+        "saveAndTestSuccess": "Configuration saved and connection test succeeded!",
+        "saveSuccessTestFailed": "Configuration saved, but connection test failed: {{message}}",
+        "saveAndTestFailed": "Failed to save and test connection: {{error}}",
+        "uploading": "Creating and uploading backup...",
+        "uploadSuccess": "Uploaded {{count}} file(s), cleaned {{deleted}} expired remote backup(s)",
+        "uploadFailed": "WebDAV upload failed: {{error}}",
+        "listFailed": "Failed to load remote backups: {{error}}",
+        "loadSettingsFailed": "Failed to load WebDAV settings: {{error}}",
+        "restoring": "Reading remote backup and importing...",
+        "restoreEmpty": "No data was restored from the remote backup",
+        "deleteSuccess": "Remote backup deleted",
+        "deleteFailed": "Failed to delete remote backup: {{error}}",
+        "syncingLatest": "Syncing latest remote configuration...",
+        "syncFailed": "Failed to sync latest configuration: {{error}}",
+        "noRemoteBackup": "No restorable backup files found on remote"
+      },
+      "errors": {
+        "notEnabled": "Enable WebDAV sync first"
+      }
+    }
   },
   "appPath": {
     "missing": {

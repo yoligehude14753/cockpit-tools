@@ -549,7 +549,8 @@
     "tabs": {
       "general": "Général",
       "network": "Réseau",
-      "about": "À propos"
+      "about": "À propos",
+      "data": "Gestion des données"
     },
     "general": {
       "appearance": "Apparence",
@@ -927,6 +928,61 @@
         "selectedSectionsMissing": "Le type de données sélectionné n'est pas présent dans cette sauvegarde",
         "unsupportedLegacyFile": "Ce format d'ancienne sauvegarde de comptes n'est pas reconnu",
         "unsupportedVersion": "Cette version de l'application ne prend pas en charge cette version du bundle"
+      }
+    },
+    "webdav": {
+      "groupTitle": "Synchronisation WebDAV",
+      "enabledTitle": "Synchronisation des sauvegardes WebDAV",
+      "enabledDesc": "Jianguoyun par défaut, peut être remplacé par n'importe quel service WebDAV.",
+      "urlTitle": "Adresse du service",
+      "urlDesc": "Adresse par défaut de Jianguoyun : https://dav.jianguoyun.com/dav/",
+      "usernameTitle": "Compte",
+      "usernameDesc": "Jianguoyun utilise l'adresse e-mail de votre compte.",
+      "usernamePlaceholder": "E-mail ou nom d'utilisateur",
+      "passwordTitle": "Mot de passe d'application",
+      "passwordDesc": "Enregistré localement ; laisser vide pour conserver le mot de passe existant.",
+      "passwordPlaceholder": "Mot de passe de l'application tierce Jianguoyun",
+      "passwordSavedPlaceholder": "Enregistré ; laisser vide pour le conserver",
+      "clearPassword": "Effacer",
+      "remoteDirTitle": "Dossier distant",
+      "remoteDirDesc": "Seuls les fichiers de sauvegarde de Cockpit dans ce dossier sont gérés.",
+      "statusTitle": "État de la synchronisation",
+      "statusDesc": "La restauration à distance nécessite une sélection manuelle et n'écrase jamais silencieusement les données locales.",
+      "lastUpload": "Dernier téléchargement : {{time}}",
+      "lastDownload": "Dernière restauration : {{time}}",
+      "never": "Pas encore synchronisé",
+      "testAction": "Tester/Enregistrer la config",
+      "uploadAction": "Créer & Télécharger",
+      "syncAction": "Synchroniser la config",
+      "syncLatestConfirm": "Voulez-vous vraiment télécharger la dernière sauvegarde distante {{name}} et la synchroniser localement ? Cela écrasera les données locales existantes.",
+      "remoteListTitle": "Sauvegardes distantes",
+      "remoteListDesc": "Seuls les fichiers JSON et ZIP correspondant aux noms de sauvegarde automatique/manuelle de Cockpit sont affichés.",
+      "emptyTitle": "Aucune sauvegarde distante",
+      "emptyDesc": "Enregistrez les paramètres, puis créez et téléchargez une sauvegarde.",
+      "unknownTime": "Inconnu",
+      "restoreAction": "Restaurer",
+      "restoreConfirm": "Restaurer les données de la sauvegarde distante {{name}} ?",
+      "deleteConfirm": "Supprimer la sauvegarde distante {{name}} ?",
+      "feedback": {
+        "testingAndSaving": "Enregistrement et test de la connexion WebDAV...",
+        "saveAndTestSuccess": "Configuration enregistrée et test de connexion réussi !",
+        "saveSuccessTestFailed": "Configuration enregistrée, mais le test de connexion a échoué : {{message}}",
+        "saveAndTestFailed": "Échec de l'enregistrement et du test de connexion : {{error}}",
+        "uploading": "Création et téléchargement de la sauvegarde...",
+        "uploadSuccess": "{{count}} fichier(s) téléchargé(s), {{deleted}} sauvegarde(s) distante(s) expirée(s) nettoyée(s)",
+        "uploadFailed": "Échec du téléchargement WebDAV : {{error}}",
+        "listFailed": "Échec du chargement des sauvegardes distantes : {{error}}",
+        "loadSettingsFailed": "Échec du chargement des paramètres WebDAV : {{error}}",
+        "restoring": "Lecture de la sauvegarde distante et importation...",
+        "restoreEmpty": "Aucune donnée n'a été restaurée à partir de la sauvegarde distante",
+        "deleteSuccess": "Sauvegarde distante supprimée",
+        "deleteFailed": "Échec de la suppression de la sauvegarde distante : {{error}}",
+        "syncingLatest": "Synchronisation de la dernière configuration distante...",
+        "syncFailed": "Échec de la synchronisation de la dernière configuration : {{error}}",
+        "noRemoteBackup": "Aucun fichier de sauvegarde restaurable trouvé à distance"
+      },
+      "errors": {
+        "notEnabled": "Activez d'abord la synchronisation WebDAV"
       }
     }
   },
