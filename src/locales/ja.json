@@ -3766,7 +3766,11 @@
       "resetsIn": "{{relative}}後にリセット",
       "resetsSoon": "まもなくリセット",
       "resetsUnknown": "リセット時刻不明",
-      "onDemand": "オンデマンド"
+      "onDemand": "オンデマンド",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "Gemini Cli アカウント管理",
     "instances": {

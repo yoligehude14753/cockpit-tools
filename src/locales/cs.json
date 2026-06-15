@@ -3766,7 +3766,11 @@
       "resetsIn": "Obnoví se za {{relative}}",
       "resetsSoon": "Brzy se obnoví",
       "resetsUnknown": "Čas obnovení není znám",
-      "onDemand": "Na vyžádání"
+      "onDemand": "Na vyžádání",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "Správa účtů Gemini Cli",
     "instances": {

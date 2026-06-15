@@ -3812,7 +3812,11 @@
       "resetsIn": "إعادة التعيين خلال {{relative}}",
       "resetsSoon": "إعادة التعيين قريبًا",
       "resetsUnknown": "وقت إعادة التعيين غير معروف",
-      "onDemand": "عند الطلب"
+      "onDemand": "عند الطلب",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "إدارة حسابات Gemini Cli",
     "instances": {

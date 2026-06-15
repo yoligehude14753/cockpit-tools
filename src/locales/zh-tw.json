@@ -3793,7 +3793,11 @@
       "resetsIn": "在 {{relative}} 中重置",
       "resetsSoon": "很快就會重置",
       "resetsUnknown": "重置時間未知",
-      "onDemand": "一經請求"
+      "onDemand": "一經請求",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "instances": {
       "unsupported": "尚不支援Gemini Cli多實例管理。",

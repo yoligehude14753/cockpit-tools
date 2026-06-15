@@ -3793,7 +3793,11 @@
       "resetsIn": "Đặt lại sau {{relative}}",
       "resetsSoon": "Đặt lại sớm",
       "resetsUnknown": "Đặt lại thời gian không xác định",
-      "onDemand": "Theo yêu cầu"
+      "onDemand": "Theo yêu cầu",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "instances": {
       "unsupported": "Quản lý đa phiên bản Gemini Cli chưa được hỗ trợ.",

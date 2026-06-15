@@ -3793,7 +3793,11 @@
       "resetsIn": "{{relative}}'da sıfırlanır",
       "resetsSoon": "Yakında sıfırlanacak",
       "resetsUnknown": "Sıfırlama zamanı bilinmiyor",
-      "onDemand": "Talep üzerine"
+      "onDemand": "Talep üzerine",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "instances": {
       "unsupported": "Gemini Cli çoklu örnek yönetimi henüz desteklenmiyor.",

@@ -3766,7 +3766,11 @@
       "resetsIn": "Zurückgesetzt in {{relative}}",
       "resetsSoon": "Wird bald zurückgesetzt",
       "resetsUnknown": "Zeitpunkt der Zurücksetzung unbekannt",
-      "onDemand": "Bei Bedarf"
+      "onDemand": "Bei Bedarf",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "Gemini Cli-Kontoverwaltung",
     "instances": {

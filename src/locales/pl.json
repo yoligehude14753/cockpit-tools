@@ -3766,7 +3766,11 @@
       "resetsIn": "Reset za {{relative}}",
       "resetsSoon": "Wkrótce reset",
       "resetsUnknown": "Nieznany czas resetu",
-      "onDemand": "Na żądanie"
+      "onDemand": "Na żądanie",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "Zarządzanie kontami Gemini Cli",
     "instances": {

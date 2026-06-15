@@ -3793,7 +3793,11 @@
       "resetsIn": "Сбрасывается в {{relative}}",
       "resetsSoon": "Скоро сброс",
       "resetsUnknown": "Время сброса неизвестно",
-      "onDemand": "По требованию"
+      "onDemand": "По требованию",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "instances": {
       "unsupported": "Управление несколькими экземплярами Gemini Cli пока не поддерживается.",

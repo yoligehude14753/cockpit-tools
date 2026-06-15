@@ -3766,7 +3766,11 @@
       "resetsIn": "Réinitialisation dans {{relative}}",
       "resetsSoon": "Réinitialisation imminente",
       "resetsUnknown": "Heure de réinitialisation inconnue",
-      "onDemand": "À la demande"
+      "onDemand": "À la demande",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "Gestion des comptes Gemini Cli",
     "instances": {

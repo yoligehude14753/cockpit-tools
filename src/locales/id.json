@@ -3614,7 +3614,11 @@
       "resetsIn": "Resets in {{relative}}​",
       "resetsSoon": "Resets soon​",
       "resetsUnknown": "Reset time unknown​",
-      "onDemand": "On-Demand​"
+      "onDemand": "On-Demand​",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "Gemini Cli Account​",
     "instances": {

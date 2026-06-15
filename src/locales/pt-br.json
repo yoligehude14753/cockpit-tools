@@ -3766,7 +3766,11 @@
       "resetsIn": "Reinicia em {{relative}}",
       "resetsSoon": "Reinicia em breve",
       "resetsUnknown": "Hora de redefinição desconhecida",
-      "onDemand": "Sob demanda"
+      "onDemand": "Sob demanda",
+      "gemini5h": "5h",
+      "geminiWeekly": "Weekly",
+      "claude5h": "5h",
+      "claudeWeekly": "Weekly"
     },
     "title": "Gerenciamento de contas Gemini Cli",
     "instances": {

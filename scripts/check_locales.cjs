@@ -208,6 +208,7 @@ function isAllowedEnglishReuse(key, value) {
     '{{days}}d {{hours}}h',
     '{{hours}}h {{minutes}}m',
     '5h',
+    'Weekly',
   ]);
 
   if (allowedExactValues.has(normalized)) {
