@@ -7,6 +7,20 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [0.26.4] - 2026-06-19
+
+### Added
+- **Claude Desktop launch targets are easier to choose on Windows**: Settings and quick settings can scan WindowsApps, Start menu entries, and a custom scan root, then let users pick either the Microsoft Store app target or a real `Claude.exe`.
+- **Codex reset-credit details are clearer**: Codex accounts can show available reset credits with richer detail and expiry information before users choose to reset usage.
+
+### Changed
+- **Claude default and multi-instance startup paths are separated more clearly**: the default desktop account can use the official Windows app target, while multi-instance launches guide users to select a real `Claude.exe` path.
+
+### Fixed
+- **Windows Claude startup and path scanning no longer flash black command windows**: helper probes now run hidden while resolving Store, WindowsApps, and executable launch targets.
+- **Windows in-app updates are less likely to be blocked by background helper processes**: Cockpit now stops its related background components before restart or update so files such as `cockpit-cliproxy.exe` can be replaced cleanly.
+
+---
 ## [0.26.3] - 2026-06-19
 
 ### Added

@@ -7,6 +7,20 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
 ---
+## [0.26.4] - 2026-06-19
+
+### 新增
+- **Windows 上更容易选择 Claude Desktop 启动目标**：设置和快速设置现在可扫描 WindowsApps、开始菜单应用和自定义扫描范围，并可选择 Microsoft Store 应用目标或真实 `Claude.exe`。
+- **Codex 重置次数信息更清晰**：Codex 账号可展示更完整的可用重置次数、明细和过期时间，用户确认后再执行重置。
+
+### 变更
+- **Claude 默认实例与多开实例的启动路径区分更明确**：默认桌面账号可使用官方 Windows 应用目标，多开实例则引导选择真实 `Claude.exe` 路径。
+
+### 修复
+- **Windows 上 Claude 启动和路径扫描不再闪出黑色命令行窗口**：解析 Store、WindowsApps 和可执行文件启动目标时，辅助探测会隐藏运行。
+- **Windows 应用内更新更少被后台辅助进程阻塞**：重启或更新前会先关闭 Cockpit 相关后台组件，减少 `cockpit-cliproxy.exe` 等文件无法覆盖的问题。
+
+---
 ## [0.26.3] - 2026-06-19
 
 ### 新增
