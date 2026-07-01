@@ -3,9 +3,11 @@
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
-
-const PLATFORM_PACKAGE_TEST_INDEX_URL =
-  'https://raw.githubusercontent.com/jlcodes99/cockpit-tools/platform-test/platform-packages/index.test.json';
+const {
+  startLocalPlatformDevServer,
+  terminateChild,
+  waitForPlatformDevServer,
+} = require('./local-platform-dev-server.cjs');
 
 const repoRoot = path.resolve(__dirname, '..');
 const devConfigPath = path.join('src-tauri', 'tauri.dev.conf.json');
@@ -17,32 +19,14 @@ const buildConfigOverride = JSON.stringify({
   },
 });
 
-const env = {
-  ...process.env,
-  COCKPIT_TOOLS_PROFILE: process.env.COCKPIT_TOOLS_PROFILE || 'dev',
-  COCKPIT_CODEX_API_SERVICE_PORT: codexApiServicePort,
-  COCKPIT_TOOLS_API_PORT: codexApiServicePort,
-  COCKPIT_PLATFORM_PACKAGE_INDEX_URL:
-    process.env.COCKPIT_PLATFORM_PACKAGE_INDEX_URL || PLATFORM_PACKAGE_TEST_INDEX_URL,
-  COCKPIT_PLATFORM_PACKAGE_STRICT_LOCAL_SOURCE:
-    process.env.COCKPIT_PLATFORM_PACKAGE_STRICT_LOCAL_SOURCE || '1',
-  COCKPIT_PLATFORM_PACKAGE_PREFER_LOCAL_SOURCE:
-    process.env.COCKPIT_PLATFORM_PACKAGE_PREFER_LOCAL_SOURCE || '1',
-  COCKPIT_PLATFORM_PERF_LOG:
-    process.env.COCKPIT_PLATFORM_PERF_LOG || '1',
-  COCKPIT_SKIP_PLATFORM_ADAPTER_STARTUP_RESTORE:
-    process.env.COCKPIT_SKIP_PLATFORM_ADAPTER_STARTUP_RESTORE || '1',
-  VITE_COCKPIT_TOOLS_PROFILE: process.env.VITE_COCKPIT_TOOLS_PROFILE || 'dev',
-  VITE_COCKPIT_PLATFORM_PERF_LOG:
-    process.env.VITE_COCKPIT_PLATFORM_PERF_LOG || '1',
-};
+let env = null;
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     stdio: 'inherit',
     shell: false,
-    env,
+    env: env || process.env,
     ...options,
   });
   if (result.error) {
@@ -207,42 +191,96 @@ function buildTauriArgs() {
   return args;
 }
 
-console.log('[tauri-dist-dev] building frontend dist and debug desktop app...');
-terminateDevAppProcesses('before dist launch');
-run('npm', ['run', 'build']);
-run('npx', buildTauriArgs());
+async function main() {
+  console.log('[tauri-dist-dev] building local platform package zips...');
+  const packageServer = startLocalPlatformDevServer();
+  let appChild = null;
+  let shuttingDown = false;
 
-const executablePath = resolveLaunchTarget();
-console.log(`[tauri-dist-dev] launching ${executablePath}`);
-
-const child = spawn(executablePath, process.argv.slice(2), {
-  cwd: repoRoot,
-  env,
-  stdio: 'inherit',
-});
-
-function forwardSignal(signal) {
-  if (!child.killed) {
-    child.kill(signal);
+  function shutdown(signal, exitCode) {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    if (appChild && !appChild.killed && appChild.exitCode === null) {
+      appChild.kill(signal);
+    }
+    terminateChild(packageServer, signal);
+    setTimeout(() => {
+      terminateDevAppProcesses(`after ${signal}`);
+      process.exit(exitCode);
+    }, 3000).unref();
   }
-  setTimeout(() => {
-    terminateDevAppProcesses(`after ${signal}`);
-    process.exit(signal === 'SIGINT' ? 130 : 143);
-  }, 3000).unref();
+
+  process.on('SIGINT', () => shutdown('SIGINT', 130));
+  process.on('SIGTERM', () => shutdown('SIGTERM', 143));
+
+  packageServer.on('error', (error) => {
+    console.error(`[tauri-dist-dev] failed to start local platform package server: ${error.message}`);
+    process.exit(1);
+  });
+
+  const packageInfo = await waitForPlatformDevServer(packageServer);
+  console.log(`[tauri-dist-dev] local platform package index: ${packageInfo.indexUrl}`);
+  console.log(`[tauri-dist-dev] local platform package reload: ${packageInfo.reloadUrl}`);
+
+  env = {
+    ...process.env,
+    COCKPIT_TOOLS_PROFILE: process.env.COCKPIT_TOOLS_PROFILE || 'dev',
+    COCKPIT_CODEX_API_SERVICE_PORT: codexApiServicePort,
+    COCKPIT_TOOLS_API_PORT: codexApiServicePort,
+    COCKPIT_PLATFORM_PACKAGE_INDEX_URL: packageInfo.indexUrl,
+    COCKPIT_PLATFORM_PACKAGE_DEV_RELOAD_URL: packageInfo.reloadUrl,
+    COCKPIT_PLATFORM_PACKAGE_STRICT_LOCAL_SOURCE:
+      process.env.COCKPIT_PLATFORM_PACKAGE_STRICT_LOCAL_SOURCE || '0',
+    COCKPIT_PLATFORM_PACKAGE_PREFER_LOCAL_SOURCE:
+      process.env.COCKPIT_PLATFORM_PACKAGE_PREFER_LOCAL_SOURCE || '0',
+    COCKPIT_PLATFORM_PACKAGE_BOOTSTRAP: '0',
+    COCKPIT_PLATFORM_PACKAGE_WORKSPACE_INDEX: '0',
+    COCKPIT_PLATFORM_PERF_LOG:
+      process.env.COCKPIT_PLATFORM_PERF_LOG || '1',
+    COCKPIT_SKIP_PLATFORM_ADAPTER_STARTUP_RESTORE:
+      process.env.COCKPIT_SKIP_PLATFORM_ADAPTER_STARTUP_RESTORE || '1',
+    VITE_COCKPIT_TOOLS_PROFILE: process.env.VITE_COCKPIT_TOOLS_PROFILE || 'dev',
+    VITE_COCKPIT_PLATFORM_PERF_LOG:
+      process.env.VITE_COCKPIT_PLATFORM_PERF_LOG || '1',
+  };
+
+  console.log('[tauri-dist-dev] building frontend dist and debug desktop app...');
+  terminateDevAppProcesses('before dist launch');
+  run('npm', ['run', 'build']);
+  run('npx', buildTauriArgs());
+
+  const executablePath = resolveLaunchTarget();
+  console.log(`[tauri-dist-dev] launching ${executablePath}`);
+
+  appChild = spawn(executablePath, process.argv.slice(2), {
+    cwd: repoRoot,
+    env,
+    stdio: 'inherit',
+  });
+
+  appChild.on('error', (error) => {
+    console.error(`[tauri-dist-dev] failed to launch app: ${error.message}`);
+    terminateChild(packageServer);
+    process.exit(1);
+  });
+
+  appChild.on('exit', (code, signal) => {
+    terminateChild(packageServer, signal || 'SIGTERM');
+    if (signal === 'SIGINT') {
+      process.exit(130);
+      return;
+    }
+    if (signal === 'SIGTERM') {
+      process.exit(143);
+      return;
+    }
+    process.exit(code ?? 0);
+  });
 }
 
-process.on('SIGINT', () => forwardSignal('SIGINT'));
-process.on('SIGTERM', () => forwardSignal('SIGTERM'));
-
-child.on('error', (error) => {
-  console.error(`[tauri-dist-dev] failed to launch app: ${error.message}`);
+main().catch((error) => {
+  console.error(`[tauri-dist-dev] ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
-});
-
-child.on('exit', (code, signal) => {
-  if (signal) {
-    process.exit(1);
-    return;
-  }
-  process.exit(code ?? 0);
 });

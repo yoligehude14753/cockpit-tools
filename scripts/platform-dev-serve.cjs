@@ -552,7 +552,7 @@ function startServer(args, packageRows, initialLocalIndex, context) {
   server.listen(args.port, args.host, () => {
     console.log(`[platform-dev-serve] serving ${INDEX_PATH}`);
     console.log(`[platform-dev-serve] index: ${origin}/index.local.json`);
-    console.log('[platform-dev-serve] run desktop with: npm run tauri:test:local');
+    console.log('[platform-dev-serve] run desktop with: npm run tauri:dev');
     console.table(
       (localIndex.packages || [])
         .filter((pkg) => packageRows.some((row) => row.id === pkg.id))

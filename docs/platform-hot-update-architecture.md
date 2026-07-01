@@ -180,7 +180,7 @@ Core Shell 不应继续承载已迁移平台的业务 UI：
 
 ## 5. 远端索引与 artifact
 
-远端索引只负责发现版本和下载地址。正式桌面端读取 `platform-packages/index.json`，测试桌面端读取 `platform-packages/index.test.json`；平台包 zip 必须发布为 GitHub Release asset 或等价对象存储资产，禁止提交到 `main`、`platform-test` 等 Git 分支。每个平台包必须按 OS/arch 提供 artifact。平台版本历史由 `platform-packages/history/<platformId>.json` 维护，App 的“版本历史”从该文件按需读取，允许用户安装、回退或重新安装任一已发布且当前系统 artifact 可用的历史版本。
+远端索引只负责发现版本和下载地址。正式桌面端读取 `platform-packages/index.json`；平台包 zip 必须发布为 GitHub Release asset 或等价对象存储资产，禁止提交到 `main` 等 Git 分支。每个平台包必须按 OS/arch 提供 artifact。平台版本历史由 `platform-packages/history/<platformId>.json` 维护，App 的“版本历史”从该文件按需读取，允许用户安装、回退或重新安装任一已发布且当前系统 artifact 可用的历史版本。
 
 ```json
 {
@@ -285,33 +285,25 @@ npm run package:platform-index -- --metadata-dir platform-packages/dist-ci --ver
 3. 如依赖新的 Core Shell 能力，提高 `minCoreVersion`，让旧主应用不提示可安装。
 4. 使用 `.github/workflows/platform-packages.yml` 或 `npm run package:platform` 分别构建目标 OS/arch 的 zip 与 metadata；`sidecarAdapter` 平台必须覆盖 Windows/macOS/Linux 目标 artifact，不能把单系统 zip 当全平台包发布。
 5. 使用 `npm run package:platform-index` 汇总 metadata，确认 `downloadUrl`、`downloadSizeBytes`、`sha256`、`changelog`、`contributions` 与包内 manifest/runtime 一致；再使用 `node scripts/build-platform-package-history.cjs --index <index> --history-dir platform-packages/history --output-dir <history>` 合并历史索引。
-6. 先发布到 test channel 验证真实远端下载、安装、卸载、检查更新、更新弹框、更新日志、包大小和当前系统 artifact 匹配。
-7. 平台 zip 统一发布到平台包 Release asset；发布正式通道时只更新 `platform-packages/index.json` / `platform-packages/index.seed.json` / `platform-packages/history/*.json`，发布测试通道时只更新 `platform-packages/index.test.json` / `platform-packages/history/*.json`。禁止执行 `npm run sync-version`、`npm run release:preflight`、创建主应用 release commit 或主应用 tag。
+6. 先通过 `npm run tauri:dev` 验证本地 zip 下载、安装、卸载、检查更新、更新弹框、更新日志、包大小和当前系统 artifact 匹配。
+7. 平台 zip 统一发布到平台包 Release asset；发布正式通道时只更新 `platform-packages/index.json` / `platform-packages/index.seed.json` / `platform-packages/history/*.json`。禁止执行 `npm run sync-version`、`npm run release:preflight`、创建主应用 release commit 或主应用 tag。
 8. 单平台升级至少执行 `npm run verify:platform-packages`、`node scripts/check_locales.cjs`、`git diff --check`；涉及 adapter 或 remote UI 时补充对应构建、smoke 或类型检查。
 9. 修复已发布平台包时必须提升平台包版本。禁止用同一版本号重新上传不同 zip，也禁止手动修改历史索引指向未验证的 zip。
 
-### 5.3 远端测试通道
+### 5.3 本地 dev zip 调试
 
-远端测试必须使用独立 test channel，禁止把测试版本写入正式 updater endpoint 或正式平台包索引。
+本地调试必须复用正式安装链路，只把下载源替换为本地 HTTP 服务：
 
-通道边界：
-
-1. 正式桌面端继续使用 `com.jlcodes.cockpit-tools`、正式数据目录 `~/.antigravity_cockpit`、正式 updater endpoint `https://github.com/jlcodes99/cockpit-tools/releases/latest/download/latest.json` 和正式平台包索引 `https://raw.githubusercontent.com/jlcodes99/cockpit-tools/main/platform-packages/index.json`。
-2. 测试桌面端使用 `com.jlcodes.cockpit-tools.test`、测试数据目录 `~/.antigravity_cockpit_test`、测试 updater endpoint `https://github.com/jlcodes99/cockpit-tools/releases/download/test-latest/latest-test.json` 和测试平台包索引 `https://raw.githubusercontent.com/jlcodes99/cockpit-tools/platform-test/platform-packages/index.test.json`。
-3. dev 桌面端继续使用 `com.jlcodes.cockpit-tools.dev` 和 `~/.antigravity_cockpit_dev`，只用于本地开发，不代表远端测试通道。
-4. 测试 App 构建时必须设置 `COCKPIT_TOOLS_PROFILE=test` 与 `VITE_COCKPIT_TOOLS_PROFILE=test`；如需验证指定平台包索引，可额外设置 `COCKPIT_PLATFORM_PACKAGE_INDEX_URL`。
-5. 平台包 zip 统一发布到平台包 Release asset，不提交到 Git 分支；测试索引必须发布到 `platform-packages/index.test.json`，正式 `platform-packages/index.json` 不得被测试包更新。
-6. `.github/workflows/platform-packages.yml` 的 `workflow_dispatch channel=test` 是平台包测试构建入口；需要真实远端下载时，勾选 `publish_test_branch`，把 zip 发布到测试平台包 Release asset，把测试 index 发布到 `platform-packages/index.test.json`。
-7. `.github/workflows/build-matrix.yml` 的 `workflow_dispatch channel=test` 是测试桌面端构建入口；需要真实 Tauri updater 验证时，勾选 `publish_test_release`，把 signed updater artifacts 和 `latest-test.json` 发布到 `test-latest` prerelease。
-8. 测试桌面包默认必须是 Slim：即使勾选 `publish_test_release` 上传测试更新资产，也不得自动内置平台包，平台安装仍通过测试平台包索引远端下载。需要测试“安装后平台已就绪”的 Full/Bootstrap 包时，只能在 `.github/workflows/build-matrix.yml` 的 test channel 显式输入 `bundle_platform_packages=true`。CI 会从测试平台包索引下载当前构建目标匹配的 zip，生成 `platform-packages/bootstrap/index.json` 与 `platform-packages/bootstrap/dist`，再临时加入 Tauri resources；正式包与默认测试包都保持 Slim。
-9. 需要连续测试多个桌面端版本时，使用 `test_version` 输入临时覆盖测试构建版本；为兼容 Windows MSI，测试版本的 prerelease 标识必须是纯数字且单段不超过 `65535`，例如 `1.0.1-1001`、`1.0.1-1002`。该覆盖只允许用于测试通道，不得写入正式版本号或正式更新日志。
-10. Tauri updater 真机更新依赖签名产物；测试 release 必须使用与 `tauri.test.conf.json` 中 `pubkey` 匹配的签名密钥生成 artifacts。
-11. GitHub Actions artifacts 可用于手动下载 Windows/macOS/Linux 测试包；真实 updater 验证必须使用 `test-latest` prerelease 上的 `latest-test.json` 与对应签名资产。
-12. macOS 测试 release 应上传 `.dmg` 供人工安装测试；Tauri updater 仍使用签名的 `.app.tar.gz` 和 `.sig`，不要把 `.dmg` 当作 updater 输入。
+1. `npm run tauri:dev` 是统一本地调试入口，使用 `com.jlcodes.cockpit-tools.dev` 和 `~/.antigravity_cockpit_dev`。
+2. 启动时自动构建当前系统/架构的全部平台包 zip，启动 `.tmp/platform-dev/index.local.json` 对应的本地 HTTP 服务，并把 `COCKPIT_PLATFORM_PACKAGE_INDEX_URL` 指向本地 index。
+3. 同时设置 `COCKPIT_PLATFORM_PACKAGE_DEV_RELOAD_URL` 指向本地 `/reload`；平台页开发态“重载”按钮会重新打包当前平台，刷新本地 index，并走 Core Shell 的更新替换流程。
+4. 本地 dev 默认关闭 workspace source、workspace index 和 bootstrap 导入，避免直接读取源码目录或被旧资源污染。
+5. 本地服务生成的 `.tmp/platform-dev/index.local.json`、zip 和 server 信息只用于开发验证，不得提交到 Git。
+6. 平台包正式发布前，至少要在 `npm run tauri:dev` 中验证下载、安装、卸载、检查更新、更新弹框、历史版本、包大小、sha256 和当前系统 artifact 匹配。
 
 ### 5.4 主应用内置资源边界
 
-默认主应用安装包必须保持轻量，禁止把完整平台业务包当作常规 Tauri resource 内置；只有测试通道或明确的大版本 Full/Bootstrap 包允许例外：
+默认主应用安装包必须保持轻量，禁止把完整平台业务包当作常规 Tauri resource 内置；只有明确的大版本 Full/Bootstrap 包允许例外：
 
 1. `src-tauri/tauri.conf.json` 的 `bundle.resources` 只能内置轻量 `../platform-packages/index.seed.json` 到 `platform-packages/index.seed.json`，以及平台图标、通用脚本、Host API 所需的 Core Shell 资源。
 2. 禁止内置完整 `../platform-packages` 目录，禁止内置 `../platform-packages/dist`，也禁止把任意平台的 `ui/remoteEntry.js`、`ui/style.css`、adapter、helper/二级 sidecar 展开目录打进主应用安装包。
@@ -322,10 +314,10 @@ npm run package:platform-index -- --metadata-dir platform-packages/dist-ci --ver
 7. Bootstrap 资源必须放在 `platform-packages/bootstrap/index.json` 与 `platform-packages/bootstrap/dist/*.zip`。首次启动时 Core Shell 必须校验 size、sha256、manifest、runtime、UI entry 和 adapter entry，然后导入用户数据目录 `platform-packages/<platformId>/current` 并写 registry；禁止直接从 App resource 目录运行 remote UI 或 adapter。
 8. Bootstrap 不得覆盖本地已安装的同版本或更高版本；如果 registry 记录用户明确卸载过该平台，后续启动不得自动装回。用户重新安装或更新成功后才清除“明确卸载”标记。
 9. `scripts/package-platform-package.cjs --update-index` 必须同时更新 `platform-packages/index.json` 和 `platform-packages/index.seed.json`，保证 seed 与本地开发索引的平台集合一致。
-10. `npm run verify:platform-packages` 必须检查 seed 存在、seed 与 index 的平台集合一致、Tauri 主配置只内置 seed，并拦截正式、dev、test 配置重新内置完整 `platform-packages` 或 `platform-packages/dist`。
-11. debug/dev 模式默认也必须按远端真实下载路径工作：同版本远端包优先于仓库 source 包，且默认不读取 workspace `platform-packages/index.local.json` / `index.json`，也不导入 workspace/resource `platform-packages/bootstrap`。只有显式设置 `COCKPIT_PLATFORM_PACKAGE_PREFER_LOCAL_SOURCE=1`、`COCKPIT_PLATFORM_PACKAGE_WORKSPACE_INDEX=1` 或 `COCKPIT_PLATFORM_PACKAGE_BOOTSTRAP=1` 时，才允许启用对应本地调试能力。
-12. release/test 安装包不得依赖仓库 source 包，也不得用 resource 目录中的展开平台包作为安装源；远端测试索引固定为 `https://raw.githubusercontent.com/jlcodes99/cockpit-tools/platform-test/platform-packages/index.test.json`，禁止继续使用历史 `/platform-packages/test/index.json` 路径。
-13. 如果担心首次打开体验，优先使用测试/大版本 Full/Bootstrap 包；常规版本继续使用 Slim 包 + seed + 通用未安装页，不能为了“开箱即用”重新内置全平台、全 zip 或全系统 artifact。
+10. `npm run verify:platform-packages` 必须检查 seed 存在、seed 与 index 的平台集合一致、Tauri 主配置只内置 seed，并拦截正式和 dev 配置重新内置完整 `platform-packages` 或 `platform-packages/dist`。
+11. debug/dev 模式默认也必须按真实下载路径工作：默认不读取 workspace `platform-packages/index.local.json` / `index.json`，也不导入 workspace/resource `platform-packages/bootstrap`。`npm run tauri:dev` 会显式设置本地 HTTP index 和 reload URL，让 dev App 通过 zip 安装链路使用本地包。
+12. release 安装包不得依赖仓库 source 包，也不得用 resource 目录中的展开平台包作为安装源。
+13. 如果担心首次打开体验，优先使用明确的大版本 Full/Bootstrap 包；常规版本继续使用 Slim 包 + seed + 通用未安装页，不能为了“开箱即用”重新内置全平台、全 zip 或全系统 artifact。
 
 ## 6. 安装、更新、卸载流程
 

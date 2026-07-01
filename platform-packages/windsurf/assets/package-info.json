@@ -6,5 +6,6 @@
   "notes": [
     "Business UI, tabs, OAuth, token import, password login, switching, quota refresh, and Windsurf instance management are supplied by this platform package.",
     "Core Shell owns only lifecycle controls, runtime gate, Host API, and adapter runner."
-  ]
+  ],
+  "version": "1.0.0"
 }

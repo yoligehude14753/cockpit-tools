@@ -6,5 +6,6 @@
   "notes": [
     "Business UI, tabs, OAuth, switching, quota refresh, OpenCode sync, and VS Code instance management are supplied by this platform package.",
     "Core Shell owns only lifecycle controls, runtime gate, Host API, and adapter runner."
-  ]
+  ],
+  "version": "1.0.0"
 }

@@ -90,9 +90,7 @@ const APP_PROFILE = String(import.meta.env.VITE_COCKPIT_TOOLS_PROFILE || '').tri
 const APP_DISPLAY_NAME =
   APP_PROFILE === 'dev'
     ? 'Cockpit Tools Dev'
-    : APP_PROFILE === 'test'
-      ? 'Cockpit Tools Test'
-      : 'Cockpit Tools';
+    : 'Cockpit Tools';
 
 const CLASSIC_NAV_MIN_SCALE = 0.5;
 const CLASSIC_NAV_SCALE_EPSILON = 0.004;

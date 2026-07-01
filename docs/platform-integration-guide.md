@@ -109,7 +109,7 @@ Core Shell + Platform Package + Remote React UI + Sidecar Adapter + runtimeReady
 12. 安装、修复、更新、卸载必须二次确认，失败必须显示在当前弹框或当前操作区。安装、修复、更新、卸载执行期间必须通过 Core Shell 通用 `platform-package://progress` 事件反馈阶段与进度；下载大小可计算时弹框必须显示百分比和已下载体积，未知大小时至少显示当前阶段的流动进度，禁止只让按钮保持 loading。
 13. 平台包更新允许静默预准备，但只能下载、校验并预解压到用户数据目录 `platform-packages/<platformId>/prepared/<version>`；禁止后台自动替换 `current`。用户点击“更新”并确认后，Core Shell 才能把已准备版本原子切换到 `current`。
 14. 本地平台包目录必须受控：`current` 只保留当前运行版本，`prepared` 最多保留一个待更新版本，`downloads` 不得长期保留历史 zip 或 `.part`。安装、更新、预准备成功后必须清理旧 zip、旧 prepared、`.staging.*`、`.extracting.*`、`.previous.*` 等残留；卸载平台包时删除该平台包目录，但不删除账号数据。
-15. 测试通道或大版本可构建 Full/Bootstrap 主应用包，把当前系统/架构匹配的平台包 zip 作为 App resource 内置到 `platform-packages/bootstrap`；首次启动时必须校验 size/sha256/manifest/runtime 后导入用户数据目录并写入 `installed=true`、`runtimeReady=true`。禁止直接从安装目录运行平台包，禁止覆盖本地更高版本，用户明确卸载过的平台不得自动装回。
+15. 明确的大版本 Full/Bootstrap 主应用包可把当前系统/架构匹配的平台包 zip 作为 App resource 内置到 `platform-packages/bootstrap`；首次启动时必须校验 size/sha256/manifest/runtime 后导入用户数据目录并写入 `installed=true`、`runtimeReady=true`。禁止直接从安装目录运行平台包，禁止覆盖本地更高版本，用户明确卸载过的平台不得自动装回。
 
 ## 5. Artifact 与远端更新
 
@@ -123,7 +123,7 @@ Core Shell + Platform Package + Remote React UI + Sidecar Adapter + runtimeReady
 6. 平台包 zip 必须通过 `npm run package:platform` 生成，禁止手写临时压缩命令。
 7. 多系统远端 artifact 必须使用 `os-arch` 文件名，例如 `zed-0.26.7-macos-aarch64.zip`；本地兼容包才允许继续使用 `zed-0.26.7.zip`。
 8. `.github/workflows/platform-packages.yml` 是标准跨系统构建入口；CI 每个 runner 只输出当前 OS/arch 的 zip 和 metadata JSON，不直接改写远端 index。
-9. 远端正式索引 `platform-packages/index.json` 与测试索引 `platform-packages/index.test.json` 必须通过 `npm run package:platform-index` 基于各 OS/arch metadata 汇总生成，确认 size、sha256、downloadUrl 和 artifact 覆盖后再发布；zip 必须作为 GitHub Release asset 或等价对象存储资产发布，禁止提交进 `main`、`platform-test` 等源码/索引分支。
+9. 远端正式索引 `platform-packages/index.json` 必须通过 `npm run package:platform-index` 基于各 OS/arch metadata 汇总生成，确认 size、sha256、downloadUrl 和 artifact 覆盖后再发布；zip 必须作为 GitHub Release asset 或等价对象存储资产发布，禁止提交进 `main` 等源码/索引分支。
 10. 所有 Rust `sidecarAdapter` 的 Windows adapter exe 必须在编译期嵌入 `Microsoft.Windows.Common-Controls` v6 manifest：adapter crate 必须声明 `build = "build.rs"`，通过共享 `crates/adapter-windows-common-controls-build.rs`、`crates/windows-common-controls-v6.rc` 和 `crates/windows-common-controls-v6.manifest` 编译资源。禁止把外置 `*.exe.manifest` 当作正式平台包修复方案；外置 manifest 只能用于临时定位问题，正式 zip 必须依赖已嵌入资源的 exe。
 11. 平台包 zip 必须从临时 staging 目录生成，staging 只复制 manifest、runtime、remote UI、assets 和当前目标 OS/arch 所需 adapter/helper；禁止直接 zip `platform-packages/<platformId>` 源目录，避免把其它系统 adapter、历史 zip、bootstrap、dist 或调试文件带入当前 artifact。
 12. Rust adapter release 构建必须保持体积优先配置：`opt-level=z`、`lto=true`、`codegen-units=1`、`strip=true`、`panic=abort`。如需为了性能放宽某个平台 adapter，必须先记录体积变化和原因。
@@ -159,80 +159,43 @@ Core Shell + Platform Package + Remote React UI + Sidecar Adapter + runtimeReady
    node scripts/build-platform-package-history.cjs --index platform-packages/dist-ci/index.json --history-dir platform-packages/history --output-dir platform-packages/dist-ci/history
    ```
 7. 带 `--update-index` 的本地索引写入必须串行执行，禁止多个平台并行写 `platform-packages/index.json`。
-8. 正式发布前必须先走 test channel 验证真实远端下载、安装、卸载、检查更新、更新弹框、版本历史、历史版本安装/回退、更新日志、包大小和当前系统 artifact 匹配。
-9. 平台 zip 统一发布到平台包 Release asset，不再按正式/测试拆 Git 目录；正式通道只更新 `platform-packages/index.json` / `platform-packages/index.seed.json` / `platform-packages/history/*.json`，测试通道只更新 `platform-packages/index.test.json` / `platform-packages/history/*.json`。禁止执行 `npm run sync-version`、`npm run release:preflight`、创建主应用 release commit、创建或推送主应用 tag。
+8. 正式发布前必须先用 `npm run tauri:dev` 验证本地 zip 下载、安装、卸载、检查更新、更新弹框、版本历史、历史版本安装/回退、更新日志、包大小和当前系统 artifact 匹配。
+9. 平台 zip 统一发布到平台包 Release asset；正式通道只更新 `platform-packages/index.json` / `platform-packages/index.seed.json` / `platform-packages/history/*.json`。禁止执行 `npm run sync-version`、`npm run release:preflight`、创建主应用 release commit、创建或推送主应用 tag。
 10. 单平台升级至少执行 `npm run verify:platform-packages`、`node scripts/check_locales.cjs`、`git diff --check`；涉及 adapter、remote UI 或类型风险时，补充对应平台包构建、smoke 或类型检查。
 
-### 5.2 远端测试通道
-
-任何平台包远端测试都必须先进入独立 test channel，不得直接把测试版本写入正式索引：
-
-1. 测试桌面端必须使用 `src-tauri/tauri.test.conf.json`，bundle id 为 `com.jlcodes.cockpit-tools.test`，数据目录为 `~/.antigravity_cockpit_test`。
-2. 测试桌面端 updater endpoint 固定为 `https://github.com/jlcodes99/cockpit-tools/releases/download/test-latest/latest-test.json`；正式用户不会读取该地址。
-3. 平台包 zip 统一放在平台包 Release asset 中，不提交到 Git 分支；测试平台包索引固定为 `https://raw.githubusercontent.com/jlcodes99/cockpit-tools/platform-test/platform-packages/index.test.json`，正式用户不会读取该索引。
-4. 手动构建测试平台包时使用 `.github/workflows/platform-packages.yml` 的 `workflow_dispatch channel=test`；需要真实远端下载时再勾选 `publish_test_branch`。
-5. 手动构建测试桌面端时使用 `.github/workflows/build-matrix.yml` 的 `workflow_dispatch channel=test`；需要真实 Tauri updater 验证时再勾选 `publish_test_release`。
-6. 连续验证升级提示时，只允许通过 `test_version` 临时生成测试版本；为兼容 Windows MSI，测试版本 prerelease 标识必须是纯数字且单段不超过 `65535`，例如 `1.0.1-1001`、`1.0.1-1002`。禁止把测试版本写进正式 `package.json`、正式 `CHANGELOG` 或正式 release tag。
-7. 测试通道可以复用正式签名密钥，但必须保持 index/updater endpoint 隔离；正式 `latest.json` 和正式 `platform-packages/index.json` 不得引用测试平台包版本，测试桌面端只读取 `platform-packages/index.test.json`。
-8. dev 在线调试真实远端包时必须走 `https://raw.githubusercontent.com/jlcodes99/cockpit-tools/platform-test/platform-packages/index.test.json`；禁止继续使用历史 `/platform-packages/test/index.json` 路径。需要临时覆盖时，只能通过 `COCKPIT_PLATFORM_PACKAGE_INDEX_URL` 或数据目录 `platform-package-index.local.json` 明确覆盖，并在测试结束后清理。
-9. 后续新平台迁移完成后，必须先通过 test channel 验证 Windows/macOS/Linux 对应 artifact 的安装、卸载、检查更新、更新弹框、更新日志和包大小，再考虑进入正式通道。
-10. macOS 测试 release 必须上传 `.dmg` 供人工下载安装；真实 updater 仍使用 `.app.tar.gz` 与 `.sig`。
-
-#### 5.2.1 本地平台包下载调试
+### 5.2 本地 dev zip 调试
 
 本地调试平台热更新时，也必须走“index 发现版本 -> 下载 zip -> 校验 size/sha256 -> 安装/更新 -> 从 `current` 加载”的完整流程；只允许把下载源替换为本地 HTTP 服务，禁止直接改用户数据目录里的 `platform-packages/<platformId>/current` 或让 App 直接读取源码目录。
 
 推荐流程：
 
-1. 启动本地平台包索引和 zip 服务：
+1. 直接启动本地 dev 桌面端：
+   ```bash
+   npm run tauri:dev
+   ```
+   该命令会自动构建当前系统/架构的全部平台包 zip，启动 `.tmp/platform-dev/index.local.json` 对应的本地 HTTP 服务，并让 dev App 读取本地 index 和 `/reload`。
+2. 只排查平台包服务本身时，可单独启动底层服务：
    ```bash
    npm run platform:dev:serve -- --platform <platformId>
    ```
-   不传 `--platform` 时会构建当前系统/架构的全部平台包；只改 remote UI 时保持默认即可，涉及 adapter 改动时加 `--build-adapters`。
-2. 用本地 Test profile 启动接近测试包的桌面端：
-   ```bash
-   npm run tauri:test:local
-   ```
-   该命令读取 `.tmp/platform-dev/server.json` 里的 `indexUrl`，也可用 `--index-url <url>` 或 `COCKPIT_PLATFORM_PACKAGE_INDEX_URL` 覆盖。
-3. 每次修改平台 UI 或 adapter 后，重新执行第 1 步生成新 zip，再在桌面端里走检查更新/更新/安装流程验证。平台包版本或 artifact hash 必须发生变化，否则 App 可能判断为已是最新。
+   不传 `--platform` 时会构建当前系统/架构的全部平台包；涉及 adapter 改动时加 `--build-adapters`。
+3. 每次修改平台 UI 或 adapter 后，在平台页点击开发态“重载”按钮。该按钮会触发本地 `/reload`，重新打包当前平台 zip、刷新本地 index，并走 Core Shell 的平台包更新切换流程；该操作只替换平台包代码和资源，不删除账号数据。
 
-本地服务生成的索引只用于开发验证，文件位于 `.tmp/platform-dev/index.local.json`，不得提交到 Git；测试真实远端下载时仍必须使用 `platform-test/platform-packages/index.test.json`。
+本地服务生成的索引只用于开发验证，文件位于 `.tmp/platform-dev/index.local.json`，不得提交到 Git。
 
-#### 5.2.2 本地平台 UI 快速调试
+#### 5.2.1 本地平台 UI 快速调试
 
-需要实时预览平台页面 UI/交互改动时，不应反复打 zip 或重启 `tauri dev`。本地 UI 调试必须使用 Test/release 宿主 + localhost UI dev override：
-
-推荐使用一键命令：
-
-```bash
-npm run tauri:test:ui
-```
-
-该命令默认构建并监听全部平台 remote UI，同时启动懒加载的本地平台包 dev server。等待本地服务可访问后，再启动 Test/release 宿主并自动设置 `COCKPIT_PLATFORM_UI_DEV_BASE_URL`、本地平台包 index 和本地包重载 URL。常用参数：
-
-```bash
-npm run tauri:test:ui -- --platform codex
-npm run tauri:test:ui -- --platform codex --no-build-app
-npm run tauri:test:ui -- --platform codex,zed --ui-port 14524
-```
-
-低层拆分命令仅用于排查一键脚本本身：
+需要实时预览平台页面 UI/交互改动时，可单独启动本地 UI 服务做 localhost UI dev override；但安装、更新、hash、解压、清理流程仍必须回到 `npm run tauri:dev` 的本地 zip 链路验证。
 
 1. 启动目标平台 remote UI 服务：
    ```bash
    npm run platform:ui:dev -- --platform <platformId>
    ```
    不传 `--platform` 时会构建全部平台 remote UI。该服务会构建 `platform-packages/<platformId>/ui/remoteEntry.js` 与 `style.css`，并通过 `http://127.0.0.1:<port>/<platformId>/remoteEntry.js` 暴露给宿主；源码变化后会自动重建并通过 SSE 通知宿主 remount。
-2. 启动本地 Test/release 宿主并启用 UI dev override：
-   ```bash
-   npm run tauri:test:local -- --ui-dev
-   ```
-   `tauri:test:local` 会读取 `.tmp/platform-ui-dev/server.json` 并设置 `COCKPIT_PLATFORM_UI_DEV_BASE_URL`。后端 `get_platform_package_ui_entry` 仍先检查目标平台已安装且 `runtimeReady=true`，然后只把 UI source/style 替换为 localhost 版本。
-3. 该模式只用于 remote UI 和交互预览，不代表平台包安装、更新、hash、解压、清理流程已验证；这些仍必须回到 5.2.1 的本地 zip 下载调试或真实 test channel 验证。
+2. 启动 `npm run tauri:dev`，必要时通过 `COCKPIT_PLATFORM_UI_DEV_BASE_URL` 指向 `.tmp/platform-ui-dev/server.json` 中的本地 UI 服务地址。后端 `get_platform_package_ui_entry` 仍先检查目标平台已安装且 `runtimeReady=true`，然后只把 UI source/style 替换为 localhost 版本。
+3. 该模式只用于 remote UI 和交互预览，不代表平台包安装、更新、hash、解压、清理流程已验证。
 
-在 `npm run tauri:test:ui` 启动的桌面端中，平台页右上角会在已安装平台上显示开发态“重载”按钮。点击后才会重建当前平台 zip，刷新本地 index，并走 Core Shell 的平台包更新切换流程；该操作只替换平台包代码和资源，不删除账号数据。未设置本地包重载 URL 的普通 test/正式包不得显示该按钮。
-
-`npm run tauri:dev`、`npm run tauri:dev:vite`、`npm run tauri:test:local` 和 `npm run tauri:test:ui` 启动的本地桌面端必须默认把 Codex API 服务端口固定为 `12345`，便于前后端联调和外部客户端复用 Base URL。脚本通过 `COCKPIT_CODEX_API_SERVICE_PORT=12345` 注入；需要临时覆盖时可显式设置该环境变量。正式包不得默认固定该端口。
+`npm run tauri:dev` 和 `npm run tauri:dev:vite` 启动的本地桌面端必须默认把 Codex API 服务端口固定为 `12345`，便于前后端联调和外部客户端复用 Base URL。脚本通过 `COCKPIT_CODEX_API_SERVICE_PORT=12345` 注入；需要临时覆盖时可显式设置该环境变量。正式包不得默认固定该端口。
 
 `COCKPIT_PLATFORM_UI_DEV_BASE_URL` 只允许 `http://127.0.0.1`、`http://localhost` 或 `http://[::1]` 一类本机地址，禁止指向远端 JS。平台未安装、`runtimeReady=false` 或没有 UI runtime 时，仍必须展示通用不可用页，不得绕过平台包 gate。
 
@@ -240,7 +203,7 @@ npm run tauri:test:ui -- --platform codex,zed --ui-port 14524
 
 平台包按需安装是默认分发模型，主应用不得重新变成“全平台大包”：
 
-1. Tauri 主配置只能把 `../platform-packages/index.seed.json` 内置为 `platform-packages/index.seed.json`；dev/test 覆盖配置也不得重新映射完整 `../platform-packages`。
+1. Tauri 主配置只能把 `../platform-packages/index.seed.json` 内置为 `platform-packages/index.seed.json`；dev 覆盖配置也不得重新映射完整 `../platform-packages`。
 2. 禁止把完整 `platform-packages`、`platform-packages/dist`、任意平台展开目录、remote UI、adapter、helper/二级 sidecar 或全系统 zip 内置进桌面端安装包。
 3. `index.seed.json` 只保存平台元信息兜底，用于远端 index 和缓存都不可用时展示入口、包大小、更新日志和安装操作；seed 不是平台业务包，不能作为 UI runtime 或 adapter 来源。
 4. 平台业务内容必须来自远端 index 下载后的用户数据目录安装包；已安装平台从 `current` 加载，未安装平台只能展示通用不可用页和平台包操作入口。
@@ -249,7 +212,7 @@ npm run tauri:test:ui -- --platform codex,zed --ui-port 14524
 7. `npm run verify:platform-packages` 必须检查 seed、Tauri resources 和打包脚本；任何配置重新内置完整平台包目录都必须失败。
 8. 本地 debug 默认也按远端真实下载路径工作：同版本远端包优先于仓库 source 包；只有显式设置 `COCKPIT_PLATFORM_PACKAGE_PREFER_LOCAL_SOURCE=1` 时才允许同版本选择本地 source 包。
 9. 本地 debug 默认不读取仓库 `platform-packages/index.local.json` / `index.json` 作为远端索引替代；只有显式设置 `COCKPIT_PLATFORM_PACKAGE_WORKSPACE_INDEX=1` 才允许 workspace index 覆盖远端。数据目录里的 `platform-package-index.local.json` 仍作为人工 override，但测试结束必须清理。
-10. 本地 debug 默认不导入 workspace/resource `platform-packages/bootstrap`，防止 Full 包残留污染 Slim/远端测试；只有显式设置 `COCKPIT_PLATFORM_PACKAGE_BOOTSTRAP=1` 才允许测试 Full/Bootstrap 导入。
+10. 本地 debug 默认不导入 workspace/resource `platform-packages/bootstrap`，防止 Full 包残留污染常规安装链路；只有显式设置 `COCKPIT_PLATFORM_PACKAGE_BOOTSTRAP=1` 才允许测试 Full/Bootstrap 导入。
 11. 为缩小首包体积，只能选择“内置 seed + 按需下载平台包”。禁止内置全平台 starter 包；如未来需要 starter，也只能内置当前系统、极少数平台、且不包含全系统 artifact，并必须经过包体积评审。
 
 ## 6. 新平台迁移流程

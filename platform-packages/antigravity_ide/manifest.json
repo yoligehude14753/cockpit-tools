@@ -1,9 +1,9 @@
 {
   "id": "antigravity_ide",
   "platformId": "antigravity_ide",
-  "version": "0.26.8",
+  "version": "1.0.0",
   "apiVersion": 1,
-  "minCoreVersion": "0.26.5",
+  "minCoreVersion": "1.0.0",
   "displayName": "Antigravity IDE",
   "entry": "runtime/index.json",
   "packageMode": "hotUpdate",
@@ -107,34 +107,23 @@
   ],
   "changelog": [
     {
-      "version": "0.26.8",
-      "date": "2026-06-30",
+      "version": "1.0.0",
+      "date": "2026-07-01",
       "notes": [
-        "Adds immutable platform package version history metadata so users can install, reinstall, update, or roll back to published package versions.",
-        "Refreshes the platform package artifact for the main channel without replacing any previously published zip."
+        "Platform has been split into an independent package and now runs independently from the host application."
       ],
       "locales": {
         "zh-CN": {
           "notes": [
-            "新增不可变的平台包版本历史元数据，用户可以安装、重新安装、更新或回退到已发布的平台包版本。",
-            "刷新主通道平台包产物，同时不替换任何已发布过的旧 zip。"
+            "平台拆成独立的包独立运行。"
           ]
         },
         "zh-TW": {
           "notes": [
-            "新增不可變的平台包版本歷史中繼資料，使用者可以安裝、重新安裝、更新或回復到已發布的平台包版本。",
-            "刷新主通道平台包產物，同時不替換任何已發布過的舊 zip。"
+            "平台拆成獨立的包並獨立運行。"
           ]
         }
       }
-    },
-    {
-      "version": "0.26.7",
-      "date": "2026-06-24",
-      "notes": [
-        "Antigravity IDE page shell, account overview, multi-instance, wakeup, and verification tabs are supplied by the platform package UI runtime.",
-        "Antigravity IDE account, OAuth, quota, switching, multi-instance, runtime, wakeup, and verification commands now execute through the package sidecar adapter; the package no longer declares platform business native boundaries."
-      ]
     }
   ],
   "contributions": {

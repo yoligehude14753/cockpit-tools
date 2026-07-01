@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 use tauri::Emitter;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
@@ -39,6 +39,9 @@ const ADAPTER_CALL_PERF_THRESHOLD_MS: u128 = 800;
 
 static PLATFORM_ADAPTERS: std::sync::LazyLock<Mutex<HashMap<String, AdapterProcess>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+static PLATFORM_ADAPTER_LIFECYCLE_LOCKS: std::sync::LazyLock<
+    Mutex<HashMap<String, Arc<Mutex<()>>>>,
+> = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 static HOST_EVENT_BRIDGE: std::sync::LazyLock<Mutex<Option<HostEventBridge>>> =
     std::sync::LazyLock::new(|| Mutex::new(None));
 
@@ -546,7 +549,21 @@ fn adapter_process_matches(
         && process.executable_modified == executable_modified
 }
 
+fn adapter_lifecycle_lock(platform_id: &str) -> Result<Arc<Mutex<()>>, String> {
+    let mut locks = PLATFORM_ADAPTER_LIFECYCLE_LOCKS
+        .lock()
+        .map_err(|_| "获取平台 adapter 生命周期锁失败".to_string())?;
+    Ok(locks
+        .entry(platform_id.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone())
+}
+
 fn adapter_endpoint(platform_id: &str) -> Result<AdapterEndpoint, String> {
+    let lifecycle_lock = adapter_lifecycle_lock(platform_id)?;
+    let _lifecycle_guard = lifecycle_lock
+        .lock()
+        .map_err(|_| "锁定平台 adapter 生命周期失败".to_string())?;
     let installed = installed_platform_adapter_with_repair(platform_id)?;
     let executable_len = adapter_executable_len(&installed.executable_path);
     let executable_modified = adapter_executable_modified(&installed.executable_path);
@@ -591,6 +608,64 @@ fn adapter_endpoint(platform_id: &str) -> Result<AdapterEndpoint, String> {
 
     adapters.insert(platform_id.to_string(), new_process);
     Ok(new_endpoint)
+}
+
+fn stop_platform_adapter_process(platform_id: &str, mut process: AdapterProcess) {
+    let _ = post_adapter_request(
+        &process.endpoint,
+        "adapter.shutdown",
+        json!({}),
+        Duration::from_secs(2),
+    );
+    stop_child(&mut process.child);
+    logger::log_info(&format!(
+        "[PlatformAdapter] adapter 已停止: platform={}",
+        platform_id
+    ));
+}
+
+fn stop_platform_adapter_if_endpoint_matches(platform_id: &str, endpoint: &AdapterEndpoint) {
+    let lifecycle_lock = match adapter_lifecycle_lock(platform_id) {
+        Ok(lock) => lock,
+        Err(error) => {
+            logger::log_warn(&format!(
+                "[PlatformAdapter] 获取 adapter 生命周期锁失败，跳过重启前停止: platform={}, error={}",
+                platform_id, error
+            ));
+            return;
+        }
+    };
+    let _lifecycle_guard = match lifecycle_lock.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            logger::log_warn(&format!(
+                "[PlatformAdapter] 锁定 adapter 生命周期失败，跳过重启前停止: platform={}",
+                platform_id
+            ));
+            return;
+        }
+    };
+
+    let process_to_stop = match PLATFORM_ADAPTERS.lock() {
+        Ok(mut adapters) => {
+            let should_stop = adapters
+                .get(platform_id)
+                .map(|process| {
+                    process.endpoint.url == endpoint.url && process.endpoint.token == endpoint.token
+                })
+                .unwrap_or(false);
+            if should_stop {
+                adapters.remove(platform_id)
+            } else {
+                None
+            }
+        }
+        Err(_) => None,
+    };
+
+    if let Some(process) = process_to_stop {
+        stop_platform_adapter_process(platform_id, process);
+    }
 }
 
 fn should_repair_installed_adapter(error: &str) -> bool {
@@ -738,7 +813,7 @@ fn call_platform_adapter_value_with_timeout(
                 "[PlatformAdapter] adapter 请求失败，准备重启后重试: platform={}, method={}, elapsed={}ms, error={}",
                 platform_id, method, first_request_elapsed_ms, error
             ));
-            stop_platform_adapter(platform_id);
+            stop_platform_adapter_if_endpoint_matches(platform_id, &endpoint);
             let retry_started_at = Instant::now();
             let endpoint = adapter_endpoint(platform_id)?;
             let retry_endpoint_elapsed_ms = retry_started_at.elapsed().as_millis();
@@ -1339,24 +1414,35 @@ pub fn restore_antigravity_ide_runtime() {
 }
 
 pub fn stop_platform_adapter(platform_id: &str) {
-    let Some(mut process) = (match PLATFORM_ADAPTERS.lock() {
+    let lifecycle_lock = match adapter_lifecycle_lock(platform_id) {
+        Ok(lock) => lock,
+        Err(error) => {
+            logger::log_warn(&format!(
+                "[PlatformAdapter] 获取 adapter 生命周期锁失败，跳过停止: platform={}, error={}",
+                platform_id, error
+            ));
+            return;
+        }
+    };
+    let _lifecycle_guard = match lifecycle_lock.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            logger::log_warn(&format!(
+                "[PlatformAdapter] 锁定 adapter 生命周期失败，跳过停止: platform={}",
+                platform_id
+            ));
+            return;
+        }
+    };
+
+    let Some(process) = (match PLATFORM_ADAPTERS.lock() {
         Ok(mut adapters) => adapters.remove(platform_id),
         Err(_) => None,
     }) else {
         return;
     };
 
-    let _ = post_adapter_request(
-        &process.endpoint,
-        "adapter.shutdown",
-        json!({}),
-        Duration::from_secs(2),
-    );
-    stop_child(&mut process.child);
-    logger::log_info(&format!(
-        "[PlatformAdapter] adapter 已停止: platform={}",
-        platform_id
-    ));
+    stop_platform_adapter_process(platform_id, process);
 }
 
 pub fn stop_zed_runtime_before_uninstall() {

@@ -7,21 +7,20 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
-## [1.0.0] - 2026-06-25
+## [1.0.0] - 2026-07-01
 
 ### Added
-- **Hot-update platform packages are now the primary platform delivery model**: Cockpit can load platform package metadata, runtime contributions, native-boundary declarations, package actions, and remote React UI bundles for supported platforms while keeping the host shell focused on lifecycle, navigation, and shared APIs.
-- **Antigravity and Antigravity IDE now ship as separate platform packages**: the two clients keep independent package identity, runtime state, adapter artifacts, update metadata, and package lifecycle handling while still sharing the Antigravity suite experience where appropriate.
-- **Platform migration has dedicated smoke and contract checks**: new verification scripts cover platform package contracts, Codex platform behavior, remote UI integration, and adapter smoke coverage.
+- **Cockpit Tools 1.0.0 is now available**: the host application and all platform packages are aligned to version `1.0.0`.
+- **Platforms now update independently**: each supported platform can be updated and maintained on its own without requiring every user to install a full host application update.
+- **Platforms now run as independent packages**: supported platforms can be installed, uninstalled, updated, repaired, and maintained independently from the host application.
 
 ### Changed
-- **Platform package pages now use a consistent lifecycle toolbar**: installed, update-available, unavailable, repair, uninstall, check-update, changelog, and more-menu actions follow the shared platform package rules and keep lifecycle operations on the platform page instead of sidebar or dashboard entry points.
-- **Codex platform pages now run through the platform package runtime**: API Service, model providers, wakeup tasks, instances, and related dialogs use the remote UI and adapter boundary while preserving the existing page experience.
-- **Platform logs and adapter execution are more clearly separated by platform**: host facade logs and sidecar stderr are routed through platform-specific boundaries so package behavior is easier to audit.
+- **Platform updates no longer affect unrelated users**: when only one platform changes, users of other platforms no longer need to update the whole application.
+- **Platform installation and removal are more flexible**: supported platforms can be installed or removed based on actual use, so unused platforms do not have to stay enabled.
 
 ### Fixed
-- **Platform package runtime state no longer loads business pages before the package is ready**: unavailable or not-ready packages stay on the shared unavailable page until `runtimeReady` is restored, preventing account, OAuth, quota, and refresh logic from running through an invalid package.
-- **Remote platform UI switching is less prone to unnecessary remounts**: runtime entry loading, module import, and CSS attachment are reused across compatible package states to reduce visible stalls when moving between installed platforms.
+- **Fixed account switching issues in several platforms**: fixed account switching issues in Zed, Antigravity IDE, CodeBuddy, CodeBuddy CN, and Cursor.
+- **Fixed startup issues in several platforms**: Zed, Antigravity IDE, CodeBuddy, CodeBuddy CN, and Cursor now start more reliably after switching or reopening.
 
 ---
 ## [0.26.6] - 2026-06-22

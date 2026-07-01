@@ -1,9 +1,9 @@
 {
   "id": "windsurf",
   "platformId": "windsurf",
-  "version": "0.26.9",
+  "version": "1.0.0",
   "apiVersion": 1,
-  "minCoreVersion": "0.26.5",
+  "minCoreVersion": "1.0.0",
   "displayName": "Windsurf",
   "entry": "runtime/index.json",
   "packageMode": "hotUpdate",
@@ -77,56 +77,23 @@
   ],
   "changelog": [
     {
-      "version": "0.26.9",
-      "date": "2026-06-30",
+      "version": "1.0.0",
+      "date": "2026-07-01",
       "notes": [
-        "Hardens Windows adapter startup when an unfinished Windsurf OAuth session is present.",
-        "The adapter now completes its bootstrap handshake before restoring pending OAuth listeners, and restores them inside a Tokio runtime context."
+        "Platform has been split into an independent package and now runs independently from the host application."
       ],
       "locales": {
         "zh-CN": {
           "notes": [
-            "加固 Windows 上存在未完成 Windsurf OAuth 会话时的 adapter 启动流程。",
-            "adapter 现在会先完成启动握手，再在 Tokio runtime 上下文中恢复 pending OAuth 监听。"
+            "平台拆成独立的包独立运行。"
           ]
         },
         "zh-TW": {
           "notes": [
-            "加固 Windows 上存在未完成 Windsurf OAuth 工作階段時的 adapter 啟動流程。",
-            "adapter 現在會先完成啟動握手，再於 Tokio runtime 上下文中恢復 pending OAuth 監聽。"
+            "平台拆成獨立的包並獨立運行。"
           ]
         }
       }
-    },
-    {
-      "version": "0.26.8",
-      "date": "2026-06-30",
-      "notes": [
-        "Adds immutable platform package version history metadata so users can install, reinstall, update, or roll back to published package versions.",
-        "Refreshes the platform package artifact for the main channel without replacing any previously published zip."
-      ],
-      "locales": {
-        "zh-CN": {
-          "notes": [
-            "新增不可变的平台包版本历史元数据，用户可以安装、重新安装、更新或回退到已发布的平台包版本。",
-            "刷新主通道平台包产物，同时不替换任何已发布过的旧 zip。"
-          ]
-        },
-        "zh-TW": {
-          "notes": [
-            "新增不可變的平台包版本歷史中繼資料，使用者可以安裝、重新安裝、更新或回復到已發布的平台包版本。",
-            "刷新主通道平台包產物，同時不替換任何已發布過的舊 zip。"
-          ]
-        }
-      }
-    },
-    {
-      "version": "0.26.7",
-      "date": "2026-06-23",
-      "notes": [
-        "Windsurf account overview, multi-instance tabs, OAuth, token import, password login, VS Code switching, quota refresh, and page interactions are now supplied by the Windsurf platform package.",
-        "Core Shell keeps only Windsurf platform lifecycle controls, runtime gate, Host API, and adapter runner."
-      ]
     }
   ],
   "contributions": {

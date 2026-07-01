@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useCallback, useState, Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   RefreshCw,
@@ -92,6 +93,36 @@ const CURSOR_TOKEN_BATCH_EXAMPLE = `[
   {"access_token":"eyJhbGciOiJIUzI1NiIs...","email":"b@example.com"}
 ]`;
 
+function hasGeminiAccessToken(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.access_token === "string" && record.access_token.trim() !== ""
+  ) || (
+    typeof record.accessToken === "string" && record.accessToken.trim() !== ""
+  );
+}
+
+function assertGeminiImportJsonHasAccessToken(
+  jsonContent: string,
+  invalidJsonMessage: string,
+  missingAccessTokenMessage: string,
+): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonContent);
+  } catch {
+    throw new Error(invalidJsonMessage);
+  }
+
+  const items = Array.isArray(parsed) ? parsed : [parsed];
+  if (items.length === 0 || !items.every(hasGeminiAccessToken)) {
+    throw new Error(missingAccessTokenMessage);
+  }
+}
+
 interface GeminiLaunchModalState {
   instanceId: string;
   instanceName: string;
@@ -141,7 +172,25 @@ export function GeminiAccountsContent({ activeTab }: GeminiAccountsContentProps)
   const untaggedKey = "__untagged__";
 
   const store = useGeminiAccountStore();
+  const { t: localT } = useTranslation();
 
+  const geminiImportFromJson = useCallback(
+    (jsonContent: string) => {
+      assertGeminiImportJsonHasAccessToken(
+        jsonContent,
+        localT(
+          "common.shared.externalImport.bundleInvalidJson",
+          "导入包不是有效 JSON",
+        ),
+        localT(
+          "common.shared.token.empty",
+          "请输入 Token 或 JSON",
+        ),
+      );
+      return geminiService.importGeminiFromJson(jsonContent);
+    },
+    [localT],
+  );
   const page = useProviderAccountsPage<GeminiAccount>({
     platformKey: "Gemini",
     oauthLogPrefix: "GeminiOAuth",
@@ -180,7 +229,7 @@ export function GeminiAccountsContent({ activeTab }: GeminiAccountsContentProps)
         geminiService.submitGeminiOAuthCallbackUrl(loginId, callbackUrl),
     },
     dataService: {
-      importFromJson: geminiService.importGeminiFromJson,
+      importFromJson: geminiImportFromJson,
       importFromLocal: geminiService.importGeminiFromLocal,
       addWithToken: geminiService.addGeminiAccountWithToken,
       exportAccounts: geminiService.exportGeminiAccounts,

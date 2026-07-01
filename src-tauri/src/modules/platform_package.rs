@@ -68,8 +68,6 @@ const SUPPORTED_PLATFORM_IDS: &[&str] = &[
 ];
 const PLATFORM_PACKAGE_INDEX_URL: &str =
     "https://raw.githubusercontent.com/jlcodes99/cockpit-tools/main/platform-packages/index.json";
-const PLATFORM_PACKAGE_TEST_INDEX_URL: &str =
-    "https://raw.githubusercontent.com/jlcodes99/cockpit-tools/platform-test/platform-packages/index.test.json";
 const PLATFORM_PACKAGE_HISTORY_DIR: &str = "history";
 const PLATFORM_PACKAGE_INDEX_CACHE_TTL_MS: i64 = 30 * 60 * 1000;
 const MAX_PLATFORM_PACKAGE_DOWNLOAD_BYTES: u64 = 80 * 1024 * 1024;
@@ -1603,13 +1601,7 @@ fn platform_package_index_url() -> String {
         .or_else(|| option_env!("COCKPIT_PLATFORM_PACKAGE_INDEX_URL").map(ToString::to_string))
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| {
-            if crate::modules::app_data::is_test_profile() {
-                PLATFORM_PACKAGE_TEST_INDEX_URL.to_string()
-            } else {
-                PLATFORM_PACKAGE_INDEX_URL.to_string()
-            }
-        })
+        .unwrap_or_else(|| PLATFORM_PACKAGE_INDEX_URL.to_string())
 }
 
 fn workspace_package_index_candidates() -> Vec<PathBuf> {
@@ -1949,7 +1941,7 @@ fn platform_package_history_url(platform_id: &str) -> Result<String, String> {
     let Some(file_name) = segments.pop() else {
         return Err(format!("平台包远端索引 URL 缺少文件名: {}", index_url));
     };
-    if file_name != "index.json" && file_name != "index.test.json" {
+    if file_name != "index.json" && file_name != "index.local.json" {
         return Err(format!(
             "平台包远端索引 URL 文件名不支持历史版本推导: {}",
             index_url

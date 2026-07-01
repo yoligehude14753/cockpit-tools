@@ -3,5 +3,5 @@
   "displayName": "Qoder",
   "packageMode": "hotUpdate",
   "installKind": "sidecarAdapter",
-  "version": "0.26.8"
+  "version": "1.0.0"
 }

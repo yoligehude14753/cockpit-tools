@@ -12,6 +12,7 @@ node_modules
 dist
 platform-packages/dist/
 platform-packages/dist-ci/
+platform-packages/dist-local/
 platform-packages/*/adapter/
 platform-packages/*/ui/remoteEntry.js
 platform-packages/*/ui/style.css

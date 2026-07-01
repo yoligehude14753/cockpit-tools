@@ -2,41 +2,6 @@ name: Build Matrix
 
 on:
   workflow_dispatch:
-    inputs:
-      channel:
-        description: "Build channel"
-        required: true
-        default: "production"
-        type: choice
-        options:
-          - "production"
-          - "test"
-          - "gray"
-      test_branch:
-        description: "Branch containing platform-packages/index.test.json"
-        required: false
-        default: "platform-test"
-        type: string
-      test_version:
-        description: "Optional test/gray semver override. Use MSI-safe numeric prerelease, for example 1.0.1-1002"
-        required: false
-        default: ""
-        type: string
-      publish_test_release:
-        description: "Upload signed test updater assets to the test prerelease"
-        required: false
-        default: false
-        type: boolean
-      publish_gray_release:
-        description: "Upload signed gray updater assets to the gray prerelease"
-        required: false
-        default: false
-        type: boolean
-      bundle_platform_packages:
-        description: "Opt-in full/bootstrap test build. Leave false for the default slim test app."
-        required: false
-        default: false
-        type: boolean
   pull_request:
     branches:
       - "main"
@@ -55,9 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'production' }}
-      TEST_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.test_version || '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,39 +33,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Prepare non-production channel version
-        if: github.event_name == 'workflow_dispatch' && inputs.channel != 'production'
-        env:
-          COCKPIT_TEST_CHANNEL_VERSION: ${{ env.TEST_VERSION }}
-        run: npm run prepare:test-channel-version
-
       - name: Sync versions
         run: npm run sync-version
-
-      - name: Summarize build profile
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        env:
-          BUNDLE_PLATFORM_PACKAGES: ${{ inputs.bundle_platform_packages }}
-        run: |
-          set -euo pipefail
-          package_profile="slim"
-            if [ "${CHANNEL}" = "test" ] && [ "${BUNDLE_PLATFORM_PACKAGES}" = "true" ]; then
-              package_profile="full/bootstrap"
-            fi
-
-            {
-              echo "## Build profile"
-              echo
-              echo "- channel: ${CHANNEL}"
-              echo "- package profile: ${package_profile}"
-              if [ "${CHANNEL}" = "test" ] && [ "${BUNDLE_PLATFORM_PACKAGES}" != "true" ]; then
-                echo "- platform packages: remote download from test platform index"
-              elif [ "${CHANNEL}" = "gray" ]; then
-                echo "- updater: gray-latest/latest-gray.json"
-                echo "- platform packages: remote download from main platform index"
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check locales
         run: node scripts/check_locales.cjs
@@ -117,12 +48,6 @@ jobs:
     runs-on: ${{ matrix.platform }}
     permissions:
       contents: read
-    env:
-      CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'production' }}
-      TEST_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.test_version || '' }}
-      COCKPIT_TOOLS_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'test' && 'test' || '' }}
-      VITE_COCKPIT_TOOLS_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'test' && 'test' || '' }}
-      COCKPIT_PLATFORM_PACKAGE_INDEX_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'test' && format('https://raw.githubusercontent.com/{0}/{1}/platform-packages/index.test.json', github.repository, inputs.test_branch) || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -131,27 +56,22 @@ jobs:
             platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
             release_dir: "target/aarch64-apple-darwin/release"
-            bootstrap_targets: "macos/aarch64"
           - label: "macos-x86_64"
             platform: "macos-latest"
             args: "--target x86_64-apple-darwin"
             release_dir: "target/x86_64-apple-darwin/release"
-            bootstrap_targets: "macos/x86_64"
           - label: "ubuntu-22.04"
             platform: "ubuntu-22.04"
             args: ""
             release_dir: "target/release"
-            bootstrap_targets: "linux/x86_64"
           - label: "ubuntu-24.04-arm"
             platform: "ubuntu-24.04-arm"
             args: ""
             release_dir: "target/release"
-            bootstrap_targets: "linux/aarch64"
           - label: "windows-latest"
             platform: "windows-latest"
             args: ""
             release_dir: "target/release"
-            bootstrap_targets: "windows/x86_64"
 
     steps:
       - name: Checkout repository
@@ -184,43 +104,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Prepare non-production channel version
-        if: github.event_name == 'workflow_dispatch' && inputs.channel != 'production'
-        env:
-          COCKPIT_TEST_CHANNEL_VERSION: ${{ env.TEST_VERSION }}
-        run: npm run prepare:test-channel-version
-
       - name: Sync versions
         run: npm run sync-version
-
-      - name: Prepare bundled platform packages (explicit full/bootstrap)
-        if: github.event_name == 'workflow_dispatch' && inputs.channel == 'test' && inputs.bundle_platform_packages == true
-        shell: bash
-        env:
-          PLATFORM_PACKAGE_INDEX_URL: ${{ env.COCKPIT_PLATFORM_PACKAGE_INDEX_URL }}
-          BOOTSTRAP_TARGETS: ${{ matrix.bootstrap_targets }}
-        run: |
-          set -euo pipefail
-          npm run prepare:platform-bootstrap -- \
-            --index-url "${PLATFORM_PACKAGE_INDEX_URL}" \
-            --targets "${BOOTSTRAP_TARGETS}"
-
-          node <<'NODE'
-          const fs = require('node:fs');
-          const baseConfigPath = 'src-tauri/tauri.conf.json';
-          const configPath = 'src-tauri/tauri.test.conf.json';
-          const outputPath = 'src-tauri/tauri.test.full.conf.json';
-          const baseConfig = JSON.parse(fs.readFileSync(baseConfigPath, 'utf8'));
-          const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-          config.bundle = config.bundle || {};
-          config.bundle.resources = {
-            ...((baseConfig.bundle && baseConfig.bundle.resources) || {}),
-            ...(config.bundle.resources || {}),
-            '../platform-packages/bootstrap/index.json': 'platform-packages/bootstrap/index.json',
-            '../platform-packages/bootstrap/dist': 'platform-packages/bootstrap/dist',
-          };
-          fs.writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);
-          NODE
 
       - name: Cache Tauri binary dependencies
         uses: actions/cache@v4
@@ -254,7 +139,7 @@ jobs:
           fi
 
       - name: Build app (signed)
-        if: github.event_name != 'pull_request' && !(github.event_name == 'workflow_dispatch' && inputs.channel != 'production')
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -263,24 +148,6 @@ jobs:
         run: |
           set -euo pipefail
           npx tauri build --ci ${{ matrix.args }} 2>&1 | tee "build-${{ matrix.label }}.log"
-
-      - name: Build app (non-production channel)
-        if: github.event_name == 'workflow_dispatch' && inputs.channel != 'production'
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          BUNDLE_PLATFORM_PACKAGES: ${{ inputs.bundle_platform_packages }}
-        run: |
-          set -euo pipefail
-          config_path="src-tauri/tauri.test.conf.json"
-          if [ "${CHANNEL}" = "gray" ]; then
-            config_path="src-tauri/tauri.gray.conf.json"
-          elif [ "${BUNDLE_PLATFORM_PACKAGES}" = "true" ]; then
-            config_path="src-tauri/tauri.test.full.conf.json"
-          fi
-          npx tauri build --ci --config "${config_path}" ${{ matrix.args }} 2>&1 | tee "build-${{ matrix.label }}.log"
 
       - name: Print build logs on failure (Signed)
         if: failure() && github.event_name != 'pull_request'
@@ -340,150 +207,3 @@ jobs:
           if-no-files-found: error
           path: |
             ${{ matrix.release_dir }}/bundle
-
-  publish-channel-release:
-    name: Publish Channel Release
-    needs: build
-    if: github.event_name == 'workflow_dispatch' && ((inputs.channel == 'test' && inputs.publish_test_release == true) || (inputs.channel == 'gray' && inputs.publish_gray_release == true))
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      TEST_VERSION: ${{ inputs.test_version }}
-      CHANNEL: ${{ inputs.channel }}
-      BUNDLE_PLATFORM_PACKAGES: ${{ inputs.bundle_platform_packages }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download bundle artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: bundles-*
-          path: test-release-assets
-
-      - name: Build and upload channel updater JSON
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="${TEST_VERSION}"
-          if [ -z "${version}" ]; then
-            version="$(node -p "require('./package.json').version")"
-          fi
-          package_profile="slim"
-          if [ "${BUNDLE_PLATFORM_PACKAGES}" = "true" ]; then
-            package_profile="full/bootstrap"
-          fi
-          release_tag="test-latest"
-          latest_json="latest-test.json"
-          release_title="Cockpit Tools Test Channel"
-          channel_label="test"
-          if [ "${CHANNEL}" = "gray" ]; then
-            release_tag="gray-latest"
-            latest_json="latest-gray.json"
-            release_title="Cockpit Tools Gray Channel"
-            channel_label="gray"
-          fi
-
-          rm -rf test-release-flat
-          mkdir -p test-release-flat
-          node <<'NODE'
-          const fs = require('node:fs');
-          const path = require('node:path');
-
-          const sourceRoot = path.resolve('test-release-assets');
-          const targetRoot = path.resolve('test-release-flat');
-          const allowed = [
-            '.sig',
-            '.AppImage',
-            '.deb',
-            '.rpm',
-            '.msi',
-            '.exe',
-            '.dmg',
-            '.app.tar.gz',
-          ];
-          const macArchByArtifact = new Map([
-            ['bundles-macos-aarch64', 'aarch64'],
-            ['bundles-macos-x86_64', 'x64'],
-          ]);
-
-          function walk(dir, files = []) {
-            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-              const fullPath = path.join(dir, entry.name);
-              if (entry.isDirectory()) {
-                walk(fullPath, files);
-              } else if (entry.isFile()) {
-                files.push(fullPath);
-              }
-            }
-            return files;
-          }
-
-          function isAllowed(fileName) {
-            return allowed.some((suffix) => fileName.endsWith(suffix));
-          }
-
-          function macRename(fileName, artifactName) {
-            const arch = macArchByArtifact.get(artifactName);
-            if (!arch) return fileName;
-            if (/(?:_aarch64|_x64|_universal)\.app\.tar\.gz(?:\.sig)?$/u.test(fileName)) {
-              return fileName;
-            }
-            if (fileName.endsWith('.app.tar.gz.sig')) {
-              return fileName.replace(/\.app\.tar\.gz\.sig$/u, `_${arch}.app.tar.gz.sig`);
-            }
-            if (fileName.endsWith('.app.tar.gz')) {
-              return fileName.replace(/\.app\.tar\.gz$/u, `_${arch}.app.tar.gz`);
-            }
-            return fileName;
-          }
-
-          for (const filePath of walk(sourceRoot)) {
-            const relative = path.relative(sourceRoot, filePath);
-            const [artifactName] = relative.split(path.sep);
-            const baseName = path.basename(filePath);
-            if (!isAllowed(baseName)) continue;
-            const targetName = macRename(baseName, artifactName);
-            fs.copyFileSync(filePath, path.join(targetRoot, targetName));
-          }
-          NODE
-          find test-release-flat -maxdepth 1 -type f -print | sort
-
-          cat > test-release-notes.md <<EOF
-          Cockpit Tools ${channel_label} channel build ${version}.
-
-          Package profile: ${package_profile}.
-
-          This prerelease is only used by ${channel_label}-channel builds.
-          EOF
-
-          node scripts/release/build_merged_latest_json.cjs \
-            --version "${version}" \
-            --release-tag "${release_tag}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --assets-dir test-release-flat \
-            --notes-file test-release-notes.md \
-            --published-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --output "test-release-flat/${latest_json}"
-
-          if gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            gh release edit "${release_tag}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --title "${release_title}" \
-              --notes-file test-release-notes.md \
-              --prerelease \
-              --latest=false
-          else
-            gh release create "${release_tag}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --title "${release_title}" \
-              --notes-file test-release-notes.md \
-              --prerelease \
-              --latest=false
-          fi
-
-          gh release upload "${release_tag}" test-release-flat/* \
-            --repo "${GITHUB_REPOSITORY}" \
-            --clobber

@@ -46,7 +46,6 @@ const TAURI_MODULES_MOD_PATH = path.join(ROOT, 'src-tauri', 'src', 'modules', 'm
 const TAURI_CONFIG_PATH = path.join(ROOT, 'src-tauri', 'tauri.conf.json');
 const TAURI_CONFIG_OVERRIDE_PATHS = [
   path.join(ROOT, 'src-tauri', 'tauri.dev.conf.json'),
-  path.join(ROOT, 'src-tauri', 'tauri.test.conf.json'),
 ];
 
 const EXPECTED_PLATFORM_PACKAGES = new Map([
@@ -1188,11 +1187,20 @@ function verifyPackagingTooling() {
     '--require-os-arch',
     '--verify-zip-dir',
     'platform-packages-main',
-    'platform-packages-test',
     'gh release upload',
     'upload_platform_assets_immutably',
   ]) {
     assertIncludes(relative(PLATFORM_PACKAGES_WORKFLOW_PATH), workflow, expected);
+  }
+  for (const forbidden of [
+    'platform-packages-test',
+    'index.test.json',
+    'publish_test_branch',
+    'test_branch',
+  ]) {
+    if (workflow.includes(forbidden)) {
+      fail(`${relative(PLATFORM_PACKAGES_WORKFLOW_PATH)} must not contain removed test channel token: ${forbidden}`);
+    }
   }
   if (workflow.includes('--clobber')) {
     fail(`${relative(PLATFORM_PACKAGES_WORKFLOW_PATH)} must not clobber immutable platform package release assets`);
@@ -1206,17 +1214,24 @@ function verifyPackagingTooling() {
 
   const buildMatrixWorkflow = readText(BUILD_MATRIX_WORKFLOW_PATH, relative(BUILD_MATRIX_WORKFLOW_PATH));
   for (const expected of [
-    "'.dmg'",
-    "'.app.tar.gz'",
+    'npx tauri build --ci',
+  ]) {
+    assertIncludes(relative(BUILD_MATRIX_WORKFLOW_PATH), buildMatrixWorkflow, expected);
+  }
+  for (const forbidden of [
     'Publish Channel Release',
     'gray-latest',
     'latest-gray.json',
+    'latest-test.json',
     'bundle_platform_packages',
-    'prepare:platform-bootstrap',
-    'platform-packages/bootstrap/index.json',
-    'platform-packages/bootstrap/dist',
+    'prepare:test-channel-version',
+    'tauri.test.conf.json',
+    'tauri.gray.conf.json',
+    'channel ==',
   ]) {
-    assertIncludes(relative(BUILD_MATRIX_WORKFLOW_PATH), buildMatrixWorkflow, expected);
+    if (buildMatrixWorkflow.includes(forbidden)) {
+      fail(`${relative(BUILD_MATRIX_WORKFLOW_PATH)} must not contain removed non-production channel token: ${forbidden}`);
+    }
   }
 
   const index = readJson(INDEX_PATH, relative(INDEX_PATH));

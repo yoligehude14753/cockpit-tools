@@ -265,7 +265,7 @@ function startServer(args, eventHub) {
 
   server.listen(args.port, args.host, () => {
     console.log(`[platform-ui-dev] serving ${baseUrl}`);
-    console.log('[platform-ui-dev] run desktop with: npm run tauri:test:ui');
+    console.log('[platform-ui-dev] run desktop with: npm run tauri:dev');
     console.table(args.platforms.map((platformId) => ({
       platform: platformId,
       remoteEntry: `${baseUrl}/${platformId}/remoteEntry.js`,

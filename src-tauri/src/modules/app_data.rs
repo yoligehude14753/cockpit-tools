@@ -4,7 +4,6 @@ use std::path::PathBuf;
 // Keep the historical directory name for compatibility with existing installs.
 const DATA_DIR: &str = ".antigravity_cockpit";
 const DEV_DATA_DIR: &str = ".antigravity_cockpit_dev";
-const TEST_DATA_DIR: &str = ".antigravity_cockpit_test";
 const DATA_DIR_ENV: &str = "COCKPIT_TOOLS_DATA_DIR";
 const PROFILE_ENV: &str = "COCKPIT_TOOLS_PROFILE";
 
@@ -21,10 +20,6 @@ pub fn is_dev_profile() -> bool {
     profile_name() == "dev"
 }
 
-pub fn is_test_profile() -> bool {
-    profile_name() == "test"
-}
-
 pub fn resolve_data_dir() -> Result<PathBuf, String> {
     if let Ok(raw) = std::env::var(DATA_DIR_ENV) {
         let trimmed = raw.trim();
@@ -37,7 +32,6 @@ pub fn resolve_data_dir() -> Result<PathBuf, String> {
     let profile = profile_name();
     let dir_name = match profile.as_str() {
         "dev" => DEV_DATA_DIR,
-        "test" => TEST_DATA_DIR,
         _ => DATA_DIR,
     };
     Ok(home.join(dir_name))
@@ -61,7 +55,6 @@ pub fn get_data_dir() -> Result<PathBuf, String> {
 mod tests {
     use super::{
         resolve_data_dir, resolve_instances_dir, DATA_DIR, DATA_DIR_ENV, DEV_DATA_DIR, PROFILE_ENV,
-        TEST_DATA_DIR,
     };
     use std::env;
     use std::path::PathBuf;
@@ -147,20 +140,6 @@ mod tests {
                 .file_name()
                 .and_then(|name| name.to_str()),
             Some(DATA_DIR)
-        );
-    }
-
-    #[test]
-    fn test_profile_uses_test_data_dir() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _guard = EnvGuard::set(None, Some("test"));
-
-        assert_eq!(
-            resolve_data_dir()
-                .expect("data dir should resolve")
-                .file_name()
-                .and_then(|name| name.to_str()),
-            Some(TEST_DATA_DIR)
         );
     }
 
