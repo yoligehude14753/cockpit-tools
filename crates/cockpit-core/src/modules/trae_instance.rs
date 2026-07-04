@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -73,7 +72,27 @@ pub fn get_default_trae_user_data_dir() -> Result<PathBuf, String> {
 }
 
 pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
-    crate::modules::account::resolve_instances_dir("trae")
+    #[cfg(target_os = "macos")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join(".antigravity_cockpit/instances/trae"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let appdata =
+            std::env::var("APPDATA").map_err(|_| "无法获取 APPDATA 环境变量".to_string())?;
+        return Ok(PathBuf::from(appdata).join(".antigravity_cockpit\\instances\\trae"));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join(".antigravity_cockpit/instances/trae"));
+    }
+
+    #[allow(unreachable_code)]
+    Err("Trae 多开实例仅支持 macOS、Windows 和 Linux".to_string())
 }
 
 pub fn get_instance_defaults() -> Result<InstanceDefaults, String> {
@@ -175,7 +194,6 @@ pub fn create_instance(params: CreateInstanceParams) -> Result<InstanceProfile, 
             params.bind_account_id
         },
         launch_mode: crate::models::InstanceLaunchMode::App,
-        app_speed: crate::models::codex::CodexAppSpeed::Standard,
         created_at: Utc::now().timestamp_millis(),
         last_launched_at: None,
         last_pid: None,
@@ -312,70 +330,4 @@ pub fn build_storage_json_path(user_data_dir: &str) -> PathBuf {
         .join("User")
         .join("globalStorage")
         .join("storage.json")
-}
-
-#[derive(Debug, Clone)]
-pub struct TraeRunningBoundAccountContext {
-    pub account_id: String,
-    pub storage_path: PathBuf,
-}
-
-pub fn resolve_running_bound_account_contexts(
-) -> Result<Vec<TraeRunningBoundAccountContext>, String> {
-    let store = load_instance_store()?;
-    let mut contexts = Vec::new();
-    let mut seen_ids = BTreeSet::new();
-
-    if store
-        .default_settings
-        .last_pid
-        .map(modules::process::is_pid_running)
-        .unwrap_or(false)
-    {
-        if let Some(bind) = store
-            .default_settings
-            .bind_account_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            if seen_ids.insert(bind.to_string()) {
-                let default_dir = get_default_trae_user_data_dir()?;
-                let storage_path = default_dir
-                    .join("User")
-                    .join("globalStorage")
-                    .join("storage.json");
-                contexts.push(TraeRunningBoundAccountContext {
-                    account_id: bind.to_string(),
-                    storage_path,
-                });
-            }
-        }
-    }
-
-    for instance in &store.instances {
-        if !instance
-            .last_pid
-            .map(modules::process::is_pid_running)
-            .unwrap_or(false)
-        {
-            continue;
-        }
-        let Some(bind) = instance
-            .bind_account_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        else {
-            continue;
-        };
-        if seen_ids.insert(bind.to_string()) {
-            contexts.push(TraeRunningBoundAccountContext {
-                account_id: bind.to_string(),
-                storage_path: build_storage_json_path(&instance.user_data_dir),
-            });
-        }
-    }
-
-    Ok(contexts)
 }

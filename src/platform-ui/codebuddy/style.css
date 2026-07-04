@@ -1,9 +1,0 @@
-@import '../../styles/pages/github-copilot.css';
-@import '../../styles/pages/codebuddy.css';
-
-.codebuddy-platform-ui-root {
-  width: 100%;
-  min-height: 520px;
-  padding-bottom: 28px;
-  background: transparent;
-}

@@ -22,7 +22,6 @@ import {
   getAntigravityTierBadge,
   getQuotaClass as getAntigravityQuotaClass,
   matchModelName,
-  getSubscriptionTier,
 } from "../utils/account";
 import {
   CB_PACKAGE_CODE,
@@ -41,7 +40,6 @@ import {
   isCodexApiKeyAccount,
   isCodexChatCompletionsApiKeyAccount,
   isCodexNewApiAccount,
-  isCodexPendingOAuthAccount,
 } from "../types/codex";
 import {
   formatClaudeResetTime,
@@ -546,18 +544,12 @@ export function getAntigravityQuotaDisplayItems(
     });
   }
 
-  const isFree = getSubscriptionTier(account.quota) === 'FREE';
-
   if (claude5h) {
-    let resetTime = claude5h.reset_time;
-    if (isFree) {
-      resetTime = claude5h.reset_time || claudeWeekly?.reset_time || '';
-    }
     result.push({
       key: 'claude:5h',
       label: 'Claude (5h)',
       percentage: claude5h.percentage,
-      resetTime: resetTime,
+      resetTime: claude5h.reset_time,
     });
   }
   if (claudeWeekly) {
@@ -572,20 +564,16 @@ export function getAntigravityQuotaDisplayItems(
     let percentage = gemini5h.percentage;
     let resetTime = gemini5h.reset_time;
 
-    if (isFree) {
-      resetTime = gemini5h.reset_time || geminiWeekly?.reset_time || '';
-    } else {
-      if (resetTime) {
-        const resetTs = new Date(resetTime).getTime();
-        if (!isNaN(resetTs)) {
-          const diffHours = (resetTs - Date.now()) / (1000 * 60 * 60);
-          // If the reset time is > 5 hours in the future (e.g. weekly reset),
-          // it means the weekly limit is active and capping the 5h limit.
-          // We override the 5h display remaining to 100% and clear the reset time.
-          if (diffHours > 5) {
-            percentage = 100;
-            resetTime = '';
-          }
+    if (resetTime) {
+      const resetTs = new Date(resetTime).getTime();
+      if (!isNaN(resetTs)) {
+        const diffHours = (resetTs - Date.now()) / (1000 * 60 * 60);
+        // If the reset time is > 5 hours in the future (e.g. weekly reset),
+        // it means the weekly limit is active and capping the 5h limit.
+        // We override the 5h display remaining to 100% and clear the reset time.
+        if (diffHours > 5) {
+          percentage = 100;
+          resetTime = '';
         }
       }
     }
@@ -695,16 +683,13 @@ export function buildCodexAccountPresentation(
   account: CodexAccount,
   t: Translate,
 ): UnifiedAccountPresentation {
-  const isPendingOAuthAccount = isCodexPendingOAuthAccount(account);
   const apiKeyDisplayName = account.account_name?.trim();
   const displayName =
-    isPendingOAuthAccount && account.email?.trim()
-      ? account.email
-      : isCodexApiKeyAccount(account) && apiKeyDisplayName
+    isCodexApiKeyAccount(account) && apiKeyDisplayName
       ? apiKeyDisplayName
       : isCodexNewApiAccount(account)
         ? "Codex API"
-        : account.email;
+      : account.email;
   const effectiveQuota = getCodexEffectiveQuotaPercentages(account.quota);
   const weeklyBlocksHourlyHint = effectiveQuota.weeklyBlocksHourly
     ? t("codex.quota.weeklyBlocksHourly", "周额度为 0，5小时额度已不可用")
@@ -713,7 +698,7 @@ export function buildCodexAccountPresentation(
     ? buildCodexNewApiQuotaItems(account, t)
     : [];
   const quotaItems: UnifiedQuotaMetric[] =
-    isPendingOAuthAccount || isCodexChatCompletionsApiKeyAccount(account)
+    isCodexChatCompletionsApiKeyAccount(account)
       ? []
       : newApiQuotaItems.length > 0
       ? newApiQuotaItems
@@ -751,9 +736,7 @@ export function buildCodexAccountPresentation(
   return {
     id: account.id,
     displayName,
-    planLabel: isPendingOAuthAccount
-      ? t("codex.pendingAuth.badge", "待授权")
-      : planBadge.label,
+    planLabel: planBadge.label,
     planClass: planBadge.className,
     quotaItems,
   };

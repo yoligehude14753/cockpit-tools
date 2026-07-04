@@ -41,52 +41,18 @@ export interface CodexAccount {
   account_name?: string;
   account_structure?: string;
   account_note?: string;
-  two_factor_secret?: string;
-  account_password?: string;
-  phone_number?: string;
   app_speed?: CodexAppSpeed;
   tokens: CodexTokens;
   token_generation?: number;
   token_updated_at?: number;
   token_source_mode?: string;
-  authorization_status?: string | null;
   requires_reauth?: boolean;
   reauth_reason?: string;
   quota?: CodexQuota;
   quota_error?: CodexQuotaErrorInfo;
-  next_retry_after?: number | null;
-  quota_exceeded?: boolean;
-  last_error?: string | null;
   tags?: string[];
   created_at: number;
   last_used: number;
-}
-
-export interface CodexAccountNoteUpdate {
-  note?: string;
-  twoFactorSecret?: string;
-  accountPassword?: string;
-  phoneNumber?: string;
-}
-
-export interface CodexBatchDeleteError {
-  accountId: string;
-  error: string;
-}
-
-export type CodexBatchDeleteStatusState =
-  | 'running'
-  | 'paused'
-  | 'completed'
-  | 'failed';
-
-export interface CodexBatchDeleteJobStatus {
-  jobId: string;
-  status: CodexBatchDeleteStatusState;
-  total: number;
-  completed: number;
-  failed: number;
-  errors: CodexBatchDeleteError[];
 }
 
 export interface CodexQuotaErrorInfo {
@@ -144,39 +110,6 @@ export interface CodexResetCreditsSnapshot {
   available_count?: number;
   credits: CodexResetCredit[];
   next_expires_at?: number;
-}
-
-export interface CodexReferralInviteEligibility {
-  should_show: boolean;
-  remaining_referrals?: number | null;
-  ineligible_reason_code?: string | null;
-  grant_action?: string | null;
-  grant_amount?: number | null;
-  referral_key: string;
-  raw_data?: unknown;
-}
-
-export interface CodexReferralTimeFrameRule {
-  type: string;
-  invites_sent: number;
-  invites_total: number;
-}
-
-export interface CodexReferralEligibilityRules {
-  requires_explicit_confirmation?: boolean | null;
-  rules: string[];
-  time_frame_rules: CodexReferralTimeFrameRule[];
-  raw_data?: unknown;
-}
-
-export interface CodexReferralInvite {
-  email: string;
-  raw_data?: unknown;
-}
-
-export interface CodexReferralInviteResponse {
-  invites: CodexReferralInvite[];
-  raw_data?: unknown;
 }
 
 const COCKPIT_API_BASE_URL = "https://chongcodex.cn/v1";
@@ -294,7 +227,6 @@ export interface CodexSessionVisibilityRepairInstanceList {
 
 export interface CodexSessionVisibilityRepairRequestOptions {
   mode?: CodexSessionVisibilityRepairMode;
-  dryRun?: boolean;
   targetProvider?: string | null;
   targetInstanceId?: string | null;
   repairInstanceIds?: string[] | null;
@@ -584,24 +516,6 @@ export function isCodexApiKeyAccount(account: CodexAccount): boolean {
   return (account.auth_mode || "").trim().toLowerCase() === "apikey";
 }
 
-export function isCodexPendingOAuthAccount(account: CodexAccount): boolean {
-  if (isCodexApiKeyAccount(account)) return false;
-  if ((account.authorization_status || "").trim().toLowerCase() === "pending") {
-    return true;
-  }
-  const tokens = account.tokens;
-  const hasToken = Boolean(
-    tokens?.id_token?.trim() ||
-      tokens?.access_token?.trim() ||
-      tokens?.refresh_token?.trim(),
-  );
-  return (
-    !hasToken &&
-    !(account.user_id || "").trim() &&
-    !(account.account_id || "").trim()
-  );
-}
-
 export function isCodexNewApiAccount(account: CodexAccount): boolean {
   const providerId = (account.api_provider_id || "").trim().toLowerCase();
   const planType = (account.plan_type || "").trim().toUpperCase();
@@ -683,9 +597,6 @@ function normalizeCodexAuthFilePlanType(
 }
 
 function getCodexPlanBadgeLabel(account: CodexAccount): string {
-  if (isCodexPendingOAuthAccount(account)) {
-    return "PENDING";
-  }
   if (isCodexNewApiAccount(account)) {
     return account.plan_type?.trim() || "Cockpit Api";
   }
@@ -706,9 +617,6 @@ function getCodexPlanBadgeLabel(account: CodexAccount): string {
 }
 
 function getCodexPlanBadgeClass(account: CodexAccount): string {
-  if (isCodexPendingOAuthAccount(account)) {
-    return "pending";
-  }
   if (isCodexNewApiAccount(account)) {
     return "api-key new-api-exclusive";
   }
@@ -745,9 +653,6 @@ export function getCodexPlanBadgePresentation(
 }
 
 export function getCodexPlanFilterKey(account: CodexAccount): string {
-  if (isCodexPendingOAuthAccount(account)) {
-    return "PENDING";
-  }
   return normalizeCodexPlanKey(account.plan_type).toUpperCase();
 }
 

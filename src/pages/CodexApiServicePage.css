@@ -1275,21 +1275,6 @@
   line-height: 1.5;
 }
 
-.codex-api-service-pricing-reprice {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.codex-api-service-pricing-reprice .btn {
-  flex: 0 0 auto;
-}
-
 .codex-api-service-pricing-body {
   display: flex;
   flex-direction: column;

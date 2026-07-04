@@ -1,7 +1,0 @@
-{
-  "platformId": "qoder",
-  "displayName": "Qoder",
-  "packageMode": "hotUpdate",
-  "installKind": "sidecarAdapter",
-  "version": "1.0.1"
-}

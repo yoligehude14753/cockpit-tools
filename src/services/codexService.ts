@@ -1,18 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
-import { callPlatformAdapter } from './platformAdapterService';
 import {
   CodexAccount,
-  CodexAccountNoteUpdate,
   CodexApiProviderMode,
   CodexAppSpeed,
   CodexAppSpeedConfig,
-  CodexBatchDeleteJobStatus,
   CodexProviderWireApi,
   CodexQuickConfig,
   CodexQuota,
-  CodexReferralEligibilityRules,
-  CodexReferralInviteEligibility,
-  CodexReferralInviteResponse,
   CodexResetCreditsSnapshot,
 } from '../types/codex';
 
@@ -116,40 +110,6 @@ export async function deleteCodexAccount(accountId: string): Promise<void> {
 /** 批量删除 Codex 账号 */
 export async function deleteCodexAccounts(accountIds: string[]): Promise<void> {
   return await invoke('delete_codex_accounts', { accountIds });
-}
-
-export async function startCodexBatchDelete(
-  accountIds: string[],
-): Promise<CodexBatchDeleteJobStatus> {
-  return await invoke('start_codex_batch_delete', { accountIds });
-}
-
-export async function getCodexBatchDelete(
-  jobId: string,
-): Promise<CodexBatchDeleteJobStatus> {
-  return await invoke('get_codex_batch_delete', { jobId });
-}
-
-export async function resumeCodexBatchDelete(
-  jobId: string,
-): Promise<CodexBatchDeleteJobStatus> {
-  return await invoke('resume_codex_batch_delete', { jobId });
-}
-
-export async function pauseCodexBatchDelete(
-  jobId: string,
-): Promise<CodexBatchDeleteJobStatus> {
-  return await invoke('pause_codex_batch_delete', { jobId });
-}
-
-export async function retryFailedCodexBatchDelete(
-  jobId: string,
-): Promise<CodexBatchDeleteJobStatus> {
-  return await invoke('retry_failed_codex_batch_delete', { jobId });
-}
-
-export async function clearCodexBatchDelete(jobId: string): Promise<void> {
-  return await invoke('clear_codex_batch_delete', { jobId });
 }
 
 /** 从本地 auth.json 导入账号 */
@@ -269,41 +229,6 @@ export async function consumeCodexResetCredit(accountId: string): Promise<void> 
   return await invoke('consume_codex_reset_credit', { accountId });
 }
 
-/** 获取 Codex 邀请入口资格 */
-export async function getCodexReferralInviteEligibility(
-  accountId: string,
-  referralKey?: string | null,
-): Promise<CodexReferralInviteEligibility> {
-  return await invoke('get_codex_referral_invite_eligibility', {
-    accountId,
-    referralKey: referralKey ?? null,
-  });
-}
-
-/** 获取 Codex 邀请资格规则 */
-export async function getCodexReferralEligibilityRules(
-  accountId: string,
-  referralKey?: string | null,
-): Promise<CodexReferralEligibilityRules> {
-  return await invoke('get_codex_referral_eligibility_rules', {
-    accountId,
-    referralKey: referralKey ?? null,
-  });
-}
-
-/** 发送 Codex 邀请邮件 */
-export async function sendCodexReferralInvites(
-  accountId: string,
-  emails: string[],
-  referralKey?: string | null,
-): Promise<CodexReferralInviteResponse> {
-  return await invoke('send_codex_referral_invites', {
-    accountId,
-    referralKey: referralKey ?? null,
-    emails,
-  });
-}
-
 /** 强制刷新单个账号的订阅信息 */
 export async function refreshCodexSubscriptionInfo(accountId: string): Promise<CodexAccount> {
   return await invoke('refresh_codex_subscription_info', { accountId });
@@ -385,16 +310,6 @@ export async function addCodexAccountWithApiKey(
   });
 }
 
-export async function createPendingCodexOAuthAccount(
-  email: string,
-  update: CodexAccountNoteUpdate,
-): Promise<CodexAccount> {
-  return await callPlatformAdapter<CodexAccount>('codex', 'accounts.createPendingOAuth', {
-    email,
-    ...update,
-  });
-}
-
 export async function updateCodexAccountName(accountId: string, name: string): Promise<CodexAccount> {
   return await invoke('update_codex_account_name', { accountId, name });
 }
@@ -421,8 +336,8 @@ export async function updateCodexApiKeyCredentials(
     apiProviderName: apiProviderName ?? null,
     apiModelCatalog: apiModelCatalog ?? null,
     apiWireApi: apiWireApi ?? null,
-    apiSupportsVision: apiSupportsVision ?? null,
-    apiModelVisionSupport: apiModelVisionSupport ?? null,
+    apiSupportsVision: apiSupportsVision ?? false,
+    apiModelVisionSupport: apiModelVisionSupport ?? {},
     apiVisionRoutingModel: apiVisionRoutingModel ?? null,
   });
 }
@@ -453,9 +368,6 @@ export async function updateCodexAccountTags(accountId: string, tags: string[]):
   return await invoke('update_codex_account_tags', { accountId, tags });
 }
 
-export async function updateCodexAccountNote(
-  accountId: string,
-  update: CodexAccountNoteUpdate,
-): Promise<CodexAccount> {
-  return await invoke('update_codex_account_note', { accountId, ...update });
+export async function updateCodexAccountNote(accountId: string, note: string): Promise<CodexAccount> {
+  return await invoke('update_codex_account_note', { accountId, note });
 }

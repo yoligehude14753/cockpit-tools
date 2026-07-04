@@ -1,14 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::future::Future;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_notification::NotificationExt;
 use tokio::time::sleep;
@@ -19,9 +16,6 @@ const DEFAULT_PROMPT: &str = "hi";
 const RESET_TRIGGER_COOLDOWN_MS: i64 = 10 * 60 * 1000;
 const RESET_SAFETY_MARGIN_MS: i64 = 2 * 60 * 1000;
 const WAKEUP_TASKS_FILE: &str = "wakeup_tasks.json";
-pub const WAKEUP_NOTIFICATION_MAPPING_EVENT: &str = "wakeup://notification-mapping";
-pub const WAKEUP_TASK_RESULT_EVENT: &str = "wakeup://task-result";
-pub type WakeupSchedulerEventEmitter = Arc<dyn Fn(&'static str, Value) + Send + Sync + 'static>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -163,62 +157,8 @@ fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>, label: &str) -> std::sync::MutexG
     }
 }
 
-fn spawn_scheduler_future<F>(use_tauri_runtime: bool, future: F)
-where
-    F: Future<Output = ()> + Send + 'static,
-{
-    if use_tauri_runtime {
-        tauri::async_runtime::spawn(future);
-        return;
-    }
-
-    std::thread::spawn(move || {
-        let runtime = match tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-        {
-            Ok(runtime) => runtime,
-            Err(error) => {
-                modules::logger::log_warn(&format!(
-                    "[WakeupTasks] 创建 sidecar 调度 runtime 失败: {}",
-                    error
-                ));
-                return;
-            }
-        };
-        runtime.block_on(future);
-    });
-}
-
-fn emit_scheduler_event<T>(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
-    event: &'static str,
-    payload: T,
-) where
-    T: Serialize + Clone,
-{
-    if let Some(app) = app {
-        if let Err(error) = app.emit(event, payload.clone()) {
-            modules::logger::log_warn(&format!(
-                "[WakeupTasks] 发射事件失败: event={}, error={}",
-                event, error
-            ));
-        }
-    }
-    if let Some(event_emitter) = event_emitter {
-        match serde_json::to_value(payload) {
-            Ok(value) => event_emitter(event, value),
-            Err(error) => modules::logger::log_warn(&format!(
-                "[WakeupTasks] 序列化事件失败: event={}, error={}",
-                event, error
-            )),
-        }
-    }
-}
-
 fn tasks_state_path() -> Result<std::path::PathBuf, String> {
-    Ok(modules::app_data::get_data_dir()?.join(WAKEUP_TASKS_FILE))
+    Ok(modules::account::get_data_dir()?.join(WAKEUP_TASKS_FILE))
 }
 
 fn quarantine_corrupted_tasks_file(path: &Path, error: &impl std::fmt::Display) {
@@ -379,13 +319,6 @@ pub fn sync_state(enabled: bool, tasks: Vec<WakeupTaskInput>) {
 }
 
 pub fn trigger_startup_tasks_if_needed(app: AppHandle) {
-    trigger_startup_tasks_if_needed_with_event_emitter(Some(app), None);
-}
-
-pub fn trigger_startup_tasks_if_needed_with_event_emitter(
-    app: Option<AppHandle>,
-    event_emitter: Option<WakeupSchedulerEventEmitter>,
-) {
     let has_startup_tasks = {
         let guard = lock_or_recover(state(), "wakeup state lock");
         guard.enabled
@@ -412,14 +345,8 @@ pub fn trigger_startup_tasks_if_needed_with_event_emitter(
         return;
     }
 
-    let use_tauri_runtime = app.is_some();
-    spawn_scheduler_future(use_tauri_runtime, async move {
-        let started = run_enabled_tasks_now_with_event_emitter(
-            app.as_ref(),
-            event_emitter.as_ref(),
-            "startup",
-        )
-        .await;
+    tauri::async_runtime::spawn(async move {
+        let started = run_enabled_tasks_now(&app, "startup").await;
         if started > 0 {
             modules::logger::log_info(&format!(
                 "[WakeupTasks] 应用启动触发自启任务: started={}",
@@ -430,28 +357,17 @@ pub fn trigger_startup_tasks_if_needed_with_event_emitter(
 }
 
 pub fn ensure_started(app: AppHandle) {
-    ensure_started_with_event_emitter(Some(app), None);
-}
-
-pub fn ensure_started_with_event_emitter(
-    app: Option<AppHandle>,
-    event_emitter: Option<WakeupSchedulerEventEmitter>,
-) {
     let mut started = lock_or_recover(started_flag(), "wakeup started lock");
     if *started {
         return;
     }
     *started = true;
 
-    let use_tauri_runtime = app.is_some();
-    spawn_scheduler_future(use_tauri_runtime, async move {
+    tauri::async_runtime::spawn(async move {
         loop {
-            run_scheduler_once_with_event_emitter(app.as_ref(), event_emitter.as_ref()).await;
+            run_scheduler_once(&app).await;
             // 检查确认超时，避免因前端未调用导致确认任务堆积
-            if let Err(e) =
-                check_and_handle_timeouts_with_event_emitter(app.as_ref(), event_emitter.as_ref())
-                    .await
-            {
+            if let Err(e) = check_and_handle_timeouts(&app).await {
                 modules::logger::log_warn(&format!("[WakeupTasks] 超时检查失败: {}", e));
             }
             sleep(Duration::from_secs(30)).await;
@@ -460,14 +376,6 @@ pub fn ensure_started_with_event_emitter(
 }
 
 pub async fn run_enabled_tasks_now(app: &AppHandle, trigger_source: &str) -> usize {
-    run_enabled_tasks_now_with_event_emitter(Some(app), None, trigger_source).await
-}
-
-pub async fn run_enabled_tasks_now_with_event_emitter(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
-    trigger_source: &str,
-) -> usize {
     let snapshot = {
         let guard = lock_or_recover(state(), "wakeup state lock");
         guard.clone()
@@ -499,23 +407,15 @@ pub async fn run_enabled_tasks_now_with_event_emitter(
             .collect();
 
         for (task_id, delay_minutes) in startup_tasks.iter() {
-            let app_handle = app.cloned();
-            let event_emitter = event_emitter.cloned();
+            let app_handle = app.clone();
             let task_id = task_id.clone();
             let delay_seconds = (*delay_minutes as u64) * 60;
-            let use_tauri_runtime = app_handle.is_some();
-            spawn_scheduler_future(use_tauri_runtime, async move {
+            tauri::async_runtime::spawn(async move {
                 if delay_seconds > 0 {
                     sleep(Duration::from_secs(delay_seconds)).await;
                 }
                 if let Some(task) = resolve_startup_task_to_run(&task_id) {
-                    run_task(
-                        app_handle.as_ref(),
-                        event_emitter.as_ref(),
-                        &task,
-                        "startup",
-                    )
-                    .await;
+                    run_task(&app_handle, &task, "startup").await;
                 }
             });
         }
@@ -534,7 +434,7 @@ pub async fn run_enabled_tasks_now_with_event_emitter(
         if running {
             continue;
         }
-        run_task(app, event_emitter, task, source).await;
+        run_task(app, task, source).await;
         started_count += 1;
     }
 
@@ -988,10 +888,7 @@ fn mark_reset_triggered(state: &mut ResetState, model_key: &str, reset_at: &str)
         .insert(model_key.to_string(), chrono::Utc::now().timestamp_millis());
 }
 
-async fn run_scheduler_once_with_event_emitter(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
-) {
+async fn run_scheduler_once(app: &AppHandle) {
     let snapshot = {
         let guard = lock_or_recover(state(), "wakeup state lock");
         guard.clone()
@@ -1015,7 +912,7 @@ async fn run_scheduler_once_with_event_emitter(
         }
 
         if task.schedule.wake_on_reset {
-            handle_quota_reset_task(app, event_emitter, task, now);
+            handle_quota_reset_task(app, task, now);
             continue;
         }
 
@@ -1040,31 +937,18 @@ async fn run_scheduler_once_with_event_emitter(
                 } else {
                     "scheduled"
                 };
-                let app_handle = app.cloned();
-                let event_emitter = event_emitter.cloned();
+                let app_handle = app.clone();
                 let task_clone = task.clone();
                 let trigger_source = trigger_source.to_string();
-                let use_tauri_runtime = app_handle.is_some();
-                spawn_scheduler_future(use_tauri_runtime, async move {
-                    run_task(
-                        app_handle.as_ref(),
-                        event_emitter.as_ref(),
-                        &task_clone,
-                        &trigger_source,
-                    )
-                    .await;
+                tauri::async_runtime::spawn(async move {
+                    run_task(&app_handle, &task_clone, &trigger_source).await;
                 });
             }
         }
     }
 }
 
-fn handle_quota_reset_task(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
-    task: &WakeupTask,
-    now: DateTime<Local>,
-) {
+fn handle_quota_reset_task(app: &AppHandle, task: &WakeupTask, now: DateTime<Local>) {
     if task.schedule.time_window_enabled {
         let in_window = is_in_time_window(
             task.schedule.time_window_start.as_ref(),
@@ -1131,30 +1015,16 @@ fn handle_quota_reset_task(
     };
 
     if !models_to_trigger.is_empty() {
-        let app_handle = app.cloned();
-        let event_emitter = event_emitter.cloned();
+        let app_handle = app.clone();
         let task_clone = task.clone();
         let models = models_to_trigger.into_iter().collect::<Vec<_>>();
-        let use_tauri_runtime = app_handle.is_some();
-        spawn_scheduler_future(use_tauri_runtime, async move {
-            run_task_with_models(
-                app_handle.as_ref(),
-                event_emitter.as_ref(),
-                &task_clone,
-                "quota_reset",
-                models,
-            )
-            .await;
+        tauri::async_runtime::spawn(async move {
+            run_task_with_models(&app_handle, &task_clone, "quota_reset", models).await;
         });
     }
 }
 
-async fn run_task(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
-    task: &WakeupTask,
-    trigger_source: &str,
-) {
+async fn run_task(app: &AppHandle, task: &WakeupTask, trigger_source: &str) {
     // 检查是否需要确认
     if task.execution_mode == "confirm" {
         let timeout_minutes = task.confirm_timeout_minutes;
@@ -1171,13 +1041,7 @@ async fn run_task(
         let notification_id = send_confirmation_notification(app, &task.name, &task.schedule).await;
 
         // 存储到待确认队列并发射事件
-        store_pending_confirmation(
-            app,
-            event_emitter,
-            task.id.clone(),
-            pending,
-            notification_id,
-        );
+        store_pending_confirmation(app, task.id.clone(), pending, notification_id);
 
         modules::logger::log_info(&format!(
             "[WakeupTasks] 任务 {} 需要确认，已发送通知",
@@ -1189,7 +1053,6 @@ async fn run_task(
     // 直接执行模式（现有逻辑）
     run_task_with_models(
         app,
-        event_emitter,
         task,
         trigger_source,
         task.schedule.selected_models.clone(),
@@ -1198,13 +1061,10 @@ async fn run_task(
 }
 
 async fn send_confirmation_notification(
-    app: Option<&AppHandle>,
+    app: &AppHandle,
     task_name: &str,
     schedule: &ScheduleConfigNormalized,
 ) -> u32 {
-    let Some(app) = app else {
-        return 0;
-    };
     let account_emails: Vec<String> = schedule.selected_accounts.clone();
     let models: Vec<String> = schedule.selected_models.clone();
 
@@ -1231,8 +1091,7 @@ async fn send_confirmation_notification(
 }
 
 fn store_pending_confirmation(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
+    app: &AppHandle,
     task_id: String,
     pending: PendingConfirmation,
     notification_id: u32,
@@ -1241,28 +1100,23 @@ fn store_pending_confirmation(
     lock.insert(task_id.clone(), pending);
 
     // 发射事件通知前端建立映射
+    #[derive(serde::Serialize, Clone)]
+    struct NotificationMappingPayload {
+        task_id: String,
+        notification_id: u32,
+    }
+
     let payload = NotificationMappingPayload {
         task_id,
         notification_id,
     };
 
-    emit_scheduler_event(
-        app,
-        event_emitter,
-        WAKEUP_NOTIFICATION_MAPPING_EVENT,
-        payload,
-    );
+    if let Err(e) = app.emit("wakeup://notification-mapping", payload) {
+        modules::logger::log_warn(&format!("[WakeupTasks] 发射通知映射事件失败: {}", e));
+    }
 }
 
 pub async fn execute_pending_confirmation(app: &AppHandle, task_id: &str) -> Result<(), String> {
-    execute_pending_confirmation_with_event_emitter(Some(app), None, task_id).await
-}
-
-pub async fn execute_pending_confirmation_with_event_emitter(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
-    task_id: &str,
-) -> Result<(), String> {
     let pending = {
         let mut lock = lock_or_recover(pending_confirmations(), "pending confirmations lock");
         lock.remove(task_id)
@@ -1271,14 +1125,19 @@ pub async fn execute_pending_confirmation_with_event_emitter(
     if let Some(pending) = pending {
         // 检查是否超时
         if chrono::Local::now().timestamp() > pending.timeout_at {
-            record_task_history(&pending.task, &pending.trigger_source, "skipped_timeout").await;
+            record_task_history(
+                app,
+                &pending.task,
+                &pending.trigger_source,
+                "skipped_timeout",
+            )
+            .await;
             return Ok(());
         }
 
         // 执行唤醒
         run_task_with_models(
             app,
-            event_emitter,
             &pending.task,
             &pending.trigger_source,
             pending.task.schedule.selected_models.clone(),
@@ -1296,13 +1155,6 @@ pub fn cancel_pending_confirmation(task_id: &str) -> Result<(), String> {
 }
 
 pub async fn check_and_handle_timeouts(app: &AppHandle) -> Result<(), String> {
-    check_and_handle_timeouts_with_event_emitter(Some(app), None).await
-}
-
-pub async fn check_and_handle_timeouts_with_event_emitter(
-    _app: Option<&AppHandle>,
-    _event_emitter: Option<&WakeupSchedulerEventEmitter>,
-) -> Result<(), String> {
     let timed_out_tasks: Vec<(String, PendingConfirmation)> = {
         let mut lock = lock_or_recover(pending_confirmations(), "pending confirmations lock");
         let now = chrono::Local::now().timestamp();
@@ -1319,45 +1171,31 @@ pub async fn check_and_handle_timeouts_with_event_emitter(
     };
 
     for (_task_id, pending) in timed_out_tasks {
-        record_task_history(&pending.task, &pending.trigger_source, "skipped_timeout").await;
+        record_task_history(
+            app,
+            &pending.task,
+            &pending.trigger_source,
+            "skipped_timeout",
+        )
+        .await;
     }
 
     Ok(())
 }
 
-async fn record_task_history(task: &WakeupTask, trigger_source: &str, status: &str) {
-    let item = modules::wakeup_history::WakeupHistoryItem {
-        id: uuid::Uuid::new_v4().to_string(),
-        timestamp: chrono::Utc::now().timestamp(),
-        trigger_type: "scheduled".to_string(),
-        trigger_source: trigger_source.to_string(),
-        task_name: Some(task.name.clone()),
-        account_email: task
-            .schedule
-            .selected_accounts
-            .first()
-            .cloned()
-            .unwrap_or_default(),
-        model_id: task
-            .schedule
-            .selected_models
-            .first()
-            .cloned()
-            .unwrap_or_default(),
-        prompt: task.schedule.custom_prompt.clone(),
-        success: status == "success",
-        status: Some(status.to_string()),
-        message: Some(format!("Status: {}", status)),
-        duration: Some(0),
-    };
-    if let Err(e) = modules::wakeup_history::add_history_items(vec![item]) {
+async fn record_task_history(
+    app: &AppHandle,
+    task: &WakeupTask,
+    trigger_source: &str,
+    status: &str,
+) {
+    if let Err(e) = modules::wakeup_history::record_status(app, task, trigger_source, status) {
         modules::logger::log_warn(&format!("[WakeupTasks] 记录历史失败: {}", e));
     }
 }
 
 async fn run_task_with_models(
-    app: Option<&AppHandle>,
-    event_emitter: Option<&WakeupSchedulerEventEmitter>,
+    app: &AppHandle,
     task: &WakeupTask,
     trigger_source: &str,
     models: Vec<String>,
@@ -1482,7 +1320,7 @@ async fn run_task_with_models(
         last_run_at: chrono::Utc::now().timestamp_millis(),
         records: history,
     };
-    emit_scheduler_event(app, event_emitter, WAKEUP_TASK_RESULT_EVENT, payload);
+    let _ = app.emit("wakeup://task-result", payload);
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1491,13 +1329,6 @@ struct WakeupTaskResultPayload {
     task_id: String,
     last_run_at: i64,
     records: Vec<modules::wakeup_history::WakeupHistoryItem>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct NotificationMappingPayload {
-    task_id: String,
-    notification_id: u32,
 }
 
 // (no local helpers)

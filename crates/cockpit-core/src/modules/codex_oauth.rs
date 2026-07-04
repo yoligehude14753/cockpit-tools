@@ -9,28 +9,25 @@ use std::io::{ErrorKind, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use url::Url;
 
 const CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const AUTH_ENDPOINT: &str = "https://auth.openai.com/oauth/authorize";
 const TOKEN_ENDPOINT: &str = "https://auth.openai.com/oauth/token";
-const SCOPES: &str =
-    "openid profile email offline_access api.connectors.read api.connectors.invoke";
+const SCOPES: &str = "openid profile email offline_access";
 const ORIGINATOR: &str = "codex_vscode";
 const OAUTH_CALLBACK_PORT: u16 = 1455;
 const OAUTH_PORT_IN_USE_CODE: &str = "CODEX_OAUTH_PORT_IN_USE";
 const OAUTH_STATE_FILE: &str = "codex_oauth_pending.json";
 const OAUTH_TIMEOUT_SECONDS: i64 = 300;
 const TOKEN_REFRESH_SKEW_SECONDS: i64 = 300;
-const TOKEN_REFRESH_TIMEOUT: Duration = Duration::from_secs(25);
 
 pub fn get_callback_port() -> u16 {
     OAUTH_CALLBACK_PORT
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexOAuthLoginStartResponse {
     pub login_id: String,
@@ -49,36 +46,6 @@ struct CodexOAuthLoginTimeoutEvent {
     login_id: String,
     callback_url: String,
     timeout_seconds: u64,
-}
-
-pub type CodexOAuthEventEmitter =
-    Arc<dyn Fn(&str, serde_json::Value) -> Result<(), String> + Send + Sync + 'static>;
-
-fn app_handle_event_emitter(app_handle: AppHandle) -> CodexOAuthEventEmitter {
-    Arc::new(move |event, payload| {
-        app_handle
-            .emit(event, payload)
-            .map_err(|error| format!("发送 OAuth 事件失败: {}", error))
-    })
-}
-
-fn emit_oauth_event<T: Serialize>(emit_event: &CodexOAuthEventEmitter, event: &str, payload: T) {
-    match serde_json::to_value(payload) {
-        Ok(value) => {
-            if let Err(error) = emit_event(event, value) {
-                logger::log_warn(&format!(
-                    "Codex OAuth 事件发送失败: event={}, error={}",
-                    event, error
-                ));
-            }
-        }
-        Err(error) => {
-            logger::log_warn(&format!(
-                "Codex OAuth 事件序列化失败: event={}, error={}",
-                event, error
-            ));
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,7 +144,7 @@ fn set_oauth_state(state: Option<OAuthState>) {
     persist_state_to_disk(state.as_ref());
 }
 
-fn ensure_callback_listener_for_state(emit_event: CodexOAuthEventEmitter, state: &OAuthState) {
+fn ensure_callback_listener_for_state(app_handle: &AppHandle, state: &OAuthState) {
     if state.expires_at <= now_timestamp() {
         clear_oauth_state_if_matches(&state.state, &state.login_id);
         return;
@@ -189,7 +156,7 @@ fn ensure_callback_listener_for_state(emit_event: CodexOAuthEventEmitter, state:
             let expected_state = state.state.clone();
             let expected_login_id = state.login_id.clone();
             let callback_url = state.redirect_uri.clone();
-            let emit_event_clone = emit_event.clone();
+            let app_handle_clone = app_handle.clone();
             let port = state.port;
             tokio::spawn(async move {
                 if let Err(e) = start_callback_server(
@@ -197,7 +164,7 @@ fn ensure_callback_listener_for_state(emit_event: CodexOAuthEventEmitter, state:
                     expected_state,
                     expected_login_id,
                     callback_url,
-                    emit_event_clone,
+                    app_handle_clone,
                 )
                 .await
                 {
@@ -328,12 +295,6 @@ fn clear_oauth_state_if_matches(expected_state: &str, expected_login_id: &str) {
 pub async fn start_oauth_login(
     app_handle: AppHandle,
 ) -> Result<CodexOAuthLoginStartResponse, String> {
-    start_oauth_login_with_event_emitter(app_handle_event_emitter(app_handle)).await
-}
-
-pub async fn start_oauth_login_with_event_emitter(
-    emit_event: CodexOAuthEventEmitter,
-) -> Result<CodexOAuthLoginStartResponse, String> {
     hydrate_oauth_state_if_missing();
     {
         let oauth_state = OAUTH_STATE.lock().unwrap();
@@ -344,7 +305,7 @@ pub async fn start_oauth_login_with_event_emitter(
                 drop(oauth_state);
                 clear_oauth_state_if_matches(&expected_state, &expected_login_id);
             } else {
-                ensure_callback_listener_for_state(emit_event.clone(), state);
+                ensure_callback_listener_for_state(&app_handle, state);
                 logger::log_info(&format!(
                     "Codex OAuth 复用进行中的登录会话: login_id={}, port={}, redirect_uri={}",
                     state.login_id, state.port, state.redirect_uri
@@ -375,17 +336,17 @@ pub async fn start_oauth_login_with_event_emitter(
 
     set_oauth_state(Some(oauth_state));
 
+    let app_handle_clone = app_handle.clone();
     let expected_state = state_token.clone();
     let expected_login_id = login_id.clone();
     let callback_url = redirect_uri.clone();
-    let emit_event_clone = emit_event.clone();
     tokio::spawn(async move {
         if let Err(e) = start_callback_server(
             port,
             expected_state,
             expected_login_id,
             callback_url,
-            emit_event_clone,
+            app_handle_clone,
         )
         .await
         {
@@ -406,7 +367,7 @@ async fn start_callback_server(
     expected_state: String,
     expected_login_id: String,
     callback_url: String,
-    emit_event: CodexOAuthEventEmitter,
+    app_handle: AppHandle,
 ) -> Result<(), String> {
     use tiny_http::{Response, Server};
 
@@ -541,15 +502,13 @@ async fn start_callback_server(
                 };
 
                 if let Some(login_id) = login_id {
-                    emit_oauth_event(
-                        &emit_event,
+                    let _ = app_handle.emit(
                         "codex-oauth-login-completed",
                         CodexOAuthLoginCallbackEvent { login_id },
                     );
                     // 兼容新前端页面（GitHub Copilot 账号管理）使用的事件名。
                     // 目前仍复用 Codex OAuth 的后端实现，因此在这里双发事件，前端可逐步迁移。
-                    emit_oauth_event(
-                        &emit_event,
+                    let _ = app_handle.emit(
                         "ghcp-oauth-login-completed",
                         CodexOAuthLoginCallbackEvent {
                             login_id: expected_login_id.clone(),
@@ -586,8 +545,7 @@ async fn start_callback_server(
             "Codex OAuth 已在超时后清理状态: login_id={}",
             expected_login_id
         ));
-        emit_oauth_event(
-            &emit_event,
+        let _ = app_handle.emit(
             "codex-oauth-login-timeout",
             CodexOAuthLoginTimeoutEvent {
                 login_id: expected_login_id.clone(),
@@ -595,8 +553,7 @@ async fn start_callback_server(
                 timeout_seconds: timeout.as_secs(),
             },
         );
-        emit_oauth_event(
-            &emit_event,
+        let _ = app_handle.emit(
             "ghcp-oauth-login-timeout",
             CodexOAuthLoginTimeoutEvent {
                 login_id: expected_login_id.clone(),
@@ -838,56 +795,45 @@ pub fn submit_callback_url(login_id: &str, callback_url: &str) -> Result<(), Str
 }
 
 pub fn restore_pending_oauth_listener(app_handle: AppHandle) {
-    restore_pending_oauth_listener_with_event_emitter(app_handle_event_emitter(app_handle));
-}
-
-pub fn restore_pending_oauth_listener_with_event_emitter(emit_event: CodexOAuthEventEmitter) {
     hydrate_oauth_state_if_missing();
     let state = {
         let guard = OAUTH_STATE.lock().unwrap();
         guard.as_ref().cloned()
     };
     if let Some(pending) = state.as_ref() {
-        ensure_callback_listener_for_state(emit_event, pending);
+        ensure_callback_listener_for_state(&app_handle, pending);
     }
 }
 
-pub fn is_jwt_token_expired(token: &str) -> bool {
-    let Some(exp) = jwt_token_expiration_timestamp(token) else {
-        return true;
-    };
-
-    let now = chrono::Utc::now().timestamp();
-    exp < now + TOKEN_REFRESH_SKEW_SECONDS
-}
-
-pub fn jwt_token_expiration_timestamp(token: &str) -> Option<i64> {
-    let parts: Vec<&str> = token.split('.').collect();
+pub fn is_token_expired(access_token: &str) -> bool {
+    let parts: Vec<&str> = access_token.split('.').collect();
     if parts.len() != 3 {
-        return None;
+        return true;
     }
 
     let payload_base64 = parts[1];
     let payload_bytes = match URL_SAFE_NO_PAD.decode(payload_base64) {
         Ok(bytes) => bytes,
-        Err(_) => return None,
+        Err(_) => return true,
     };
 
     let payload_str = match String::from_utf8(payload_bytes) {
         Ok(s) => s,
-        Err(_) => return None,
+        Err(_) => return true,
     };
 
     let payload: serde_json::Value = match serde_json::from_str(&payload_str) {
         Ok(v) => v,
-        Err(_) => return None,
+        Err(_) => return true,
     };
 
-    payload.get("exp").and_then(|e| e.as_i64())
-}
+    let exp = match payload.get("exp").and_then(|e| e.as_i64()) {
+        Some(e) => e,
+        None => return true,
+    };
 
-pub fn is_token_expired(access_token: &str) -> bool {
-    is_jwt_token_expired(access_token)
+    let now = chrono::Utc::now().timestamp();
+    exp < now + TOKEN_REFRESH_SKEW_SECONDS
 }
 
 pub async fn refresh_access_token(refresh_token: &str) -> Result<CodexTokens, String> {
@@ -898,21 +844,19 @@ pub async fn refresh_access_token_with_fallback(
     refresh_token: &str,
     current_id_token: Option<&str>,
 ) -> Result<CodexTokens, String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(TOKEN_REFRESH_TIMEOUT)
-        .timeout(TOKEN_REFRESH_TIMEOUT)
-        .build()
-        .map_err(|e| format!("创建 Token 刷新客户端失败: {}", e))?;
+    let client = reqwest::Client::new();
+
+    let params = [
+        ("grant_type", "refresh_token"),
+        ("refresh_token", refresh_token),
+        ("client_id", CLIENT_ID),
+    ];
 
     logger::log_info("Codex Token 刷新中...");
 
     let response = client
         .post(TOKEN_ENDPOINT)
-        .json(&serde_json::json!({
-            "client_id": CLIENT_ID,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        }))
+        .form(&params)
         .send()
         .await
         .map_err(|e| format!("Token 刷新请求失败: {}", e))?;

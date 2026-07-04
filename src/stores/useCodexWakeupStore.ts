@@ -9,7 +9,6 @@ import {
   CodexWakeupState,
   CodexWakeupTask,
 } from '../types/codexWakeup';
-import { withTimeout } from '../utils/promiseTimeout';
 
 interface CodexWakeupStoreState {
   runtime: CodexCliStatus | null;
@@ -20,7 +19,7 @@ interface CodexWakeupStoreState {
   runningTaskId: string | null;
   testing: boolean;
   error: string | null;
-  loadAll: (timeoutMessage?: string) => Promise<void>;
+  loadAll: () => Promise<void>;
   refreshRuntime: (runtimeConfig?: { codexCliPath?: string; nodePath?: string }) => Promise<void>;
   saveState: (
     enabled: boolean,
@@ -50,8 +49,6 @@ const EMPTY_STATE: CodexWakeupState = {
 };
 
 let loadAllInFlight: Promise<void> | null = null;
-let loadAllRunId = 0;
-const CODEX_WAKEUP_LOAD_TIMEOUT_MS = 12_000;
 
 export const useCodexWakeupStore = create<CodexWakeupStoreState>((set) => ({
   runtime: null,
@@ -62,24 +59,17 @@ export const useCodexWakeupStore = create<CodexWakeupStoreState>((set) => ({
   runningTaskId: null,
   testing: false,
   error: null,
-  loadAll: async (timeoutMessage) => {
+  loadAll: async () => {
     if (loadAllInFlight) {
       return loadAllInFlight;
     }
-    const runId = loadAllRunId + 1;
-    loadAllRunId = runId;
     set((current) => ({
       loading: current.runtime === null && current.history.length === 0 && current.state.tasks.length === 0,
       error: null,
     }));
-    const promise = (async () => {
+    loadAllInFlight = (async () => {
       try {
-        const overview = await withTimeout(
-          codexWakeupService.getCodexWakeupOverview(),
-          CODEX_WAKEUP_LOAD_TIMEOUT_MS,
-          timeoutMessage || 'Codex wakeup load timed out',
-        );
-        if (loadAllRunId !== runId) return;
+        const overview = await codexWakeupService.getCodexWakeupOverview();
         set({
           runtime: overview.runtime,
           state: overview.state,
@@ -87,13 +77,11 @@ export const useCodexWakeupStore = create<CodexWakeupStoreState>((set) => ({
           loading: false,
         });
       } catch (error) {
-        if (loadAllRunId !== runId) return;
         set({ loading: false, error: String(error) });
       } finally {
         loadAllInFlight = null;
       }
     })();
-    loadAllInFlight = promise;
     return loadAllInFlight;
   },
   refreshRuntime: async (runtimeConfig) => {

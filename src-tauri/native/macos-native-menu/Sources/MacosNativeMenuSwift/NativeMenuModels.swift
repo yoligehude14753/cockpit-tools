@@ -19,9 +19,6 @@ struct NativeMenuStrings: Codable {
     let quit: String
     let empty_title: String
     let empty_desc: String
-    let package_install_required: String
-    let package_install_desc: String
-    let package_install_and_open: String
 }
 
 struct NativeMenuQuotaRow: Codable, Hashable {
@@ -46,7 +43,6 @@ struct NativeMenuPlatform: Codable, Hashable, Identifiable {
     let short_title: String
     let nav_target: String
     let accent_hex: String
-    let runtime_ready: Bool
     let current_account_id: String?
     let recommended_account_id: String?
     let cards: [NativeMenuAccountCard]

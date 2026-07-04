@@ -1,36 +1,8 @@
-# 体积优化：让所有依赖按体积编译并做跨 crate 裁剪，platform-package adapter 二进制收益最大。
-# 主应用 cockpit-tools 单独保留性能档（见下方 package override）。
-[profile.release]
-opt-level = "z"      # 体积优先
-lto = true           # 跨 crate 内联 + 裁剪未用代码
-codegen-units = 1    # 更彻底的优化（编译变慢，可接受）
-strip = true         # 去除符号表
-panic = "abort"      # 去除 unwinding 代码，平台包 adapter 体积收益明显
-
-# 主应用代码保持运行时性能，不随依赖一起降到 z
-[profile.release.package.cockpit-tools]
-opt-level = 2
-
 [workspace]
 members = [
     "src-tauri",
     "crates/cockpit-core",
     "crates/cockpit-cli",
-    "crates/cockpit-zed-adapter",
-    "crates/cockpit-kiro-adapter",
-    "crates/cockpit-github-copilot-adapter",
-    "crates/cockpit-windsurf-adapter",
-    "crates/cockpit-cursor-adapter",
-    "crates/cockpit-gemini-adapter",
-    "crates/cockpit-trae-adapter",
-    "crates/cockpit-qoder-adapter",
-    "crates/cockpit-codebuddy-adapter",
-    "crates/cockpit-codebuddy-cn-adapter",
-    "crates/cockpit-workbuddy-adapter",
-    "crates/cockpit-claude-adapter",
-    "crates/cockpit-codex-adapter",
-    "crates/cockpit-antigravity-adapter",
-    "crates/cockpit-antigravity-ide-adapter",
 ]
 resolver = "2"
 
@@ -42,7 +14,7 @@ anyhow = "1.0"
 thiserror = "2"
 chrono = "0.4"
 dirs = "5.0"
-reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate", "zstd", "stream", "blocking"] }
+reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate", "zstd", "stream"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 uuid = { version = "1.10", features = ["v4", "serde"] }
@@ -60,7 +32,7 @@ mac-notification-sys = "0.6"
 tauri-plugin-notification = "2"
 rand = "0.8"
 sha2 = "0.10"
-tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
+tokio-tungstenite = "0.26"
 futures-util = "0.3"
 rustls = "0.23"
 rcgen = "0.13"
@@ -74,6 +46,4 @@ sha1 = "0.10"
 tiny_http = "0.12"
 rsa = "0.9"
 serde_urlencoded = "0.7"
-zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
-windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_UI_Shell"] }
-embed-resource = "3.0.8"
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }

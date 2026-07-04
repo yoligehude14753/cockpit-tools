@@ -99,7 +99,7 @@ pub struct CodexAccount {
     pub api_vision_routing_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bound_oauth_account_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub bound_oauth_use_local_gateway: bool,
     pub user_id: Option<String>,
     pub plan_type: Option<String>,
@@ -115,27 +115,6 @@ pub struct CodexAccount {
     pub account_structure: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_note: Option<String>,
-    #[serde(
-        default,
-        alias = "twoFactorSecret",
-        alias = "accountTwoFactorSecret",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub two_factor_secret: Option<String>,
-    #[serde(
-        default,
-        alias = "accountPassword",
-        alias = "password",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub account_password: Option<String>,
-    #[serde(
-        default,
-        alias = "phoneNumber",
-        alias = "accountPhoneNumber",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub phone_number: Option<String>,
     #[serde(default)]
     pub app_speed: CodexAppSpeed,
     pub tokens: CodexTokens,
@@ -343,18 +322,6 @@ pub struct CodexAuthData {
     pub organization_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CodexFileImportResult {
-    pub imported: Vec<CodexAccount>,
-    pub failed: Vec<CodexFileImportFailure>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CodexFileImportFailure {
-    pub email: String,
-    pub error: String,
-}
-
 impl CodexAccount {
     pub fn new(id: String, email: String, tokens: CodexTokens) -> Self {
         let now = chrono::Utc::now().timestamp();
@@ -383,9 +350,6 @@ impl CodexAccount {
             account_name: None,
             account_structure: None,
             account_note: None,
-            two_factor_secret: None,
-            account_password: None,
-            phone_number: None,
             app_speed: CodexAppSpeed::Standard,
             tokens,
             token_generation: 0,
@@ -447,189 +411,4 @@ impl CodexAccount {
     pub fn update_last_used(&mut self) {
         self.last_used = chrono::Utc::now().timestamp();
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexInstanceThreadSyncItem {
-    pub instance_id: String,
-    pub instance_name: String,
-    pub added_thread_count: usize,
-    pub updated_thread_count: usize,
-    pub backup_dir: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexInstanceThreadSyncSummary {
-    pub instance_count: usize,
-    pub thread_universe_count: usize,
-    pub mutated_instance_count: usize,
-    pub total_synced_thread_count: usize,
-    pub total_added_thread_count: usize,
-    pub total_updated_thread_count: usize,
-    pub items: Vec<CodexInstanceThreadSyncItem>,
-    pub backup_dirs: Vec<String>,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexInstanceTargetThreadSyncSummary {
-    pub requested_session_count: usize,
-    pub target_instance_id: String,
-    pub target_instance_name: String,
-    pub synced_session_count: usize,
-    pub skipped_existing_count: usize,
-    pub missing_session_count: usize,
-    pub backup_dir: Option<String>,
-    pub running: bool,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CodexSessionVisibilityRepairMode {
-    Quick,
-    Deep,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CodexSessionVisibilityRepairProviderSource {
-    Config,
-    Rollout,
-    Sqlite,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionVisibilityRepairProviderOption {
-    pub id: String,
-    pub sources: Vec<CodexSessionVisibilityRepairProviderSource>,
-    pub is_default: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionVisibilityRepairProviderList {
-    pub default_provider: String,
-    pub providers: Vec<CodexSessionVisibilityRepairProviderOption>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionVisibilityRepairInstanceOption {
-    pub id: String,
-    pub name: String,
-    pub user_data_dir: String,
-    pub current_provider: String,
-    pub is_default: bool,
-    pub running: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionVisibilityRepairInstanceList {
-    pub default_instance_id: String,
-    pub instances: Vec<CodexSessionVisibilityRepairInstanceOption>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionVisibilityRepairItem {
-    pub instance_id: String,
-    pub instance_name: String,
-    pub target_provider: String,
-    pub changed_rollout_file_count: usize,
-    pub updated_sqlite_row_count: usize,
-    pub updated_sqlite_timestamp_row_count: usize,
-    pub added_session_index_entry_count: usize,
-    pub updated_session_index_entry_count: usize,
-    pub skipped_sqlite_file: bool,
-    pub metadata_rebuild_failed: bool,
-    pub backup_dir: Option<String>,
-    pub running: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionVisibilityRepairSummary {
-    pub instance_count: usize,
-    pub mutated_instance_count: usize,
-    pub changed_rollout_file_count: usize,
-    pub updated_sqlite_row_count: usize,
-    pub updated_sqlite_timestamp_row_count: usize,
-    pub added_session_index_entry_count: usize,
-    pub updated_session_index_entry_count: usize,
-    pub skipped_sqlite_file_count: usize,
-    pub metadata_rebuild_failed_count: usize,
-    pub items: Vec<CodexSessionVisibilityRepairItem>,
-    pub backup_dirs: Vec<String>,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionLocation {
-    pub instance_id: String,
-    pub instance_name: String,
-    pub running: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionRecord {
-    pub session_id: String,
-    pub title: String,
-    pub cwd: String,
-    pub updated_at: Option<i64>,
-    pub location_count: usize,
-    pub locations: Vec<CodexSessionLocation>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionTokenStats {
-    pub session_id: String,
-    pub input_tokens: u64,
-    pub output_tokens: u64,
-    pub total_tokens: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionTrashSummary {
-    pub requested_session_count: usize,
-    pub trashed_session_count: usize,
-    pub trashed_instance_count: usize,
-    pub trash_dirs: Vec<String>,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexTrashedSessionLocation {
-    pub instance_id: String,
-    pub instance_name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexTrashedSessionRecord {
-    pub session_id: String,
-    pub title: String,
-    pub cwd: String,
-    pub deleted_at: Option<i64>,
-    pub location_count: usize,
-    pub locations: Vec<CodexTrashedSessionLocation>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexSessionRestoreSummary {
-    pub requested_session_count: usize,
-    pub restored_session_count: usize,
-    pub restored_instance_count: usize,
-    pub message: String,
 }

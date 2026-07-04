@@ -6,10 +6,6 @@ import {
   InstanceProfile,
 } from "../types/instance";
 import type { CodexAppSpeed } from "../types/codex";
-import { withTimeout } from "../utils/promiseTimeout";
-
-export const INSTANCE_LIST_TIMEOUT_ERROR = "INSTANCE_LIST_TIMEOUT";
-const INSTANCE_LIST_TIMEOUT_MS = 12_000;
 
 export type InstanceStoreState = {
   instances: InstanceProfile[];
@@ -112,11 +108,7 @@ export function createInstanceStore(
     fetchInstances: async () => {
       set({ loading: true, error: null });
       try {
-        const instances = await withTimeout(
-          service.listInstances(),
-          INSTANCE_LIST_TIMEOUT_MS,
-          INSTANCE_LIST_TIMEOUT_ERROR,
-        );
+        const instances = await service.listInstances();
         set({ instances, loading: false });
         persistInstancesCache(instances);
       } catch (e) {
@@ -127,11 +119,7 @@ export function createInstanceStore(
     refreshInstances: async () => {
       set({ error: null });
       try {
-        const instances = await withTimeout(
-          service.listInstances(),
-          INSTANCE_LIST_TIMEOUT_MS,
-          INSTANCE_LIST_TIMEOUT_ERROR,
-        );
+        const instances = await service.listInstances();
         set({ instances });
         persistInstancesCache(instances);
         return instances;

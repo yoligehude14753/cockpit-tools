@@ -55,17 +55,6 @@
   line-height: 1.5;
 }
 
-.close-dialog-error {
-  margin: -8px 0 16px;
-  padding: 10px 12px;
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: 10px;
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
 .close-dialog-options {
   display: flex;
   flex-direction: column;

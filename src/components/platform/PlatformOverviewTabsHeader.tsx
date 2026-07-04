@@ -27,7 +27,6 @@ export type PlatformOverviewTab = 'overview' | 'wakeup' | 'instances' | 'session
 export type PlatformOverviewHeaderId =
   | 'codex'
   | 'claude'
-  | 'claude_manager'
   | 'zed'
   | 'github-copilot'
   | 'windsurf'
@@ -45,9 +44,6 @@ interface PlatformOverviewTabsHeaderProps {
   active: PlatformOverviewTab;
   onTabChange?: (tab: PlatformOverviewTab) => void;
   tabs?: PlatformOverviewTab[];
-  rightSlot?: ReactNode;
-  hideTabs?: boolean;
-  remoteTabsSlotId?: string;
 }
 
 interface PlatformOverviewConfig {
@@ -67,10 +63,6 @@ const CONFIGS: Record<PlatformOverviewHeaderId, PlatformOverviewConfig> = {
     overviewIcon: <CodexIcon className="tab-icon" />,
   },
   claude: {
-    platformLabel: 'Claude',
-    overviewIcon: <ClaudeIcon className="tab-icon" />,
-  },
-  claude_manager: {
     platformLabel: 'Claude',
     overviewIcon: <ClaudeIcon className="tab-icon" />,
   },
@@ -125,9 +117,6 @@ export function PlatformOverviewTabsHeader({
   active,
   onTabChange,
   tabs,
-  rightSlot,
-  hideTabs = false,
-  remoteTabsSlotId,
 }: PlatformOverviewTabsHeaderProps) {
   const { t } = useTranslation();
   const { platformGroups } = usePlatformLayoutStore();
@@ -231,13 +220,7 @@ export function PlatformOverviewTabsHeader({
           <ManualHelpIconButton className="platform-header-help" />
         </div>
         <TopCenterPromoBanner />
-        {rightSlot ? (
-          <div className="page-top-strip-right page-top-strip-right-slot">
-            {rightSlot}
-          </div>
-        ) : (
-          <div className="page-top-strip-right-placeholder" aria-hidden="true" />
-        )}
+        <div className="page-top-strip-right-placeholder" aria-hidden="true" />
       </div>
       <div className="page-tabs-row page-tabs-center page-tabs-row-with-leading">
         <div className="page-tabs-leading">
@@ -249,25 +232,18 @@ export function PlatformOverviewTabsHeader({
             extraOptions={extraSwitchOptions}
           />
         </div>
-        {remoteTabsSlotId ? (
-          <div
-            id={remoteTabsSlotId}
-            className="page-tabs filter-tabs platform-remote-tabs-slot"
-          />
-        ) : !hideTabs && (
-          <div className="page-tabs filter-tabs">
-            {tabSpecs.map((tab) => (
-              <button
-                key={tab.key}
-                className={`filter-tab${active === tab.key ? ' active' : ''}`}
-                onClick={() => onTabChange?.(tab.key)}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="page-tabs filter-tabs">
+          {tabSpecs.map((tab) => (
+            <button
+              key={tab.key}
+              className={`filter-tab${active === tab.key ? ' active' : ''}`}
+              onClick={() => onTabChange?.(tab.key)}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </>
   );

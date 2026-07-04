@@ -1,92 +1,59 @@
-use std::time::Duration;
 use tauri::AppHandle;
-
-const FAST_LOCAL_READ_TIMEOUT: Duration = Duration::from_secs(20);
 
 fn resolve_provider_current_account_id(platform: &str) -> Result<Option<String>, String> {
     match platform {
-        "windsurf" => crate::modules::platform_adapter::call_windsurf_with_timeout(
-            "accounts.current",
-            serde_json::json!({}),
-            FAST_LOCAL_READ_TIMEOUT,
-        ),
-        "kiro" => crate::modules::platform_adapter::call_kiro_with_timeout(
-            "accounts.current",
-            serde_json::json!({}),
-            FAST_LOCAL_READ_TIMEOUT,
-        ),
-        "cursor" => crate::modules::platform_adapter::call_cursor_with_timeout(
-            "accounts.current",
-            serde_json::json!({}),
-            FAST_LOCAL_READ_TIMEOUT,
-        ),
-        "gemini" => crate::modules::platform_adapter::call_gemini_with_timeout(
-            "accounts.current",
-            serde_json::json!({}),
-            FAST_LOCAL_READ_TIMEOUT,
-        ),
-        "codebuddy" => {
-            if !crate::modules::platform_package::is_platform_package_installed("codebuddy") {
-                return Ok(None);
-            }
-            crate::modules::platform_adapter::call_codebuddy_with_timeout(
-                "accounts.current",
-                serde_json::json!({}),
-                FAST_LOCAL_READ_TIMEOUT,
+        "windsurf" => {
+            let accounts = crate::modules::windsurf_account::list_accounts();
+            Ok(crate::modules::windsurf_account::resolve_current_account_id(&accounts))
+        }
+        "kiro" => {
+            let accounts = crate::modules::kiro_account::list_accounts();
+            Ok(crate::modules::kiro_account::resolve_current_account_id(
+                &accounts,
+            ))
+        }
+        "cursor" => {
+            let accounts = crate::modules::cursor_account::list_accounts();
+            Ok(crate::modules::cursor_account::resolve_current_account_id(
+                &accounts,
+            ))
+        }
+        "gemini" => {
+            let accounts = crate::modules::gemini_account::list_accounts();
+            Ok(
+                crate::modules::gemini_account::resolve_current_account(&accounts)
+                    .map(|account| account.id),
             )
+        }
+        "codebuddy" => {
+            let accounts = crate::modules::codebuddy_account::list_accounts();
+            Ok(crate::modules::codebuddy_account::resolve_current_account_id(&accounts))
         }
         "codebuddy_cn" | "codebuddy-cn" => {
-            if !crate::modules::platform_package::is_platform_package_installed("codebuddy_cn") {
-                return Ok(None);
-            }
-            crate::modules::platform_adapter::call_codebuddy_cn_with_timeout(
-                "accounts.current",
-                serde_json::json!({}),
-                FAST_LOCAL_READ_TIMEOUT,
-            )
+            let accounts = crate::modules::codebuddy_cn_account::list_accounts();
+            Ok(crate::modules::codebuddy_cn_account::resolve_current_account_id(&accounts))
         }
         "qoder" => {
-            if !crate::modules::platform_package::is_platform_package_installed("qoder") {
-                return Ok(None);
-            }
-            crate::modules::platform_adapter::call_qoder_with_timeout(
-                "accounts.current",
-                serde_json::json!({}),
-                FAST_LOCAL_READ_TIMEOUT,
-            )
+            let accounts = crate::modules::qoder_account::list_accounts();
+            Ok(crate::modules::qoder_account::resolve_current_account_id(
+                &accounts,
+            ))
         }
         "trae" => {
-            if !crate::modules::platform_package::is_platform_package_installed("trae") {
-                return Ok(None);
-            }
-            crate::modules::platform_adapter::call_trae_with_timeout(
-                "accounts.current",
-                serde_json::json!({}),
-                FAST_LOCAL_READ_TIMEOUT,
-            )
+            let accounts = crate::modules::trae_account::list_accounts();
+            Ok(crate::modules::trae_account::resolve_current_account_id(
+                &accounts,
+            ))
         }
         "workbuddy" => {
-            if !crate::modules::platform_package::is_platform_package_runtime_ready("workbuddy") {
-                return Ok(None);
-            }
-            crate::modules::platform_adapter::call_workbuddy_with_timeout(
-                "accounts.current",
-                serde_json::json!({}),
-                FAST_LOCAL_READ_TIMEOUT,
-            )
+            let accounts = crate::modules::workbuddy_account::list_accounts();
+            Ok(crate::modules::workbuddy_account::resolve_current_account_id(&accounts))
         }
         "github_copilot" | "github-copilot" | "ghcp" => {
-            crate::modules::platform_adapter::call_github_copilot_with_timeout(
-                "accounts.current",
-                serde_json::json!({}),
-                FAST_LOCAL_READ_TIMEOUT,
-            )
+            let accounts = crate::modules::github_copilot_account::list_accounts();
+            Ok(crate::modules::github_copilot_account::resolve_current_account_id(&accounts))
         }
-        "zed" => crate::modules::platform_adapter::call_zed_with_timeout(
-            "accounts.current",
-            serde_json::json!({}),
-            FAST_LOCAL_READ_TIMEOUT,
-        ),
+        "zed" => Ok(crate::modules::zed_account::resolve_current_account_id()),
         other => Err(format!("不支持的平台: {}", other)),
     }
 }
@@ -97,8 +64,6 @@ pub async fn get_provider_current_account_id(
     platform: String,
 ) -> Result<Option<String>, String> {
     let current_account_id = resolve_provider_current_account_id(platform.trim())?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let _ = crate::modules::tray::update_tray_menu(&app);
-    });
+    let _ = crate::modules::tray::update_tray_menu(&app);
     Ok(current_account_id)
 }

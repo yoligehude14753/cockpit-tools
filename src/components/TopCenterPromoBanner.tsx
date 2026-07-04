@@ -1,24 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useTopRightAdStore } from '../stores/useTopRightAdStore';
 import { normalizeApiKeyFunOfficialUrl } from '../utils/apikeyFunLinks';
-import {
-  loadStartupAppearance,
-  persistStartupAppearance,
-} from '../utils/startupAppearance';
 
 interface TopCenterPromoBannerProps {
   reserveWhenEmpty?: boolean;
-}
-
-interface PromoVisibilityConfig {
-  top_right_ad_visible?: boolean;
-}
-
-interface ConfigUpdatedEventDetail {
-  topRightAdVisible?: boolean;
 }
 
 const PROMO_ROTATION_INTERVAL_MS = 6000;
@@ -28,44 +15,9 @@ export function TopCenterPromoBanner({ reserveWhenEmpty = true }: TopCenterPromo
   const ads = useTopRightAdStore((state) => state.state.ads);
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [visible, setVisible] = useState<boolean | null>(() => loadStartupAppearance().topRightAdVisible);
 
   const ad = ads[activeIndex] ?? ads[0] ?? null;
   const hasCarousel = ads.length > 1;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadVisibility = async (event?: Event) => {
-      const detail = (event as CustomEvent<ConfigUpdatedEventDetail> | undefined)?.detail;
-      if (typeof detail?.topRightAdVisible === 'boolean') {
-        setVisible(detail.topRightAdVisible);
-        persistStartupAppearance({ topRightAdVisible: detail.topRightAdVisible });
-        return;
-      }
-
-      try {
-        const config = await invoke<PromoVisibilityConfig>('get_general_config');
-        if (!cancelled) {
-          const nextVisible = config.top_right_ad_visible ?? true;
-          setVisible(nextVisible);
-          persistStartupAppearance({ topRightAdVisible: nextVisible });
-        }
-      } catch (error) {
-        console.error('Failed to load top promo visibility config:', error);
-        if (!cancelled) {
-          setVisible(true);
-        }
-      }
-    };
-
-    void loadVisibility();
-    window.addEventListener('config-updated', loadVisibility);
-    return () => {
-      cancelled = true;
-      window.removeEventListener('config-updated', loadVisibility);
-    };
-  }, []);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -94,13 +46,6 @@ export function TopCenterPromoBanner({ reserveWhenEmpty = true }: TopCenterPromo
       window.open(target, '_blank', 'noopener,noreferrer');
     }
   }, [ad?.ctaUrl]);
-
-  if (visible !== true) {
-    if (visible === null && reserveWhenEmpty) {
-      return <div className="global-promo-center global-promo-center-placeholder" aria-hidden="true" />;
-    }
-    return null;
-  }
 
   if (!ad) {
     return reserveWhenEmpty ? <div className="global-promo-center global-promo-center-placeholder" aria-hidden="true" /> : null;

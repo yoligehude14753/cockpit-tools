@@ -18,35 +18,12 @@ export function GlobalModal() {
   const closeModal = useGlobalModalStore((state) => state.closeModal);
 
   const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
-  const handleClose = useCallback(async () => {
-    if (pendingActionId) {
-      if (!modal?.allowCloseWhilePending) {
-        return;
-      }
-      try {
-        await Promise.resolve(modal.onPendingClose?.());
-      } catch (err) {
-        console.error('GlobalModal pending close error:', err);
-      }
-      setPendingActionId(null);
-    }
-    closeModal();
-  }, [closeModal, modal, pendingActionId]);
-
-  useEscClose(visible && (!pendingActionId || Boolean(modal?.allowCloseWhilePending)), () => {
-    void handleClose();
-  });
+  useEscClose(visible, closeModal);
 
   const handleActionClick = useCallback(async (action: GlobalModalAction) => {
-    if (action.disabled || (pendingActionId && !action.allowWhilePending)) return;
-    const actionId = action.id || action.label;
+    if (action.disabled) return;
     setActionError(null);
-    const shouldTrackPending = !action.allowWhilePending;
-    if (shouldTrackPending) {
-      setPendingActionId(actionId);
-    }
     let hasError = false;
     try {
       if (action.onClick) {
@@ -55,18 +32,12 @@ export function GlobalModal() {
     } catch (err) {
       hasError = true;
       console.error('GlobalModal action error:', err);
-      if (!action.suppressError) {
-        setActionError(err instanceof Error ? err.message : String(err));
-      }
+      setActionError(String(err));
     }
     if (!hasError && action.autoClose !== false) {
       closeModal();
-      setPendingActionId(null);
     }
-    if (shouldTrackPending) {
-      setPendingActionId(null);
-    }
-  }, [closeModal, pendingActionId]);
+  }, [closeModal]);
 
   if (!visible || !modal) return null;
 
@@ -94,8 +65,7 @@ export function GlobalModal() {
           {modal.showCloseButton !== false && (
             <button
               className="modal-close"
-              onClick={() => { void handleClose(); }}
-              disabled={Boolean(pendingActionId) && !modal.allowCloseWhilePending}
+              onClick={closeModal}
               aria-label={t('common.close', '关闭')}
             >
               <X />
@@ -129,14 +99,10 @@ export function GlobalModal() {
               key={action.id || `action-${index}`}
               className={resolveActionClass(action.variant)}
               onClick={() => { void handleActionClick(action); }}
-              disabled={Boolean(pendingActionId) && !action.allowWhilePending || action.disabled}
+              disabled={action.disabled}
               title={action.label}
             >
-              <span className="global-modal-action-label">
-                {pendingActionId === (action.id || action.label)
-                  ? t('common.processing', '处理中...')
-                  : action.label}
-              </span>
+              <span className="global-modal-action-label">{action.label}</span>
             </button>
           ))}
         </div>

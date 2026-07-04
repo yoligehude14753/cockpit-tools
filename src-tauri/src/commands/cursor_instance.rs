@@ -1,36 +1,101 @@
-use serde::de::DeserializeOwned;
-use serde_json::{json, Value};
+use std::path::Path;
 
-use crate::models::InstanceProfileView;
-use crate::modules::{instance::InstanceDefaults, platform_adapter, platform_package};
+use crate::models::{DefaultInstanceSettings, InstanceProfileView};
+use crate::modules;
 
-fn ensure_cursor_package_installed() -> Result<(), String> {
-    platform_package::ensure_platform_package_installed("cursor")
+const DEFAULT_INSTANCE_ID: &str = "__default__";
+
+fn is_profile_initialized(user_data_dir: &str) -> bool {
+    let path = Path::new(user_data_dir);
+    if !path.exists() {
+        return false;
+    }
+    match std::fs::read_dir(path) {
+        Ok(mut iter) => iter.next().is_some(),
+        Err(_) => false,
+    }
 }
 
-fn cursor_call<T: DeserializeOwned>(method: &str, payload: Value) -> Result<T, String> {
-    ensure_cursor_package_installed()?;
-    platform_adapter::call_cursor(method, payload)
-}
+fn inject_bound_account_for_instance_start(
+    user_data_dir: &str,
+    bind_account_id: Option<&str>,
+) -> Result<(), String> {
+    let bind_id = bind_account_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let Some(bind_id) = bind_id else {
+        return Ok(());
+    };
 
-async fn cursor_call_async<T>(method: &'static str, payload: Value) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static,
-{
-    ensure_cursor_package_installed()?;
-    tauri::async_runtime::spawn_blocking(move || platform_adapter::call_cursor(method, payload))
-        .await
-        .map_err(|error| format!("Cursor adapter 任务失败: {}", error))?
+    let account = modules::cursor_account::load_account(bind_id)
+        .ok_or_else(|| format!("绑定账号不存在: {}", bind_id))?;
+
+    modules::logger::log_info(&format!(
+        "实例启动检测到绑定 Cursor 账号，准备注入: bind_account_id={}, email={}, user_data_dir={}",
+        bind_id, account.email, user_data_dir
+    ));
+
+    modules::cursor_instance::close_cursor(&[user_data_dir.to_string()], 20)?;
+    modules::cursor_instance::inject_account_to_profile(Path::new(user_data_dir), bind_id)?;
+
+    modules::logger::log_info(&format!("Cursor 账号注入完成: {}", account.email));
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn cursor_get_instance_defaults() -> Result<InstanceDefaults, String> {
-    cursor_call_async("instance.getDefaults", json!({})).await
+pub async fn cursor_get_instance_defaults() -> Result<modules::instance::InstanceDefaults, String> {
+    modules::cursor_instance::get_instance_defaults()
 }
 
 #[tauri::command]
 pub async fn cursor_list_instances() -> Result<Vec<InstanceProfileView>, String> {
-    cursor_call_async("instance.list", json!({})).await
+    let store = modules::cursor_instance::load_instance_store()?;
+    let default_dir = modules::cursor_instance::get_default_cursor_user_data_dir()?;
+    let default_dir_str = default_dir.to_string_lossy().to_string();
+
+    let default_settings = store.default_settings.clone();
+    let process_entries = modules::cursor_instance::collect_cursor_process_entries();
+
+    let mut result: Vec<InstanceProfileView> = store
+        .instances
+        .into_iter()
+        .map(|instance| {
+            let resolved_pid = modules::cursor_instance::resolve_cursor_pid_from_entries(
+                instance.last_pid,
+                Some(&instance.user_data_dir),
+                &process_entries,
+            );
+            let running = resolved_pid.is_some();
+            let initialized = is_profile_initialized(&instance.user_data_dir);
+            let mut view = InstanceProfileView::from_profile(instance, running, initialized);
+            view.last_pid = resolved_pid;
+            view
+        })
+        .collect();
+
+    let default_pid = modules::cursor_instance::resolve_cursor_pid_from_entries(
+        default_settings.last_pid,
+        None,
+        &process_entries,
+    );
+    let default_running = default_pid.is_some();
+    result.push(InstanceProfileView {
+        id: DEFAULT_INSTANCE_ID.to_string(),
+        name: String::new(),
+        user_data_dir: default_dir_str,
+        working_dir: None,
+        extra_args: default_settings.extra_args.clone(),
+        bind_account_id: default_settings.bind_account_id.clone(),
+        created_at: 0,
+        last_launched_at: None,
+        last_pid: default_pid,
+        running: default_running,
+        initialized: is_profile_initialized(&default_dir.to_string_lossy()),
+        is_default: true,
+        follow_local_account: false,
+    });
+
+    Ok(result)
 }
 
 #[tauri::command]
@@ -42,18 +107,24 @@ pub async fn cursor_create_instance(
     copy_source_instance_id: Option<String>,
     init_mode: Option<String>,
 ) -> Result<InstanceProfileView, String> {
-    cursor_call_async(
-        "instance.create",
-        json!({
-            "name": name,
-            "userDataDir": user_data_dir,
-            "extraArgs": extra_args,
-            "bindAccountId": bind_account_id,
-            "copySourceInstanceId": copy_source_instance_id,
-            "initMode": init_mode,
-        }),
-    )
-    .await
+    let instance = modules::cursor_instance::create_instance(
+        modules::cursor_instance::CreateInstanceParams {
+            working_dir: None,
+            name,
+            user_data_dir,
+            extra_args: extra_args.unwrap_or_default(),
+            bind_account_id,
+            copy_source_instance_id,
+            init_mode,
+        },
+    )?;
+
+    let initialized = is_profile_initialized(&instance.user_data_dir);
+    Ok(InstanceProfileView::from_profile(
+        instance,
+        false,
+        initialized,
+    ))
 }
 
 #[tauri::command]
@@ -64,40 +135,278 @@ pub async fn cursor_update_instance(
     bind_account_id: Option<Option<String>>,
     follow_local_account: Option<bool>,
 ) -> Result<InstanceProfileView, String> {
-    cursor_call_async(
-        "instance.update",
-        json!({
-            "instanceId": instance_id,
-            "name": name,
-            "extraArgs": extra_args,
-            "bindAccountId": bind_account_id,
-            "followLocalAccount": follow_local_account,
-        }),
-    )
-    .await
+    if instance_id == DEFAULT_INSTANCE_ID {
+        let default_dir = modules::cursor_instance::get_default_cursor_user_data_dir()?;
+        let default_dir_str = default_dir.to_string_lossy().to_string();
+        let updated = modules::cursor_instance::update_default_settings(
+            bind_account_id,
+            extra_args,
+            follow_local_account,
+        )?;
+
+        let running = updated
+            .last_pid
+            .and_then(|pid| modules::cursor_instance::resolve_cursor_pid(Some(pid), None))
+            .is_some();
+
+        return Ok(InstanceProfileView {
+            id: DEFAULT_INSTANCE_ID.to_string(),
+            name: String::new(),
+            user_data_dir: default_dir_str,
+            working_dir: None,
+            extra_args: updated.extra_args,
+            bind_account_id: updated.bind_account_id,
+            created_at: 0,
+            last_launched_at: None,
+            last_pid: updated.last_pid,
+            running,
+            initialized: is_profile_initialized(&default_dir.to_string_lossy()),
+            is_default: true,
+            follow_local_account: false,
+        });
+    }
+
+    let wants_bind = bind_account_id
+        .as_ref()
+        .and_then(|next| next.as_ref())
+        .is_some();
+    if wants_bind {
+        let store = modules::cursor_instance::load_instance_store()?;
+        if let Some(target) = store.instances.iter().find(|item| item.id == instance_id) {
+            if !is_profile_initialized(&target.user_data_dir) {
+                return Err(
+                    "INSTANCE_NOT_INITIALIZED:请先启动一次实例创建数据后，再进行账号绑定"
+                        .to_string(),
+                );
+            }
+        }
+    }
+
+    let instance = modules::cursor_instance::update_instance(
+        modules::cursor_instance::UpdateInstanceParams {
+            working_dir: None,
+            instance_id,
+            name,
+            extra_args,
+            bind_account_id,
+        },
+    )?;
+
+    let running = instance
+        .last_pid
+        .and_then(|pid| {
+            modules::cursor_instance::resolve_cursor_pid(Some(pid), Some(&instance.user_data_dir))
+        })
+        .is_some();
+    let initialized = is_profile_initialized(&instance.user_data_dir);
+    Ok(InstanceProfileView::from_profile(
+        instance,
+        running,
+        initialized,
+    ))
 }
 
 #[tauri::command]
 pub async fn cursor_delete_instance(instance_id: String) -> Result<(), String> {
-    cursor_call_async("instance.delete", json!({ "instanceId": instance_id })).await
+    if instance_id == DEFAULT_INSTANCE_ID {
+        return Err("默认实例不可删除".to_string());
+    }
+    modules::cursor_instance::delete_instance(&instance_id)
 }
 
 #[tauri::command]
 pub async fn cursor_start_instance(instance_id: String) -> Result<InstanceProfileView, String> {
-    cursor_call_async("instance.start", json!({ "instanceId": instance_id })).await
+    modules::logger::log_info(&format!("开始启动 Cursor 实例: {}", instance_id));
+    modules::cursor_instance::ensure_cursor_launch_path_configured()?;
+
+    if instance_id == DEFAULT_INSTANCE_ID {
+        let default_dir = modules::cursor_instance::get_default_cursor_user_data_dir()?;
+        let default_dir_str = default_dir.to_string_lossy().to_string();
+        let default_settings = modules::cursor_instance::load_default_settings()?;
+
+        if let Some(pid) =
+            modules::cursor_instance::resolve_cursor_pid(default_settings.last_pid, None)
+        {
+            modules::process::close_pid(pid, 20)?;
+            let _ = modules::cursor_instance::update_default_pid(None)?;
+        }
+
+        modules::cursor_instance::close_cursor(&[default_dir_str.clone()], 20)?;
+        inject_bound_account_for_instance_start(
+            &default_dir_str,
+            default_settings.bind_account_id.as_deref(),
+        )?;
+
+        let extra_args = modules::process::parse_extra_args(&default_settings.extra_args);
+        let pid = modules::cursor_instance::start_cursor_default_with_args_with_new_window(
+            &extra_args,
+            true,
+        )?;
+        let _ = modules::cursor_instance::update_default_pid(Some(pid))?;
+
+        let running = modules::cursor_instance::resolve_cursor_pid(Some(pid), None).is_some();
+        return Ok(InstanceProfileView {
+            id: DEFAULT_INSTANCE_ID.to_string(),
+            name: String::new(),
+            user_data_dir: default_dir_str,
+            working_dir: None,
+            extra_args: default_settings.extra_args,
+            bind_account_id: default_settings.bind_account_id,
+            created_at: 0,
+            last_launched_at: None,
+            last_pid: Some(pid),
+            running,
+            initialized: is_profile_initialized(&default_dir.to_string_lossy()),
+            is_default: true,
+            follow_local_account: false,
+        });
+    }
+
+    let store = modules::cursor_instance::load_instance_store()?;
+    let instance = store
+        .instances
+        .into_iter()
+        .find(|item| item.id == instance_id)
+        .ok_or("实例不存在")?;
+
+    if let Some(pid) = modules::cursor_instance::resolve_cursor_pid(
+        instance.last_pid,
+        Some(&instance.user_data_dir),
+    ) {
+        modules::process::close_pid(pid, 20)?;
+        let _ = modules::cursor_instance::update_instance_pid(&instance.id, None)?;
+    }
+
+    modules::cursor_instance::close_cursor(&[instance.user_data_dir.clone()], 20)?;
+    inject_bound_account_for_instance_start(
+        &instance.user_data_dir,
+        instance.bind_account_id.as_deref(),
+    )?;
+
+    let extra_args = modules::process::parse_extra_args(&instance.extra_args);
+    let pid = modules::cursor_instance::start_cursor_with_args_with_new_window(
+        &instance.user_data_dir,
+        &extra_args,
+        true,
+    )?;
+    let updated = modules::cursor_instance::update_instance_after_start(&instance.id, pid)?;
+
+    let running =
+        modules::cursor_instance::resolve_cursor_pid(Some(pid), Some(&updated.user_data_dir))
+            .is_some();
+    let initialized = is_profile_initialized(&updated.user_data_dir);
+    Ok(InstanceProfileView::from_profile(
+        updated,
+        running,
+        initialized,
+    ))
 }
 
 #[tauri::command]
 pub async fn cursor_stop_instance(instance_id: String) -> Result<InstanceProfileView, String> {
-    cursor_call_async("instance.stop", json!({ "instanceId": instance_id })).await
+    if instance_id == DEFAULT_INSTANCE_ID {
+        let default_dir = modules::cursor_instance::get_default_cursor_user_data_dir()?;
+        let default_dir_str = default_dir.to_string_lossy().to_string();
+        let default_settings = modules::cursor_instance::load_default_settings()?;
+
+        if let Some(pid) =
+            modules::cursor_instance::resolve_cursor_pid(default_settings.last_pid, None)
+        {
+            modules::process::close_pid(pid, 20)?;
+        }
+
+        let updated_settings = modules::cursor_instance::update_default_pid(None)?;
+        let running = updated_settings
+            .last_pid
+            .and_then(|pid| modules::cursor_instance::resolve_cursor_pid(Some(pid), None))
+            .is_some();
+
+        return Ok(InstanceProfileView {
+            id: DEFAULT_INSTANCE_ID.to_string(),
+            name: String::new(),
+            user_data_dir: default_dir_str,
+            working_dir: None,
+            extra_args: default_settings.extra_args,
+            bind_account_id: default_settings.bind_account_id,
+            created_at: 0,
+            last_launched_at: None,
+            last_pid: None,
+            running,
+            initialized: is_profile_initialized(&default_dir.to_string_lossy()),
+            is_default: true,
+            follow_local_account: false,
+        });
+    }
+
+    let store = modules::cursor_instance::load_instance_store()?;
+    let instance = store
+        .instances
+        .into_iter()
+        .find(|item| item.id == instance_id)
+        .ok_or("实例不存在")?;
+
+    if let Some(pid) = modules::cursor_instance::resolve_cursor_pid(
+        instance.last_pid,
+        Some(&instance.user_data_dir),
+    ) {
+        modules::process::close_pid(pid, 20)?;
+    }
+
+    let updated = modules::cursor_instance::update_instance_pid(&instance.id, None)?;
+    let initialized = is_profile_initialized(&updated.user_data_dir);
+    Ok(InstanceProfileView::from_profile(
+        updated,
+        false,
+        initialized,
+    ))
 }
 
 #[tauri::command]
 pub async fn cursor_open_instance_window(instance_id: String) -> Result<(), String> {
-    cursor_call("instance.openWindow", json!({ "instanceId": instance_id }))
+    if instance_id == DEFAULT_INSTANCE_ID {
+        let default_settings: DefaultInstanceSettings =
+            modules::cursor_instance::load_default_settings()?;
+        modules::cursor_instance::focus_cursor_instance(default_settings.last_pid, None)
+            .map_err(|err| format!("定位 Cursor 默认实例窗口失败: {}", err))?;
+        return Ok(());
+    }
+
+    let store = modules::cursor_instance::load_instance_store()?;
+    let instance = store
+        .instances
+        .into_iter()
+        .find(|item| item.id == instance_id)
+        .ok_or("实例不存在")?;
+
+    modules::cursor_instance::focus_cursor_instance(
+        instance.last_pid,
+        Some(&instance.user_data_dir),
+    )
+    .map_err(|err| {
+        format!(
+            "定位 Cursor 实例窗口失败: instance_id={}, err={}",
+            instance.id, err
+        )
+    })?;
+
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn cursor_close_all_instances() -> Result<(), String> {
-    cursor_call_async("instance.closeAll", json!({})).await
+    let store = modules::cursor_instance::load_instance_store()?;
+    let default_dir = modules::cursor_instance::get_default_cursor_user_data_dir()?;
+
+    let mut target_dirs: Vec<String> = Vec::new();
+    target_dirs.push(default_dir.to_string_lossy().to_string());
+    for instance in &store.instances {
+        let dir = instance.user_data_dir.trim();
+        if !dir.is_empty() {
+            target_dirs.push(dir.to_string());
+        }
+    }
+
+    modules::cursor_instance::close_cursor(&target_dirs, 20)?;
+    let _ = modules::cursor_instance::clear_all_pids();
+    Ok(())
 }

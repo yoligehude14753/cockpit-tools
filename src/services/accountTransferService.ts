@@ -1,6 +1,7 @@
 import { ALL_PLATFORM_IDS, PlatformId } from '../types/platform';
 import * as accountService from './accountService';
 import * as claudeService from './claudeService';
+import * as codexService from './codexService';
 import * as githubCopilotService from './githubCopilotService';
 import * as windsurfService from './windsurfService';
 import * as kiroService from './kiroService';
@@ -13,11 +14,6 @@ import * as traeService from './traeService';
 import * as workbuddyService from './workbuddyService';
 import * as zedService from './zedService';
 import type { ClaudeAccount } from '../types/claude';
-import {
-  isRuntimeManagedPlatform,
-  usePlatformPackageStore,
-} from '../stores/usePlatformPackageStore';
-import { callPlatformAdapter } from './platformAdapterService';
 
 type AccountWithId = { id: string };
 
@@ -51,11 +47,9 @@ const PLATFORM_ADAPTERS: Record<PlatformId, TransferAdapter> = {
     importFromJson: accountService.importFromJson,
   },
   codex: {
-    listAccounts: () => callPlatformAdapter<AccountWithId[]>('codex', 'accounts.list'),
-    exportAccounts: (accountIds) =>
-      callPlatformAdapter<string>('codex', 'accounts.export', { accountIds }),
-    importFromJson: (jsonContent) =>
-      callPlatformAdapter<unknown[]>('codex', 'accounts.importFromJson', { jsonContent }),
+    listAccounts: codexService.listCodexAccounts,
+    exportAccounts: codexService.exportCodexAccounts,
+    importFromJson: codexService.importCodexFromJson,
   },
   claude_manager: {
     listAccounts: listClaudeManagerTransferAccounts,
@@ -118,32 +112,6 @@ const PLATFORM_ADAPTERS: Record<PlatformId, TransferAdapter> = {
     importFromJson: workbuddyService.importWorkbuddyFromJson,
   },
 };
-
-let platformPackageRefreshPromise: Promise<unknown> | null = null;
-
-async function ensurePlatformPackageStateLoaded(): Promise<void> {
-  const state = usePlatformPackageStore.getState();
-  if (state.initialized || !ALL_PLATFORM_IDS.some(isRuntimeManagedPlatform)) {
-    return;
-  }
-  if (!platformPackageRefreshPromise) {
-    platformPackageRefreshPromise = state
-      .refresh()
-      .catch(() => undefined)
-      .finally(() => {
-        platformPackageRefreshPromise = null;
-      });
-  }
-  await platformPackageRefreshPromise;
-}
-
-export async function canUseAccountTransferPlatform(platform: PlatformId): Promise<boolean> {
-  if (!isRuntimeManagedPlatform(platform)) {
-    return true;
-  }
-  await ensurePlatformPackageStateLoaded();
-  return usePlatformPackageStore.getState().canOpenPlatform(platform);
-}
 
 export const ACCOUNT_TRANSFER_SCHEMA = 'cockpit-tools.account-transfer';
 export const ACCOUNT_TRANSFER_VERSION = 1;
@@ -279,13 +247,6 @@ function estimatePayloadCount(payload: AccountTransferPlatformPayload): number {
 }
 
 async function exportPlatformPayload(platform: PlatformId): Promise<AccountTransferPlatformPayload> {
-  if (!(await canUseAccountTransferPlatform(platform))) {
-    return {
-      account_count: 0,
-      exported_data: [],
-    };
-  }
-
   const adapter = PLATFORM_ADAPTERS[platform];
   const accounts = await adapter.listAccounts();
   const accountIds = normalizeAccountIds(accounts);
@@ -308,11 +269,12 @@ async function exportPlatformPayload(platform: PlatformId): Promise<AccountTrans
 }
 
 export async function buildAccountTransferBundle(): Promise<AccountTransferBundle> {
-  const entries: Array<readonly [PlatformId, AccountTransferPlatformPayload]> = [];
-  for (const platform of ALL_PLATFORM_IDS) {
-    const payload = await exportPlatformPayload(platform);
-    entries.push([platform, payload] as const);
-  }
+  const entries = await Promise.all(
+    ALL_PLATFORM_IDS.map(async (platform) => {
+      const payload = await exportPlatformPayload(platform);
+      return [platform, payload] as const;
+    }),
+  );
 
   const platforms = entries.reduce<Record<PlatformId, AccountTransferPlatformPayload>>(
     (acc, [platform, payload]) => {
@@ -430,17 +392,6 @@ export async function importAllAccountsFromTransferJson(
         ...detail,
         status: 'skipped',
         imported_count: 0,
-      };
-      emitProgress(null);
-      continue;
-    }
-
-    if (!(await canUseAccountTransferPlatform(platform))) {
-      progressDetails[detailIndex] = {
-        ...detail,
-        status: 'skipped',
-        imported_count: 0,
-        error: undefined,
       };
       emitProgress(null);
       continue;

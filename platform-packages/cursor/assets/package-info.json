@@ -1,7 +1,0 @@
-{
-  "platformId": "cursor",
-  "displayName": "Cursor",
-  "packageMode": "hotUpdate",
-  "installKind": "sidecarAdapter",
-  "version": "1.0.2"
-}

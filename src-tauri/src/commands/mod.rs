@@ -23,8 +23,6 @@ pub mod kiro;
 pub mod kiro_instance;
 pub mod logs;
 pub mod oauth;
-pub mod platform_adapter;
-pub mod platform_package;
 pub mod provider_current;
 pub mod qoder;
 pub mod qoder_instance;

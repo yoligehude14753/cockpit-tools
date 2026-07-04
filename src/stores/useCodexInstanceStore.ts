@@ -64,9 +64,7 @@ const repairSessionVisibilityAcrossInstances = async (
   options?: CodexSessionVisibilityRepairRequestOptions,
 ): Promise<CodexSessionVisibilityRepairSummary> => {
   const summary = await codexInstanceService.repairSessionVisibilityAcrossInstances(runId, options);
-  if (!options?.dryRun) {
-    await typedBaseStore.getState().fetchInstances();
-  }
+  await typedBaseStore.getState().fetchInstances();
   return summary;
 };
 

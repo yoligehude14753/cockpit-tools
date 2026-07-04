@@ -77,11 +77,87 @@ pub fn update_default_settings(
 }
 
 pub fn get_default_user_data_dir() -> Result<PathBuf, String> {
-    modules::antigravity_paths::default_user_data_dir()
+    #[cfg(target_os = "macos")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join("Library/Application Support/Antigravity IDE"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let appdata =
+            std::env::var("APPDATA").map_err(|_| "无法获取 APPDATA 环境变量".to_string())?;
+        let appdata = PathBuf::from(appdata);
+        let candidates = windows_antigravity_user_data_candidates(&appdata);
+        for candidate in candidates {
+            if candidate.exists() {
+                return Ok(candidate);
+            }
+        }
+        return Ok(windows_antigravity_user_data_candidates(&appdata)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| appdata.join("Antigravity IDE")));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join(".config/Antigravity IDE"));
+    }
+
+    #[allow(unreachable_code)]
+    Err("无法确定 Antigravity IDE 默认目录".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn windows_antigravity_user_data_candidates(appdata: &Path) -> Vec<PathBuf> {
+    let antigravity_dir = appdata.join("Antigravity");
+    let antigravity_ide_dir = appdata.join("Antigravity IDE");
+
+    if windows_app_root_exists("Antigravity", &["Antigravity.exe", "antigravity.exe"]) {
+        return vec![antigravity_dir, antigravity_ide_dir];
+    }
+
+    vec![antigravity_ide_dir, antigravity_dir]
+}
+
+#[cfg(target_os = "windows")]
+fn windows_app_root_exists(root_name: &str, exe_names: &[&str]) -> bool {
+    let Some(programs_dir) = std::env::var("LOCALAPPDATA")
+        .ok()
+        .map(|value| PathBuf::from(value).join("Programs"))
+    else {
+        return false;
+    };
+    let root = programs_dir.join(root_name);
+    exe_names
+        .iter()
+        .any(|exe_name| root.join(exe_name).exists())
 }
 
 pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
-    modules::antigravity_paths::managed_instances_root_dir()
+    #[cfg(target_os = "macos")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join(".antigravity_cockpit/instances/antigravity"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let appdata =
+            std::env::var("APPDATA").map_err(|_| "无法获取 APPDATA 环境变量".to_string())?;
+        return Ok(PathBuf::from(appdata).join(".antigravity_cockpit\\instances\\antigravity"));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join(".antigravity_cockpit/instances/antigravity"));
+    }
+
+    #[allow(unreachable_code)]
+    Err("无法确定默认实例目录".to_string())
 }
 
 pub fn get_instance_defaults() -> Result<InstanceDefaults, String> {
@@ -260,7 +336,6 @@ pub fn create_instance(params: CreateInstanceParams) -> Result<InstanceProfile, 
             params.bind_account_id
         },
         launch_mode: crate::models::InstanceLaunchMode::App,
-        app_speed: crate::models::codex::CodexAppSpeed::Standard,
         created_at: Utc::now().timestamp_millis(),
         last_launched_at: None,
         last_pid: None,

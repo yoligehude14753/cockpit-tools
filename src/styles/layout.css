@@ -125,6 +125,11 @@
   color: #fff;
 }
 
+.side-nav-update-btn.is-updated {
+  background: linear-gradient(135deg, #7c3aed, #0ea5e9);
+  color: #fff;
+}
+
 .side-nav-update-btn.is-progress {
   background: rgba(15, 23, 42, 0.06);
   border: 1px solid rgba(37, 99, 235, 0.18);
@@ -270,74 +275,6 @@
   background: var(--bg-hover);
   color: var(--text-primary);
   transform: scale(1.05);
-}
-
-.nav-item.is-package-install-required {
-  color: color-mix(in srgb, var(--text-secondary) 78%, var(--text-muted) 22%);
-  background: transparent;
-}
-
-.nav-item.is-package-install-required:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-hover) 86%, var(--warning) 6%);
-}
-
-.nav-item.is-package-status-info:hover {
-  background: color-mix(in srgb, var(--bg-hover) 86%, var(--primary) 6%);
-}
-
-.nav-item.is-package-status-danger:hover {
-  background: color-mix(in srgb, var(--bg-hover) 84%, var(--danger) 8%);
-}
-
-.nav-item-status-text {
-  flex: 0 0 auto;
-  height: 20px;
-  padding: 0 7px;
-  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--warning) 11%, transparent);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--warning);
-}
-
-.nav-item.is-package-status-info .nav-item-status-text {
-  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
-  background: color-mix(in srgb, var(--primary) 11%, transparent);
-  color: var(--primary);
-}
-
-.nav-item.is-package-status-danger .nav-item-status-text {
-  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
-  color: var(--danger);
-}
-
-.nav-item-status-dot {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--warning);
-  border: 2px solid var(--bg-surface);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 35%, transparent);
-}
-
-.nav-item.is-package-status-info .nav-item-status-dot {
-  background: var(--primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
-}
-
-.nav-item.is-package-status-danger .nav-item-status-dot {
-  background: var(--danger);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .nav-item.active {
@@ -577,23 +514,14 @@
 }
 
 .side-nav.side-nav-classic .nav-item-text {
-  flex: 1 1 auto;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   min-width: 0;
   font-size: var(--side-nav-classic-nav-item-text-size-scaled);
   font-weight: 500;
   white-space: nowrap;
-}
-
-.side-nav.side-nav-classic .nav-item-label-text {
-  flex: 1 1 auto;
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .nav-bottom-actions {
@@ -870,39 +798,6 @@ html[data-theme="dark"] .side-nav-classic-handle:hover {
 
 .side-nav-more-item:hover {
   background: var(--bg-hover);
-}
-
-.side-nav-more-item.is-package-install-required,
-.side-nav-more-sub-item.is-package-install-required {
-  color: var(--text-muted);
-  border-color: color-mix(in srgb, var(--warning) 34%, transparent);
-  background: color-mix(in srgb, var(--bg-tertiary) 78%, transparent);
-}
-
-.side-nav-more-item.is-package-install-required:hover,
-.side-nav-more-sub-item.is-package-install-required:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-hover) 72%, var(--warning) 10%);
-}
-
-.side-nav-more-item.is-package-status-info,
-.side-nav-more-sub-item.is-package-status-info {
-  border-color: color-mix(in srgb, var(--primary) 34%, transparent);
-}
-
-.side-nav-more-item.is-package-status-info:hover,
-.side-nav-more-sub-item.is-package-status-info:hover {
-  background: color-mix(in srgb, var(--bg-hover) 72%, var(--primary) 10%);
-}
-
-.side-nav-more-item.is-package-status-danger,
-.side-nav-more-sub-item.is-package-status-danger {
-  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
-}
-
-.side-nav-more-item.is-package-status-danger:hover,
-.side-nav-more-sub-item.is-package-status-danger:hover {
-  background: color-mix(in srgb, var(--bg-hover) 72%, var(--danger) 10%);
 }
 
 .side-nav-more-item.active {

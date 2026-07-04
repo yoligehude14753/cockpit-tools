@@ -308,23 +308,6 @@ export function SettingsAccountTransferSection() {
         parts.push(t('settings.transfer.feedback.configImported'));
       }
 
-      const codexSessionResult = result.config_result?.codex_session_import_result;
-      if (codexSessionResult) {
-        parts.push(
-          t('settings.transfer.feedback.codexSessionsImported', {
-            imported: codexSessionResult.importedSessionCount,
-            skipped: codexSessionResult.skippedExistingCount,
-          }),
-        );
-        if (codexSessionResult.missingTargetInstanceCount > 0) {
-          parts.push(
-            t('settings.transfer.feedback.codexSessionsMissingTargets', {
-              count: codexSessionResult.missingTargetInstanceCount,
-            }),
-          );
-        }
-      }
-
       if (result.warnings.includes('accounts_section_missing')) {
         parts.push(t('settings.transfer.feedback.accountsSectionMissing'));
       }

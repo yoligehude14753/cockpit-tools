@@ -1,20 +1,11 @@
 use crate::modules::config;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 #[cfg(not(target_os = "macos"))]
 use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AppLaunchCandidate {
-    pub target_type: String,
-    pub label: String,
-    pub target: String,
-    pub source: String,
-    pub supports_multi_instance: bool,
-}
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 const OPENCODE_APP_NAME: &str = "OpenCode";
@@ -47,75 +38,6 @@ const WINDOWS_PROCESS_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 #[cfg(target_os = "windows")]
 static CODEX_STORE_APP_USER_MODEL_ID_CACHE: std::sync::OnceLock<String> =
     std::sync::OnceLock::new();
-
-fn get_default_codex_home() -> PathBuf {
-    if let Ok(raw) = std::env::var("CODEX_HOME") {
-        let trimmed = raw.trim().trim_matches('\"').trim_matches('\'').trim();
-        if !trimmed.is_empty() {
-            return PathBuf::from(trimmed);
-        }
-    }
-    dirs::home_dir().expect("无法获取用户主目录").join(".codex")
-}
-
-fn codex_remote_debugging_arg(codex_home: &str) -> String {
-    let digest = md5::compute(codex_home.trim().as_bytes());
-    let value = u16::from_be_bytes([digest.0[0], digest.0[1]]);
-    format!("--remote-debugging-port={}", 47_000 + (value % 10_000))
-}
-
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-fn get_default_codex_instances_root_dir() -> Result<PathBuf, String> {
-    Ok(crate::modules::app_data::get_data_dir()?
-        .join("instances")
-        .join("codex"))
-}
-
-#[cfg(target_os = "windows")]
-fn normalize_windows_codex_home_for_hash(path: &Path) -> String {
-    let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    resolved.to_string_lossy().replace('/', "\\").to_lowercase()
-}
-
-#[cfg(target_os = "windows")]
-fn get_codex_windows_app_user_data_dir(codex_home: &Path) -> Result<PathBuf, String> {
-    let root = get_default_codex_instances_root_dir()?
-        .parent()
-        .ok_or("无法获取 Codex 实例根目录")?
-        .join("codex-app-data");
-    let normalized = normalize_windows_codex_home_for_hash(codex_home);
-    let digest = format!("{:x}", md5::compute(normalized.as_bytes()));
-    Ok(root.join(digest))
-}
-
-#[cfg(target_os = "macos")]
-fn normalize_macos_codex_home_for_hash(path: &Path) -> String {
-    let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    resolved.to_string_lossy().to_string()
-}
-
-#[cfg(target_os = "macos")]
-fn get_codex_macos_app_user_data_dir(codex_home: &Path) -> Result<PathBuf, String> {
-    let root = get_default_codex_instances_root_dir()?
-        .parent()
-        .ok_or("无法获取 Codex 实例根目录")?
-        .join("codex-app-data");
-    let normalized = normalize_macos_codex_home_for_hash(codex_home);
-    let digest = format!("{:x}", md5::compute(normalized.as_bytes()));
-    Ok(root.join(digest))
-}
-
-#[cfg(target_os = "macos")]
-fn get_default_qoder_user_data_dir() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
-    Ok(home.join("Library/Application Support/Qoder"))
-}
-
-#[cfg(target_os = "macos")]
-fn get_default_trae_user_data_dir() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
-    Ok(home.join("Library/Application Support/Trae"))
-}
 
 /// On macOS, extract the executable path from a `ps` command line output.
 /// Handles paths with spaces in .app bundles (e.g., "Visual Studio Code.app").
@@ -644,11 +566,7 @@ fn score_windows_candidate(
     let is_exe = path
         .extension()
         .and_then(|value| value.to_str())
-        .map(|value| {
-            ["exe", "cmd", "bat", "ps1"]
-                .iter()
-                .any(|ext| value.eq_ignore_ascii_case(ext))
-        })
+        .map(|value| value.eq_ignore_ascii_case("exe"))
         .unwrap_or(false);
     if is_exe && has_keyword {
         return Some(50);
@@ -724,59 +642,6 @@ fn parse_windows_exec_candidates(
         program_files_x86
     ));
     None
-}
-
-#[cfg(target_os = "windows")]
-fn parse_windows_exec_candidate_list(
-    app_label: &str,
-    exe_names: &[&str],
-    display_keywords: &[&str],
-    output: std::process::Output,
-) -> Vec<std::path::PathBuf> {
-    let exe_names_lower: HashSet<String> =
-        exe_names.iter().map(|value| value.to_lowercase()).collect();
-    let keywords_lower: Vec<String> = display_keywords
-        .iter()
-        .map(|value| value.trim().to_lowercase())
-        .filter(|value| !value.is_empty())
-        .collect();
-
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut candidates: Vec<(std::path::PathBuf, i32)> = Vec::new();
-    let mut raw_lines = 0usize;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        let trimmed_line = line.trim();
-        if trimmed_line.is_empty() || trimmed_line.starts_with("STAGE:") {
-            continue;
-        }
-        raw_lines += 1;
-        let Some(path) = normalize_windows_candidate_path(line) else {
-            continue;
-        };
-        let dedupe_key = path.to_string_lossy().to_lowercase();
-        if !seen.insert(dedupe_key) {
-            continue;
-        }
-        let Some(score) = score_windows_candidate(&path, &exe_names_lower, &keywords_lower) else {
-            continue;
-        };
-        candidates.push((path, score));
-    }
-
-    candidates.sort_by(|left, right| {
-        right
-            .1
-            .cmp(&left.1)
-            .then_with(|| left.0.to_string_lossy().cmp(&right.0.to_string_lossy()))
-    });
-    crate::modules::logger::log_info(&format!(
-        "[Path Scan] {} Windows candidate scan: raw_lines={}, candidates={}",
-        app_label,
-        raw_lines,
-        candidates.len()
-    ));
-    candidates.into_iter().map(|(path, _)| path).collect()
 }
 
 #[cfg(target_os = "windows")]
@@ -1099,168 +964,6 @@ exit 0
     parse_windows_exec_candidates(app_label, exe_names, display_keywords, output)
 }
 
-#[cfg(target_os = "windows")]
-pub fn scan_windows_exec_paths_by_signatures(
-    app_label: &str,
-    exe_names: &[&str],
-    command_names: &[&str],
-    protocol_names: &[&str],
-    display_keywords: &[&str],
-) -> Vec<std::path::PathBuf> {
-    if exe_names.is_empty() {
-        return Vec::new();
-    }
-
-    let exe_array = powershell_array_literal(exe_names);
-    let command_array = powershell_array_literal(command_names);
-    let protocol_array = powershell_array_literal(protocol_names);
-    let keyword_array = powershell_array_literal(display_keywords);
-
-    let script = format!(
-        r#"$ErrorActionPreference='SilentlyContinue'
-Write-Output 'STAGE:BEGIN'
-$exeNames=@({exe_array})
-$commandNames=@({command_array})
-$protocolNames=@({protocol_array})
-$keywords=@({keyword_array})
-
-function Normalize-Candidate([string]$raw) {{
-  if ([string]::IsNullOrWhiteSpace($raw)) {{ return $null }}
-  $text = $raw.Trim()
-  if ($text -match '(?i)(?<p>[A-Za-z]:\\.+?\.exe)') {{
-    $text = $matches['p']
-  }}
-  $text = $text.Trim().Trim('"').Trim("'")
-  if ([string]::IsNullOrWhiteSpace($text)) {{ return $null }}
-  return $text
-}}
-
-function Emit-Candidate([string]$raw) {{
-  $candidate = Normalize-Candidate $raw
-  if ([string]::IsNullOrWhiteSpace($candidate)) {{ return }}
-  if (Test-Path -LiteralPath $candidate) {{ Write-Output $candidate }}
-}}
-
-Write-Output 'STAGE:APP_PATHS'
-$appPathRoots=@(
-  'HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths',
-  'HKLM:\Software\Microsoft\Windows\CurrentVersion\App Paths',
-  'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths'
-)
-foreach ($root in $appPathRoots) {{
-  foreach ($exe in $exeNames) {{
-    $keyPath = Join-Path $root $exe
-    $entry = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue
-    if ($entry) {{
-      Emit-Candidate $entry.'(default)'
-      if ($entry.Path) {{
-        Emit-Candidate (Join-Path $entry.Path $exe)
-      }}
-    }}
-  }}
-}}
-
-Write-Output 'STAGE:UNINSTALL'
-$uninstallRoots=@(
-  'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
-  'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
-  'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
-)
-foreach ($root in $uninstallRoots) {{
-  Get-ItemProperty -Path $root -ErrorAction SilentlyContinue | ForEach-Object {{
-    $display = [string]$_.DisplayName
-    $displayLower = $display.ToLowerInvariant()
-    $hit = $false
-    foreach ($kw in $keywords) {{
-      if ([string]::IsNullOrWhiteSpace($kw)) {{ continue }}
-      if ($displayLower.Contains($kw.ToLowerInvariant())) {{
-        $hit = $true
-        break
-      }}
-    }}
-    if (-not $hit) {{ return }}
-    Emit-Candidate $_.DisplayIcon
-    Emit-Candidate $_.UninstallString
-    $install = [string]$_.InstallLocation
-    if (-not [string]::IsNullOrWhiteSpace($install)) {{
-      foreach ($exe in $exeNames) {{
-        Emit-Candidate (Join-Path $install $exe)
-      }}
-    }}
-  }}
-}}
-
-Write-Output 'STAGE:CLASSES'
-$classRoots=@('HKCU:\Software\Classes','HKLM:\Software\Classes')
-foreach ($protocol in $protocolNames) {{
-  if ([string]::IsNullOrWhiteSpace($protocol)) {{ continue }}
-  foreach ($classRoot in $classRoots) {{
-    $commandPath = Join-Path (Join-Path $classRoot $protocol) 'shell\open\command'
-    Emit-Candidate ((Get-ItemProperty -Path $commandPath -ErrorAction SilentlyContinue).'(default)')
-  }}
-}}
-
-Write-Output 'STAGE:SHORTCUTS'
-$shortcutRoots=@(
-  "$env:ProgramData\Microsoft\Windows\Start Menu\Programs",
-  "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
-  "$env:USERPROFILE\Desktop",
-  "$env:PUBLIC\Desktop"
-)
-$shell = $null
-try {{ $shell = New-Object -ComObject WScript.Shell }} catch {{}}
-if ($shell) {{
-  foreach ($root in $shortcutRoots) {{
-    if (-not (Test-Path -LiteralPath $root)) {{ continue }}
-    Get-ChildItem -Path $root -Filter *.lnk -Recurse -ErrorAction SilentlyContinue | ForEach-Object {{
-      try {{
-        $shortcut = $shell.CreateShortcut($_.FullName)
-        Emit-Candidate $shortcut.TargetPath
-      }} catch {{}}
-    }}
-  }}
-}}
-
-Write-Output 'STAGE:COMMANDS'
-foreach ($commandName in $commandNames) {{
-  if ([string]::IsNullOrWhiteSpace($commandName)) {{ continue }}
-  $command = Get-Command $commandName -ErrorAction SilentlyContinue | Select-Object -First 1
-  if ($command) {{
-    Emit-Candidate $command.Source
-    Emit-Candidate $command.Definition
-  }}
-}}
-Write-Output 'STAGE:END'
-exit 0
-"#
-    );
-
-    let output = match powershell_output(&["-Command", &script]) {
-        Ok(value) => value,
-        Err(err) => {
-            crate::modules::logger::log_warn(&format!(
-                "[Path Scan] {} PowerShell scan failed: {}",
-                app_label, err
-            ));
-            return Vec::new();
-        }
-    };
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        crate::modules::logger::log_warn(&format!(
-            "[Path Scan] {} PowerShell command failed(-Command): status={}, stdout_head={}, stderr_head={}",
-            app_label,
-            output.status,
-            stdout.chars().take(400).collect::<String>(),
-            stderr.chars().take(400).collect::<String>()
-        ));
-        return Vec::new();
-    }
-
-    parse_windows_exec_candidate_list(app_label, exe_names, display_keywords, output)
-}
-
 fn should_detach_child() -> bool {
     if let Ok(value) = std::env::var("COCKPIT_CHILD_LOGS") {
         let lowered = value.trim().to_lowercase();
@@ -1311,7 +1014,7 @@ fn managed_proxy_env_pairs() -> Vec<(&'static str, String)> {
     .filter(|value| !value.trim().is_empty())
     .collect::<Vec<_>>()
     .join(",");
-    let no_proxy = config::merge_local_no_proxy(&no_proxy_seed);
+    let no_proxy = crate::modules::codex_protocol::merge_local_no_proxy(&no_proxy_seed);
     if !no_proxy.is_empty() {
         pairs.push(("no_proxy", no_proxy.clone()));
         pairs.push(("NO_PROXY", no_proxy));
@@ -1499,13 +1202,6 @@ fn update_app_path_in_config(app: &str, path: &Path) {
         "vscode" => {
             if current.vscode_app_path != normalized {
                 current.vscode_app_path = normalized;
-            } else {
-                return;
-            }
-        }
-        "gemini" => {
-            if current.gemini_app_path != normalized {
-                current.gemini_app_path = normalized;
             } else {
                 return;
             }
@@ -3612,31 +3308,6 @@ pub fn detect_and_save_app_path(app: &str, force: bool) -> Option<String> {
                 return Some(config::get_user_config().vscode_app_path);
             }
         }
-        "gemini" => {
-            if !force && !current.gemini_app_path.trim().is_empty() {
-                return Some(current.gemini_app_path);
-            }
-            if let Some(signature) = get_app_path_signature("gemini") {
-                #[cfg(target_os = "windows")]
-                if let Some(detected) = scan_windows_exec_paths_by_signatures(
-                    signature.label,
-                    signature.exe_names,
-                    signature.command_names,
-                    signature.protocol_names,
-                    signature.display_keywords,
-                )
-                .into_iter()
-                .next()
-                {
-                    update_app_path_in_config("gemini", &detected);
-                    return Some(config::get_user_config().gemini_app_path);
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    let _ = signature;
-                }
-            }
-        }
         "codebuddy" => {
             if !force && !current.codebuddy_app_path.trim().is_empty() {
                 return Some(current.codebuddy_app_path);
@@ -3694,355 +3365,6 @@ pub fn detect_and_save_app_path(app: &str, force: bool) -> Option<String> {
         _ => {}
     }
     None
-}
-
-struct AppPathSignature {
-    label: &'static str,
-    exe_names: &'static [&'static str],
-    command_names: &'static [&'static str],
-    protocol_names: &'static [&'static str],
-    display_keywords: &'static [&'static str],
-}
-
-fn get_app_path_signature(app: &str) -> Option<AppPathSignature> {
-    match app {
-        "antigravity" | "antigravity_ide" => Some(AppPathSignature {
-            label: "Antigravity IDE",
-            exe_names: &[
-                "Antigravity.exe",
-                "antigravity.exe",
-                "Antigravity IDE.exe",
-                "antigravity-ide.exe",
-                "Electron.exe",
-            ],
-            command_names: &["antigravity", "antigravity ide"],
-            protocol_names: &["antigravity", "antigravity ide"],
-            display_keywords: &["antigravity ide", "antigravity"],
-        }),
-        "antigravity_legacy" => Some(AppPathSignature {
-            label: "Antigravity",
-            exe_names: &["Antigravity.exe", "antigravity.exe", "Electron.exe"],
-            command_names: &["antigravity"],
-            protocol_names: &["antigravity"],
-            display_keywords: &["antigravity"],
-        }),
-        "codex" => Some(AppPathSignature {
-            label: "Codex",
-            exe_names: &["Codex.exe"],
-            command_names: &["codex"],
-            protocol_names: &["codex"],
-            display_keywords: &["codex", "openai codex"],
-        }),
-        "zed" => Some(AppPathSignature {
-            label: "Zed",
-            exe_names: &["Zed.exe"],
-            command_names: &["zed"],
-            protocol_names: &["zed"],
-            display_keywords: &["zed"],
-        }),
-        "vscode" => Some(AppPathSignature {
-            label: "VS Code",
-            exe_names: &["Code.exe", "Code - Insiders.exe"],
-            command_names: &["code", "code-insiders"],
-            protocol_names: &["vscode", "vscode-insiders"],
-            display_keywords: &["visual studio code", "vs code", "vscode"],
-        }),
-        "opencode" => Some(AppPathSignature {
-            label: "OpenCode",
-            exe_names: &["OpenCode.exe", "opencode.exe"],
-            command_names: &["opencode"],
-            protocol_names: &["opencode"],
-            display_keywords: &["opencode", "open code"],
-        }),
-        "windsurf" => Some(AppPathSignature {
-            label: "Windsurf",
-            exe_names: &["Windsurf.exe", "windsurf.exe"],
-            command_names: &["windsurf"],
-            protocol_names: &["windsurf"],
-            display_keywords: &["windsurf"],
-        }),
-        "kiro" => Some(AppPathSignature {
-            label: "Kiro",
-            exe_names: &["Kiro.exe", "kiro.exe"],
-            command_names: &["kiro"],
-            protocol_names: &["kiro"],
-            display_keywords: &["kiro"],
-        }),
-        "cursor" => Some(AppPathSignature {
-            label: "Cursor",
-            exe_names: &["Cursor.exe", "cursor.exe"],
-            command_names: &["cursor"],
-            protocol_names: &["cursor"],
-            display_keywords: &["cursor"],
-        }),
-        "gemini" => Some(AppPathSignature {
-            label: "Gemini Cli",
-            exe_names: &["gemini.cmd", "gemini.exe", "gemini.bat", "gemini.ps1"],
-            command_names: &["gemini"],
-            protocol_names: &[],
-            display_keywords: &["gemini", "google gemini"],
-        }),
-        "codebuddy" => Some(AppPathSignature {
-            label: "CodeBuddy",
-            exe_names: &["CodeBuddy.exe"],
-            command_names: &["codebuddy"],
-            protocol_names: &["codebuddy"],
-            display_keywords: &["codebuddy"],
-        }),
-        "codebuddy_cn" => Some(AppPathSignature {
-            label: "CodeBuddy CN",
-            exe_names: &["CodeBuddy CN.exe", "CodeBuddy.exe"],
-            command_names: &["codebuddy-cn", "codebuddy"],
-            protocol_names: &["codebuddy-cn", "codebuddy"],
-            display_keywords: &["codebuddy cn", "codebuddy"],
-        }),
-        "qoder" => Some(AppPathSignature {
-            label: "Qoder",
-            exe_names: &["Qoder.exe"],
-            command_names: &["qoder"],
-            protocol_names: &["qoder"],
-            display_keywords: &["qoder"],
-        }),
-        "trae" => Some(AppPathSignature {
-            label: "Trae",
-            exe_names: &["Trae.exe"],
-            command_names: &["trae"],
-            protocol_names: &["trae"],
-            display_keywords: &["trae"],
-        }),
-        "workbuddy" => Some(AppPathSignature {
-            label: "WorkBuddy",
-            exe_names: &["WorkBuddy.exe"],
-            command_names: &["workbuddy"],
-            protocol_names: &["workbuddy"],
-            display_keywords: &["workbuddy"],
-        }),
-        _ => None,
-    }
-}
-
-fn current_app_path_from_config(app: &str, current: &config::UserConfig) -> Option<String> {
-    let value = match app {
-        "antigravity" | "antigravity_ide" | "antigravity_legacy" => &current.antigravity_app_path,
-        "codex" => &current.codex_app_path,
-        "claude" => &current.claude_app_path,
-        "vscode" => &current.vscode_app_path,
-        "opencode" => &current.opencode_app_path,
-        "windsurf" => &current.windsurf_app_path,
-        "kiro" => &current.kiro_app_path,
-        "cursor" => &current.cursor_app_path,
-        "gemini" => &current.gemini_app_path,
-        "codebuddy" => &current.codebuddy_app_path,
-        "codebuddy_cn" => &current.codebuddy_cn_app_path,
-        "qoder" => &current.qoder_app_path,
-        "trae" => &current.trae_app_path,
-        "workbuddy" => &current.workbuddy_app_path,
-        "zed" => &current.zed_app_path,
-        _ => return None,
-    };
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn push_app_launch_candidate(
-    candidates: &mut Vec<AppLaunchCandidate>,
-    seen: &mut HashSet<String>,
-    label: &str,
-    target: String,
-    source: &str,
-) {
-    let target = target.trim().to_string();
-    if target.is_empty() {
-        return;
-    }
-    let key = target.to_lowercase();
-    if !seen.insert(key) {
-        return;
-    }
-    candidates.push(AppLaunchCandidate {
-        target_type: "exe".to_string(),
-        label: label.to_string(),
-        target,
-        source: source.to_string(),
-        supports_multi_instance: true,
-    });
-}
-
-fn scan_root_exec_candidates(root: &Path, signature: &AppPathSignature) -> Vec<std::path::PathBuf> {
-    let mut results = Vec::new();
-    let mut stack = vec![root.to_path_buf()];
-    let exe_names_lower: HashSet<String> = signature
-        .exe_names
-        .iter()
-        .map(|value| value.to_ascii_lowercase())
-        .collect();
-    let mut visited = 0usize;
-    const MAX_DIRS: usize = 20_000;
-
-    while let Some(dir) = stack.pop() {
-        visited += 1;
-        if visited > MAX_DIRS {
-            crate::modules::logger::log_warn(&format!(
-                "[Path Scan] {} root scan reached directory limit at {}",
-                signature.label,
-                root.to_string_lossy()
-            ));
-            break;
-        }
-        let entries = match std::fs::read_dir(&dir) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let file_type = match entry.file_type() {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
-            if file_type.is_dir() {
-                let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
-                if matches!(
-                    name.as_str(),
-                    "$recycle.bin"
-                        | "system volume information"
-                        | "windows"
-                        | "node_modules"
-                        | ".git"
-                ) {
-                    continue;
-                }
-                stack.push(path);
-                continue;
-            }
-            if !file_type.is_file() {
-                continue;
-            }
-            let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
-            if exe_names_lower.contains(&name) {
-                results.push(path);
-            }
-        }
-    }
-    results
-}
-
-fn split_app_scan_roots(scan_roots: Option<&str>) -> Vec<PathBuf> {
-    scan_roots
-        .unwrap_or("")
-        .lines()
-        .flat_map(|line| line.split(';'))
-        .flat_map(|part| part.split(','))
-        .map(|part| part.trim().trim_matches('"').trim_matches('\''))
-        .filter(|part| !part.is_empty())
-        .map(PathBuf::from)
-        .collect()
-}
-
-pub fn scan_app_launch_targets(app: &str, scan_roots: Option<&str>) -> Vec<AppLaunchCandidate> {
-    let Some(signature) = get_app_path_signature(app) else {
-        return Vec::new();
-    };
-    let mut candidates = Vec::new();
-    let mut seen = HashSet::new();
-    let current = config::get_user_config();
-
-    if let Some(current_path) = current_app_path_from_config(app, &current) {
-        push_app_launch_candidate(
-            &mut candidates,
-            &mut seen,
-            signature.label,
-            current_path,
-            "current_config",
-        );
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        for path in scan_windows_exec_paths_by_signatures(
-            signature.label,
-            signature.exe_names,
-            signature.command_names,
-            signature.protocol_names,
-            signature.display_keywords,
-        ) {
-            push_app_launch_candidate(
-                &mut candidates,
-                &mut seen,
-                signature.label,
-                path.to_string_lossy().to_string(),
-                "auto_detect",
-            );
-        }
-
-        if app == "codex" {
-            if let Some(path) = detect_codex_exec_path_by_windowsapps_scan()
-                .or_else(detect_codex_exec_path_by_appx_install_location)
-            {
-                push_app_launch_candidate(
-                    &mut candidates,
-                    &mut seen,
-                    signature.label,
-                    path.to_string_lossy().to_string(),
-                    "windowsapps",
-                );
-            }
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        if let Some(detected) = detect_and_save_app_path(app, true) {
-            push_app_launch_candidate(
-                &mut candidates,
-                &mut seen,
-                signature.label,
-                detected,
-                "auto_detect",
-            );
-        }
-    }
-
-    for root in split_app_scan_roots(scan_roots) {
-        if !root.exists() {
-            continue;
-        }
-        if root.is_file() {
-            let name = root
-                .file_name()
-                .and_then(|value| value.to_str())
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            let matches = signature
-                .exe_names
-                .iter()
-                .any(|exe| exe.eq_ignore_ascii_case(&name));
-            if matches {
-                push_app_launch_candidate(
-                    &mut candidates,
-                    &mut seen,
-                    signature.label,
-                    root.to_string_lossy().to_string(),
-                    "scan_root",
-                );
-            }
-            continue;
-        }
-        for path in scan_root_exec_candidates(&root, &signature) {
-            push_app_launch_candidate(
-                &mut candidates,
-                &mut seen,
-                signature.label,
-                path.to_string_lossy().to_string(),
-                "scan_root",
-            );
-        }
-    }
-
-    candidates
 }
 
 pub fn is_pid_running(pid: u32) -> bool {
@@ -5283,19 +4605,9 @@ fn get_default_antigravity_user_data_dir() -> Option<String> {
 }
 
 fn get_default_antigravity_legacy_user_data_dir() -> Option<String> {
-    #[cfg(target_os = "macos")]
-    let path = dirs::home_dir().map(|home| home.join("Library/Application Support/Antigravity"));
-
-    #[cfg(target_os = "windows")]
-    let path = std::env::var("APPDATA")
+    crate::modules::antigravity_legacy_instance::get_default_user_data_dir()
         .ok()
-        .filter(|value| !value.trim().is_empty())
-        .map(|value| PathBuf::from(value).join("Antigravity"));
-
-    #[cfg(target_os = "linux")]
-    let path = dirs::home_dir().map(|home| home.join(".config/Antigravity"));
-
-    path.map(|value| normalize_path_for_compare(&value.to_string_lossy()))
+        .map(|value| normalize_path_for_compare(&value.to_string_lossy()))
         .filter(|value| !value.is_empty())
 }
 
@@ -5370,7 +4682,7 @@ fn get_managed_codex_windows_app_user_data_dir(codex_home: &str) -> Option<Strin
     if trimmed.is_empty() {
         return None;
     }
-    get_codex_windows_app_user_data_dir(Path::new(trimmed))
+    crate::modules::codex_instance::get_windows_app_user_data_dir(Path::new(trimmed))
         .ok()
         .map(|value| value.to_string_lossy().to_string())
 }
@@ -5574,7 +4886,7 @@ fn collect_trae_process_entries_macos() -> Vec<(u32, Option<String>)> {
 
 #[cfg(target_os = "macos")]
 fn resolve_qoder_pid(last_pid: Option<u32>, user_data_dir: Option<&str>) -> Option<u32> {
-    let default_user_data_dir = get_default_qoder_user_data_dir()
+    let default_user_data_dir = crate::modules::qoder_instance::get_default_qoder_user_data_dir()
         .ok()
         .map(|value| value.to_string_lossy().to_string());
     let (target, allow_none_for_target) = build_user_data_dir_match_target(
@@ -5588,7 +4900,7 @@ fn resolve_qoder_pid(last_pid: Option<u32>, user_data_dir: Option<&str>) -> Opti
 
 #[cfg(target_os = "macos")]
 fn resolve_trae_pid(last_pid: Option<u32>, user_data_dir: Option<&str>) -> Option<u32> {
-    let default_user_data_dir = get_default_trae_user_data_dir()
+    let default_user_data_dir = crate::modules::trae_instance::get_default_trae_user_data_dir()
         .ok()
         .map(|value| value.to_string_lossy().to_string());
     let (target, allow_none_for_target) = build_user_data_dir_match_target(
@@ -8674,7 +7986,9 @@ pub fn start_codex_with_args(codex_home: &str, extra_args: &[String]) -> Result<
         if !codex_home_trimmed.is_empty() {
             if let Ok(launch_path) = resolve_codex_launch_path() {
                 let app_user_data_dir =
-                    get_codex_macos_app_user_data_dir(Path::new(codex_home_trimmed))?;
+                    crate::modules::codex_instance::get_macos_app_user_data_dir(Path::new(
+                        codex_home_trimmed,
+                    ))?;
                 std::fs::create_dir_all(&app_user_data_dir).map_err(|e| {
                     format!(
                         "创建 Codex macOS 实例运行目录失败 ({}): {}",
@@ -8746,7 +8060,9 @@ pub fn start_codex_with_args(codex_home: &str, extra_args: &[String]) -> Result<
         }
 
         let launch_path = resolve_codex_launch_path()?;
-        let app_user_data_dir = get_codex_windows_app_user_data_dir(Path::new(codex_home_trimmed))?;
+        let app_user_data_dir = crate::modules::codex_instance::get_windows_app_user_data_dir(
+            Path::new(codex_home_trimmed),
+        )?;
         std::fs::create_dir_all(&app_user_data_dir).map_err(|e| {
             format!(
                 "创建 Codex Windows 实例运行目录失败 ({}): {}",
@@ -8901,12 +8217,16 @@ fn build_codex_app_launch_args(extra_args: &[String], codex_home: &str) -> Vec<S
         args.push(trimmed.to_string());
         index += 1;
     }
-    args.push(codex_remote_debugging_arg(codex_home.trim()));
+    args.push(crate::modules::codex_model_injector::remote_debugging_arg(
+        codex_home.trim(),
+    ));
     args
 }
 
 fn build_codex_default_launch_args(extra_args: &[String]) -> Vec<String> {
-    let default_home = get_default_codex_home().to_string_lossy().to_string();
+    let default_home = crate::modules::codex_account::get_codex_home()
+        .to_string_lossy()
+        .to_string();
     build_codex_app_launch_args(extra_args, &default_home)
 }
 
@@ -9181,13 +8501,17 @@ pub fn close_codex_default_fast_by_pid(
 pub fn close_codex_default(timeout_secs: u64) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        let default_home = get_default_codex_home().to_string_lossy().to_string();
+        let default_home = crate::modules::codex_account::get_codex_home()
+            .to_string_lossy()
+            .to_string();
         return close_codex_instances(&[default_home], timeout_secs);
     }
 
     #[cfg(target_os = "windows")]
     {
-        let default_home = get_default_codex_home().to_string_lossy().to_string();
+        let default_home = crate::modules::codex_account::get_codex_home()
+            .to_string_lossy()
+            .to_string();
         return close_codex_instances(&[default_home], timeout_secs);
     }
 
@@ -9317,8 +8641,11 @@ pub fn close_codex_instances(codex_homes: &[String], timeout_secs: u64) -> Resul
             return Ok(());
         }
 
-        let default_home =
-            normalize_path_for_compare(&get_default_codex_home().to_string_lossy().to_string());
+        let default_home = normalize_path_for_compare(
+            &crate::modules::codex_account::get_codex_home()
+                .to_string_lossy()
+                .to_string(),
+        );
         let entries = collect_codex_process_entries();
         let mut pids: Vec<u32> = entries
             .iter()
@@ -9400,8 +8727,11 @@ pub fn close_codex_instances(codex_homes: &[String], timeout_secs: u64) -> Resul
     {
         crate::modules::logger::log_info("正在关闭受管 Codex 实例...");
 
-        let default_home =
-            normalize_path_for_compare(&get_default_codex_home().to_string_lossy().to_string());
+        let default_home = normalize_path_for_compare(
+            &crate::modules::codex_account::get_codex_home()
+                .to_string_lossy()
+                .to_string(),
+        );
         let mut target_app_dirs: HashSet<String> = HashSet::new();
         let mut includes_default = false;
 
@@ -9429,7 +8759,9 @@ pub fn close_codex_instances(codex_homes: &[String], timeout_secs: u64) -> Resul
 
         let current_default_app_dirs = if includes_default {
             get_default_codex_windows_app_user_data_dirs(
-                get_default_codex_home().to_string_lossy().as_ref(),
+                crate::modules::codex_account::get_codex_home()
+                    .to_string_lossy()
+                    .as_ref(),
             )
         } else {
             HashSet::new()

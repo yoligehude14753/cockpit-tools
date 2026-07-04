@@ -23,18 +23,16 @@ import {
 
 interface InstancesPageProps {
   onNavigate?: (page: Page) => void;
-  hideHeader?: boolean;
 }
 
-export function InstancesPage({ onNavigate, hideHeader = false }: InstancesPageProps) {
+export function InstancesPage({ onNavigate }: InstancesPageProps) {
   const { t } = useTranslation();
   const runtimeTarget = useAntigravityRuntimeTarget();
   const legacyInstanceStore = useAntigravityLegacyInstanceStore();
   const ideInstanceStore = useInstanceStore();
   const instanceStore =
     runtimeTarget === 'antigravity' ? legacyInstanceStore : ideInstanceStore;
-  const { accounts, currentAccountsByTarget, fetchAccounts, fetchCurrentAccount } = useAccountStore();
-  const currentAccount = currentAccountsByTarget[runtimeTarget] ?? null;
+  const { accounts, currentAccount, fetchAccounts } = useAccountStore();
   const [displayGroups, setDisplayGroups] = useState<DisplayGroup[]>([]);
   const [sortBy] = useState(() =>
     normalizeAntigravitySortBy(
@@ -61,11 +59,6 @@ export function InstancesPage({ onNavigate, hideHeader = false }: InstancesPageP
     () => [...accounts].sort(accountSortComparator),
     [accountSortComparator, accounts],
   );
-
-  useEffect(() => {
-    fetchAccounts();
-    fetchCurrentAccount(runtimeTarget);
-  }, [fetchAccounts, fetchCurrentAccount, runtimeTarget]);
 
   useEffect(() => {
     getDisplayGroups()
@@ -99,13 +92,11 @@ export function InstancesPage({ onNavigate, hideHeader = false }: InstancesPageP
 
   return (
     <div className="instances-page">
-      {!hideHeader && (
-        <OverviewTabsHeader
-          active="instances"
-          onNavigate={onNavigate}
-          subtitle={t('instances.subtitle', '多实例独立配置，多账号并行运行。')}
-        />
-      )}
+      <OverviewTabsHeader
+        active="instances"
+        onNavigate={onNavigate}
+        subtitle={t('instances.subtitle', '多实例独立配置，多账号并行运行。')}
+      />
       <InstancesManager
         instanceStore={instanceStore}
         accounts={sortedAccountsForSelect}

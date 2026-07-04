@@ -12,7 +12,6 @@ use crate::modules::{account, logger};
 
 const ACCOUNTS_INDEX_FILE: &str = "cursor_accounts.json";
 const ACCOUNTS_DIR: &str = "cursor_accounts";
-const ACCOUNT_STORE_PLATFORM: &str = "cursor";
 const CURSOR_QUOTA_ALERT_COOLDOWN_SECONDS: i64 = 10 * 60;
 const CURSOR_ACCESS_TOKEN_REFRESH_THRESHOLD_SECONDS: i64 = 5 * 60;
 
@@ -81,23 +80,6 @@ fn get_accounts_index_path() -> Result<PathBuf, String> {
     Ok(get_data_dir()?.join(ACCOUNTS_INDEX_FILE))
 }
 
-fn ensure_account_store_migrated() -> Result<(), String> {
-    crate::modules::account_store::ensure_platform_migrated_from_json(
-        ACCOUNT_STORE_PLATFORM,
-        &get_accounts_index_path()?,
-        &get_accounts_dir()?,
-    )
-}
-
-fn account_index_from_store() -> Result<CursorAccountIndex, String> {
-    ensure_account_store_migrated()?;
-    let accounts =
-        crate::modules::account_store::list_accounts::<CursorAccount>(ACCOUNT_STORE_PLATFORM)?;
-    let mut index = CursorAccountIndex::new();
-    index.accounts = accounts.iter().map(|account| account.summary()).collect();
-    Ok(index)
-}
-
 pub fn accounts_index_path_string() -> Result<String, String> {
     Ok(get_accounts_index_path()?.to_string_lossy().to_string())
 }
@@ -132,18 +114,6 @@ fn resolve_account_file_path(account_id: &str) -> Result<PathBuf, String> {
 // ---------------------------------------------------------------------------
 
 pub fn load_account(account_id: &str) -> Option<CursorAccount> {
-    if let Err(err) = ensure_account_store_migrated() {
-        logger::log_warn(&format!(
-            "[Cursor Account][Store] 账号数据库迁移检查失败，回退文件读取: account_id={}, error={}",
-            account_id, err
-        ));
-    } else if let Ok(Some(account)) = crate::modules::account_store::load_account::<CursorAccount>(
-        ACCOUNT_STORE_PLATFORM,
-        account_id,
-    ) {
-        return Some(account);
-    }
-
     let account_path = resolve_account_file_path(account_id).ok()?;
     if !account_path.exists() {
         return None;
@@ -153,12 +123,6 @@ pub fn load_account(account_id: &str) -> Option<CursorAccount> {
 }
 
 fn save_account_file(account: &CursorAccount) -> Result<(), String> {
-    ensure_account_store_migrated()?;
-    crate::modules::account_store::save_account(
-        ACCOUNT_STORE_PLATFORM,
-        account.id.as_str(),
-        account,
-    )?;
     let path = resolve_account_file_path(account.id.as_str())?;
     let content =
         serde_json::to_string_pretty(account).map_err(|e| format!("序列化账号失败: {}", e))?;
@@ -167,7 +131,6 @@ fn save_account_file(account: &CursorAccount) -> Result<(), String> {
 }
 
 fn delete_account_file(account_id: &str) -> Result<(), String> {
-    crate::modules::account_store::delete_account(ACCOUNT_STORE_PLATFORM, account_id)?;
     let path = resolve_account_file_path(account_id)?;
     if path.exists() {
         fs::remove_file(path).map_err(|e| format!("删除账号文件失败: {}", e))?;
@@ -180,14 +143,6 @@ fn delete_account_file(account_id: &str) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 fn load_account_index() -> CursorAccountIndex {
-    match account_index_from_store() {
-        Ok(index) => return index,
-        Err(error) => logger::log_warn(&format!(
-            "[Cursor Account][Store] 从 SQLite 读取账号索引失败，回退 JSON: {}",
-            error
-        )),
-    }
-
     let path = match get_accounts_index_path() {
         Ok(p) => p,
         Err(_) => return CursorAccountIndex::new(),
@@ -224,14 +179,6 @@ fn load_account_index() -> CursorAccountIndex {
 }
 
 fn load_account_index_checked() -> Result<CursorAccountIndex, String> {
-    match account_index_from_store() {
-        Ok(index) => return Ok(index),
-        Err(error) => logger::log_warn(&format!(
-            "[Cursor Account][Store] 从 SQLite 读取账号索引失败，继续检查 JSON: {}",
-            error
-        )),
-    }
-
     let path = get_accounts_index_path()?;
     if !path.exists() {
         return Ok(CursorAccountIndex::new());
@@ -279,12 +226,6 @@ fn load_account_index_checked() -> Result<CursorAccountIndex, String> {
 }
 
 fn save_account_index(index: &CursorAccountIndex) -> Result<(), String> {
-    let ordered_ids = index
-        .accounts
-        .iter()
-        .map(|summary| summary.id.clone())
-        .collect::<Vec<_>>();
-    crate::modules::account_store::save_account_order(ACCOUNT_STORE_PLATFORM, &ordered_ids)?;
     let path = get_accounts_index_path()?;
     let content =
         serde_json::to_string_pretty(index).map_err(|e| format!("序列化账号索引失败: {}", e))?;
@@ -1379,43 +1320,11 @@ struct CursorRefreshTokenResponse {
     should_logout: bool,
 }
 
-fn format_error_chain(error: &(dyn std::error::Error + 'static)) -> String {
-    let mut parts = vec![error.to_string()];
-    let mut source = error.source();
-    while let Some(err) = source {
-        let detail = err.to_string();
-        if !detail.trim().is_empty() && parts.last().map(|item| item != &detail).unwrap_or(true) {
-            parts.push(detail);
-        }
-        source = err.source();
-    }
-    parts.join(" | caused by: ")
-}
-
-fn format_reqwest_error(error: &reqwest::Error) -> String {
-    let mut tags = Vec::new();
-    if error.is_timeout() {
-        tags.push("timeout");
-    }
-    if error.is_connect() {
-        tags.push("connect");
-    }
-    if error.is_request() {
-        tags.push("request");
-    }
-    let detail = format_error_chain(error);
-    if tags.is_empty() {
-        detail
-    } else {
-        format!("{} [{}]", detail, tags.join(","))
-    }
-}
-
 fn build_cursor_http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {}", format_reqwest_error(&e)))
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))
 }
 
 fn extract_workos_user_id(jwt: &str) -> Option<String> {
@@ -1469,20 +1378,13 @@ async fn exchange_refresh_token_with_client(
         }))
         .send()
         .await
-        .map_err(|e| {
-            format!(
-                "请求 Cursor token 刷新接口失败: {}",
-                format_reqwest_error(&e)
-            )
-        })?;
+        .map_err(|e| format!("请求 Cursor token 刷新接口失败: {}", e))?;
 
     let status = response.status().as_u16();
-    let body = response.text().await.map_err(|e| {
-        format!(
-            "读取 Cursor token 刷新响应失败: {}",
-            format_reqwest_error(&e)
-        )
-    })?;
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("读取 Cursor token 刷新响应失败: {}", e))?;
 
     if status == 401 || status == 403 {
         return Err("Cursor refresh token 已过期或无效，请重新导入账号".to_string());
@@ -1541,7 +1443,7 @@ async fn fetch_user_meta_with_client(
         .json(&serde_json::json!({}))
         .send()
         .await
-        .map_err(|e| format!("请求 Cursor user meta 失败: {}", format_reqwest_error(&e)))?;
+        .map_err(|e| format!("请求 Cursor user meta 失败: {}", e))?;
 
     let status = response.status().as_u16();
     if status == 401 || status == 403 {
@@ -1551,12 +1453,10 @@ async fn fetch_user_meta_with_client(
         return Err(format!("Cursor user meta API 返回异常状态码: {}", status));
     }
 
-    let body = response.text().await.map_err(|e| {
-        format!(
-            "读取 Cursor user meta 响应失败: {}",
-            format_reqwest_error(&e)
-        )
-    })?;
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("读取 Cursor user meta 响应失败: {}", e))?;
 
     serde_json::from_str::<CursorUserMetaResponse>(&body)
         .map_err(|e| format!("解析 Cursor user meta JSON 失败: {}", e))
@@ -1572,24 +1472,17 @@ async fn fetch_stripe_profile_with_client(
         .header("Accept", "application/json")
         .send()
         .await
-        .map_err(|e| {
-            format!(
-                "请求 Cursor full stripe profile 失败: {}",
-                format_reqwest_error(&e)
-            )
-        })?;
+        .map_err(|e| format!("请求 Cursor full stripe profile 失败: {}", e))?;
 
     let full_status = full_response.status().as_u16();
     if full_status == 401 || full_status == 403 {
         return Err("Cursor 会话已过期或未认证，请重新导入账号".to_string());
     }
     if full_status == 200 {
-        let body = full_response.text().await.map_err(|e| {
-            format!(
-                "读取 Cursor full stripe profile 响应失败: {}",
-                format_reqwest_error(&e)
-            )
-        })?;
+        let body = full_response
+            .text()
+            .await
+            .map_err(|e| format!("读取 Cursor full stripe profile 响应失败: {}", e))?;
         let profile = serde_json::from_str::<CursorStripeProfileResponse>(&body)
             .map_err(|e| format!("解析 Cursor full stripe profile JSON 失败: {}", e))?;
         return Ok(Some(profile));
@@ -1601,12 +1494,7 @@ async fn fetch_stripe_profile_with_client(
         .header("Accept", "application/json")
         .send()
         .await
-        .map_err(|e| {
-            format!(
-                "请求 Cursor stripe profile 失败: {}",
-                format_reqwest_error(&e)
-            )
-        })?;
+        .map_err(|e| format!("请求 Cursor stripe profile 失败: {}", e))?;
 
     let fallback_status = fallback_response.status().as_u16();
     if fallback_status == 401 || fallback_status == 403 {
@@ -1616,12 +1504,10 @@ async fn fetch_stripe_profile_with_client(
         return Ok(None);
     }
 
-    let body = fallback_response.text().await.map_err(|e| {
-        format!(
-            "读取 Cursor stripe profile 响应失败: {}",
-            format_reqwest_error(&e)
-        )
-    })?;
+    let body = fallback_response
+        .text()
+        .await
+        .map_err(|e| format!("读取 Cursor stripe profile 响应失败: {}", e))?;
 
     let parsed = serde_json::from_str::<serde_json::Value>(&body)
         .map_err(|e| format!("解析 Cursor stripe profile JSON 失败: {}", e))?;
@@ -1665,7 +1551,7 @@ async fn fetch_usage_summary_with_client(
         )
         .send()
         .await
-        .map_err(|e| format!("请求 Cursor usage API 失败: {}", format_reqwest_error(&e)))?;
+        .map_err(|e| format!("请求 Cursor usage API 失败: {}", e))?;
 
     let status = response.status().as_u16();
     if status == 401 || status == 403 {
@@ -1678,7 +1564,7 @@ async fn fetch_usage_summary_with_client(
     let body = response
         .text()
         .await
-        .map_err(|e| format!("读取 Cursor usage 响应失败: {}", format_reqwest_error(&e)))?;
+        .map_err(|e| format!("读取 Cursor usage 响应失败: {}", e))?;
 
     serde_json::from_str::<serde_json::Value>(&body)
         .map_err(|e| format!("解析 Cursor usage JSON 失败: {}", e))
@@ -1978,7 +1864,7 @@ fn normalize_quota_alert_threshold(value: i32) -> i32 {
     value.clamp(0, 100)
 }
 
-pub fn resolve_current_account_id(accounts: &[CursorAccount]) -> Option<String> {
+pub(crate) fn resolve_current_account_id(accounts: &[CursorAccount]) -> Option<String> {
     if let Ok(Some(local_payload)) = read_local_cursor_auth() {
         let incoming_auth_id = resolve_payload_auth_id(&local_payload);
         let incoming_email = normalize_email_identity(Some(local_payload.email.as_str()));

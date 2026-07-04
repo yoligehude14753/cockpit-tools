@@ -34,11 +34,5 @@
         "visible": false
       }
     ]
-  },
-  "bundle": {
-    "macOS": {
-      "bundleName": "Cockpit Tools Dev",
-      "infoPlist": "Info.dev.plist"
-    }
   }
 }

@@ -1,145 +1,75 @@
-use std::time::{Duration, Instant};
-
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use serde_json::{json, Value};
+use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 
-use crate::models::qoder::QoderAccount;
-use crate::modules::{logger, platform_adapter, platform_package};
+use crate::models::qoder::{QoderAccount, QoderOAuthStartResponse};
+use crate::modules::{logger, qoder_account, qoder_oauth};
 
-const QODER_FAST_LOCAL_MUTATION_TIMEOUT: Duration = Duration::from_secs(20);
-
-fn ensure_qoder_package_installed() -> Result<(), String> {
-    platform_package::ensure_platform_package_installed("qoder")
-}
-
-fn qoder_call<T: DeserializeOwned>(method: &str, payload: Value) -> Result<T, String> {
-    ensure_qoder_package_installed()?;
-    platform_adapter::call_qoder(method, payload)
-}
-
-async fn qoder_call_async<T>(method: &'static str, payload: Value) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static,
-{
-    ensure_qoder_package_installed()?;
-    tauri::async_runtime::spawn_blocking(move || platform_adapter::call_qoder(method, payload))
-        .await
-        .map_err(|error| format!("Qoder adapter 任务失败: {}", error))?
-}
-
-async fn qoder_call_async_with_timeout<T>(
-    method: &'static str,
-    payload: Value,
-    timeout: Duration,
-) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static,
-{
-    ensure_qoder_package_installed()?;
-    tauri::async_runtime::spawn_blocking(move || {
-        platform_adapter::call_qoder_with_timeout(method, payload, timeout)
-    })
-    .await
-    .map_err(|error| format!("Qoder adapter 任务失败: {}", error))?
-}
-
-fn update_tray_menu_in_background(app: AppHandle) {
-    tauri::async_runtime::spawn_blocking(move || {
-        let _ = crate::modules::tray::update_tray_menu(&app);
-    });
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SwitchResult {
-    message: String,
-    #[serde(default)]
-    restart_error: Option<String>,
-    path_missing: bool,
-}
-
-fn emit_qoder_path_missing(app: &AppHandle, retry: Value) {
-    let _ = app.emit(
-        "app:path_missing",
-        json!({
-            "app": "qoder",
-            "retry": retry
-        }),
-    );
+#[tauri::command]
+pub fn list_qoder_accounts() -> Result<Vec<QoderAccount>, String> {
+    qoder_account::list_accounts_checked()
 }
 
 #[tauri::command]
-pub async fn list_qoder_accounts() -> Result<Vec<QoderAccount>, String> {
-    qoder_call_async_with_timeout(
-        "accounts.list",
-        json!({}),
-        QODER_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await
+pub fn delete_qoder_account(account_id: String) -> Result<(), String> {
+    qoder_account::remove_account(&account_id)
 }
 
 #[tauri::command]
-pub async fn delete_qoder_account(app: AppHandle, account_id: String) -> Result<(), String> {
-    qoder_call_async_with_timeout::<()>(
-        "accounts.delete",
-        json!({ "accountId": account_id }),
-        QODER_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(())
+pub fn delete_qoder_accounts(account_ids: Vec<String>) -> Result<(), String> {
+    qoder_account::remove_accounts(&account_ids)
 }
 
 #[tauri::command]
-pub async fn delete_qoder_accounts(app: AppHandle, account_ids: Vec<String>) -> Result<(), String> {
-    qoder_call_async_with_timeout::<()>(
-        "accounts.deleteMany",
-        json!({ "accountIds": account_ids }),
-        QODER_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(())
+pub fn import_qoder_from_json(json_content: String) -> Result<Vec<QoderAccount>, String> {
+    qoder_account::import_from_json(&json_content)
 }
 
 #[tauri::command]
-pub async fn import_qoder_from_json(
-    app: AppHandle,
-    json_content: String,
-) -> Result<Vec<QoderAccount>, String> {
-    let accounts = qoder_call_async_with_timeout(
-        "accounts.importJson",
-        json!({ "jsonContent": json_content }),
-        QODER_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(accounts)
+pub fn import_qoder_from_local(app: AppHandle) -> Result<Vec<QoderAccount>, String> {
+    match qoder_account::import_from_local()? {
+        Some(account) => {
+            let _ = crate::modules::tray::update_tray_menu(&app);
+            Ok(vec![account])
+        }
+        None => Err("未找到本地 Qoder 登录信息".to_string()),
+    }
 }
 
 #[tauri::command]
-pub async fn import_qoder_from_local(app: AppHandle) -> Result<Vec<QoderAccount>, String> {
-    let accounts: Vec<QoderAccount> = qoder_call_async_with_timeout(
-        "accounts.importLocal",
-        json!({}),
-        QODER_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(accounts)
+pub async fn qoder_oauth_login_start() -> Result<QoderOAuthStartResponse, String> {
+    let started_at = Instant::now();
+    logger::log_info("[Qoder OAuth] start 命令触发");
+    let result = qoder_oauth::start_login().await;
+    match &result {
+        Ok(response) => logger::log_info(&format!(
+            "[Qoder OAuth] start 命令完成: login_id={}, verification_uri_len={}, callback_url={}, elapsed={}ms",
+            response.login_id,
+            response.verification_uri.len(),
+            response.callback_url.as_deref().unwrap_or("<none>"),
+            started_at.elapsed().as_millis()
+        )),
+        Err(err) => logger::log_warn(&format!(
+            "[Qoder OAuth] start 命令失败: elapsed={}ms, error={}",
+            started_at.elapsed().as_millis(),
+            err
+        )),
+    }
+    result
 }
 
 #[tauri::command]
-pub async fn qoder_oauth_login_start() -> Result<Value, String> {
-    logger::log_info("[Qoder Command] OAuth 登录开始");
-    qoder_call_async("oauth.start", json!({})).await
-}
-
-#[tauri::command]
-pub fn qoder_oauth_login_peek() -> Result<Option<Value>, String> {
-    qoder_call("oauth.peek", json!({}))
+pub fn qoder_oauth_login_peek() -> Option<QoderOAuthStartResponse> {
+    let pending = qoder_oauth::peek_pending_login();
+    if let Some(state) = pending.as_ref() {
+        logger::log_info(&format!(
+            "[Qoder OAuth] peek 命令命中会话: login_id={}, verification_uri_len={}",
+            state.login_id,
+            state.verification_uri.len()
+        ));
+    } else {
+        logger::log_info("[Qoder OAuth] peek 命令未命中会话");
+    }
+    pending
 }
 
 #[tauri::command]
@@ -149,16 +79,26 @@ pub async fn qoder_oauth_login_complete(
 ) -> Result<QoderAccount, String> {
     let started_at = Instant::now();
     logger::log_info(&format!(
-        "[Qoder Command] OAuth 等待完成: login_id={}",
+        "[Qoder OAuth] complete 命令触发: login_id={}",
         login_id
     ));
-    let account: QoderAccount =
-        qoder_call_async("oauth.complete", json!({ "loginId": login_id })).await?;
+    let account = match qoder_oauth::complete_login(&login_id).await {
+        Ok(account) => account,
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Qoder OAuth] complete 命令失败: login_id={}, elapsed={}ms, error={}",
+                login_id,
+                started_at.elapsed().as_millis(),
+                err
+            ));
+            return Err(err);
+        }
+    };
     let _ = crate::modules::tray::update_tray_menu(&app);
     logger::log_info(&format!(
-        "[Qoder Command] OAuth 登录完成: account_id={}, email={}, elapsed={}ms",
+        "[Qoder OAuth] complete 命令完成: login_id={}, account_id={}, elapsed={}ms",
+        login_id,
         account.id,
-        account.email,
         started_at.elapsed().as_millis()
     ));
     Ok(account)
@@ -167,15 +107,15 @@ pub async fn qoder_oauth_login_complete(
 #[tauri::command]
 pub fn qoder_oauth_login_cancel(login_id: Option<String>) -> Result<(), String> {
     logger::log_info(&format!(
-        "[Qoder Command] OAuth 取消: login_id={}",
+        "[Qoder OAuth] cancel 命令触发: login_id={}",
         login_id.as_deref().unwrap_or("<none>")
     ));
-    qoder_call("oauth.cancel", json!({ "loginId": login_id }))
+    qoder_oauth::cancel_login(login_id.as_deref())
 }
 
 #[tauri::command]
 pub fn export_qoder_accounts(account_ids: Vec<String>) -> Result<String, String> {
-    qoder_call("accounts.export", json!({ "accountIds": account_ids }))
+    qoder_account::export_accounts(&account_ids)
 }
 
 #[tauri::command]
@@ -188,29 +128,41 @@ pub async fn refresh_qoder_token(
         "[Qoder Command] 手动刷新账号开始: account_id={}",
         account_id
     ));
-    let account: QoderAccount =
-        qoder_call_async("accounts.refresh", json!({ "accountId": account_id })).await?;
-    let _ = crate::modules::tray::update_tray_menu(&app);
-    logger::log_info(&format!(
-        "[Qoder Command] 手动刷新账号完成: account_id={}, elapsed={}ms",
-        account.id,
-        started_at.elapsed().as_millis()
-    ));
-    Ok(account)
+    match qoder_oauth::refresh_account_from_openapi(&account_id).await {
+        Ok(account) => {
+            let _ = crate::modules::tray::update_tray_menu(&app);
+            logger::log_info(&format!(
+                "[Qoder Command] 刷新完成: account_id={}, email={}, elapsed={}ms",
+                account.id,
+                account.email,
+                started_at.elapsed().as_millis()
+            ));
+            Ok(account)
+        }
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Qoder Command] 刷新失败: account_id={}, elapsed={}ms, error={}",
+                account_id,
+                started_at.elapsed().as_millis(),
+                err
+            ));
+            Err(err)
+        }
+    }
 }
 
 #[tauri::command]
 pub async fn refresh_all_qoder_tokens(app: AppHandle) -> Result<i32, String> {
     let started_at = Instant::now();
-    logger::log_info("[Qoder Command] 手动批量刷新开始");
-    let success_count: i32 = qoder_call_async("accounts.refreshAll", json!({})).await?;
+    logger::log_info("[Qoder Command] 批量刷新开始");
+    let refreshed = qoder_oauth::refresh_all_accounts_from_openapi().await?;
     let _ = crate::modules::tray::update_tray_menu(&app);
     logger::log_info(&format!(
-        "[Qoder Command] 手动批量刷新完成: success={}, elapsed={}ms",
-        success_count,
+        "[Qoder Command] 批量刷新完成: refreshed={}, elapsed={}ms",
+        refreshed,
         started_at.elapsed().as_millis()
     ));
-    Ok(success_count)
+    Ok(refreshed)
 }
 
 #[tauri::command]
@@ -221,27 +173,65 @@ pub async fn inject_qoder_account(app: AppHandle, account_id: String) -> Result<
         account_id
     ));
 
-    let result: SwitchResult =
-        qoder_call_async("switch.inject", json!({ "accountId": account_id })).await?;
-    let _ = crate::modules::provider_current_state::set_current_account_id(
+    let account = qoder_account::load_account(&account_id)
+        .ok_or_else(|| format!("Qoder 账号不存在: {}", account_id))?;
+
+    qoder_account::inject_to_qoder(&account_id)?;
+    crate::modules::provider_current_state::set_current_account_id(
         "qoder",
         Some(account_id.as_str()),
-    );
-    let _ = crate::modules::tray::update_tray_menu(&app);
+    )?;
 
-    if result.path_missing {
-        emit_qoder_path_missing(&app, json!({ "kind": "default" }));
-        if let Some(error) = result.restart_error.as_deref() {
-            logger::log_warn(&format!("[Qoder Switch] 切号完成但启动失败: err={}", error));
-        }
-        return Ok(result.message);
+    if let Err(err) = crate::modules::qoder_instance::update_default_settings(
+        Some(Some(account_id.clone())),
+        None,
+        Some(false),
+    ) {
+        logger::log_warn(&format!("更新 Qoder 默认实例绑定账号失败: {}", err));
     }
 
-    logger::log_info(&format!(
-        "[Qoder Switch] 切号成功: elapsed={}ms",
-        started_at.elapsed().as_millis()
-    ));
-    Ok(result.message)
+    let launch_warning = match crate::commands::qoder_instance::qoder_start_instance(
+        "__default__".to_string(),
+    )
+    .await
+    {
+        Ok(_) => None,
+        Err(err) => {
+            if err.starts_with("APP_PATH_NOT_FOUND:") || err.contains("启动 Qoder 失败") {
+                logger::log_warn(&format!("Qoder 默认实例启动失败: {}", err));
+                if err.starts_with("APP_PATH_NOT_FOUND:") || err.contains("APP_PATH_NOT_FOUND:") {
+                    let _ = app.emit(
+                        "app:path_missing",
+                        serde_json::json!({ "app": "qoder", "retry": { "kind": "default" } }),
+                    );
+                }
+                Some(err)
+            } else {
+                return Err(err);
+            }
+        }
+    };
+
+    let _ = crate::modules::tray::update_tray_menu(&app);
+
+    if let Some(err) = launch_warning {
+        logger::log_warn(&format!(
+            "[Qoder Switch] 切号完成但启动失败: account_id={}, email={}, elapsed={}ms, error={}",
+            account.id,
+            account.email,
+            started_at.elapsed().as_millis(),
+            err
+        ));
+        Ok(format!("切换完成，但 Qoder 启动失败: {}", err))
+    } else {
+        logger::log_info(&format!(
+            "[Qoder Switch] 切号成功: account_id={}, email={}, elapsed={}ms",
+            account.id,
+            account.email,
+            started_at.elapsed().as_millis()
+        ));
+        Ok(format!("切换完成: {}", account.email))
+    }
 }
 
 #[tauri::command]
@@ -249,13 +239,10 @@ pub fn update_qoder_account_tags(
     account_id: String,
     tags: Vec<String>,
 ) -> Result<QoderAccount, String> {
-    qoder_call(
-        "accounts.updateTags",
-        json!({ "accountId": account_id, "tags": tags }),
-    )
+    qoder_account::update_account_tags(&account_id, tags)
 }
 
 #[tauri::command]
 pub fn get_qoder_accounts_index_path() -> Result<String, String> {
-    qoder_call("accounts.indexPath", json!({}))
+    qoder_account::accounts_index_path_string()
 }

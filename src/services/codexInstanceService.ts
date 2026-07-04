@@ -177,7 +177,6 @@ export async function repairSessionVisibilityAcrossInstances(
   return await invoke("codex_repair_session_visibility_across_instances", {
     mode: options?.mode ?? "quick",
     runId: runId ?? null,
-    dryRun: options?.dryRun ?? false,
     targetProvider: options?.targetProvider ?? null,
     targetInstanceId: options?.targetInstanceId ?? null,
     repairInstanceIds: options?.repairInstanceIds ?? null,

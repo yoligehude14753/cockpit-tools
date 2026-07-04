@@ -1,6 +1,0 @@
-{
-  "platformId": "kiro",
-  "name": "Kiro platform package",
-  "description": "Runtime contribution, Remote React UI, and sidecar adapter declaration for the Cockpit Tools Kiro integration.",
-  "version": "1.0.1"
-}

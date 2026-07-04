@@ -19,7 +19,6 @@ export type CodexLocalAccessImageGenerationStatus =
 
 export type CodexLocalAccessRoutingStrategy =
   | "auto"
-  | "single_account"
   | "quota_high_first"
   | "quota_low_first"
   | "plan_high_first"
@@ -111,7 +110,6 @@ export interface CodexLocalAccessCollection {
   customRoutingRules: CodexLocalAccessCustomRoutingRule[];
   accountModelRules: CodexLocalAccessAccountModelRule[];
   modelAliases: CodexLocalAccessModelAlias[];
-  modelPricingVersion: number;
   modelPricings: CodexLocalAccessModelPricing[];
   debugLogs: boolean;
   excludedModels: string[];
@@ -202,7 +200,6 @@ export interface CodexLocalAccessUsageEvent {
   cachedTokens: number;
   reasoningTokens: number;
   estimatedCostUsd: number;
-  modelPricingVersion: number;
   inputUsdPerMillion: number;
   outputUsdPerMillion: number;
   cachedInputUsdPerMillion?: number | null;

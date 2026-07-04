@@ -14,7 +14,6 @@ import { useWorkbuddyAccountStore } from '../stores/useWorkbuddyAccountStore';
 import { useQoderAccountStore } from '../stores/useQoderAccountStore';
 import { useTraeAccountStore } from '../stores/useTraeAccountStore';
 import { useZedAccountStore } from '../stores/useZedAccountStore';
-import { usePlatformPackageStore } from '../stores/usePlatformPackageStore';
 import { getGitHubCopilotAccountDisplayEmail } from '../types/githubCopilot';
 import { getWindsurfAccountDisplayEmail } from '../types/windsurf';
 import { getKiroAccountDisplayEmail } from '../types/kiro';
@@ -27,8 +26,8 @@ import { getQoderAccountDisplayEmail } from '../types/qoder';
 import { getTraeAccountDisplayEmail } from '../types/trae';
 import { getZedAccountDisplayEmail } from '../types/zed';
 import {
-  getAccountRefreshMinutes,
   loadCurrentAccountRefreshMinutesMap,
+  getAccountRefreshMinutes,
   type CurrentAccountRefreshPlatform,
 } from '../utils/currentAccountRefresh';
 import {
@@ -36,23 +35,50 @@ import {
   type AutoRefreshSchedulerHandle,
   type AutoRefreshSchedulerTask,
 } from '../utils/autoRefreshScheduler';
-import { getAntigravityRuntimeTarget } from '../utils/antigravityRuntimeTarget';
 
 interface GeneralConfig {
+  language: string;
+  theme: string;
   auto_refresh_minutes: number;
   codex_auto_refresh_minutes: number;
   claude_auto_refresh_minutes: number;
+  codex_sync_wsl: boolean;
+  codex_wsl_config_dir: string;
   ghcp_auto_refresh_minutes: number;
   windsurf_auto_refresh_minutes: number;
   kiro_auto_refresh_minutes: number;
   cursor_auto_refresh_minutes: number;
   gemini_auto_refresh_minutes: number;
+  gemini_sync_wsl: boolean;
   codebuddy_auto_refresh_minutes: number;
   codebuddy_cn_auto_refresh_minutes: number;
   workbuddy_auto_refresh_minutes: number;
   qoder_auto_refresh_minutes: number;
   trae_auto_refresh_minutes: number;
   zed_auto_refresh_minutes: number;
+  auto_switch_enabled: boolean;
+  codex_auto_switch_enabled?: boolean;
+  codex_quota_alert_enabled?: boolean;
+  close_behavior: string;
+  opencode_app_path?: string;
+  antigravity_app_path?: string;
+  codex_app_path?: string;
+  vscode_app_path?: string;
+  windsurf_app_path?: string;
+  kiro_app_path?: string;
+  cursor_app_path?: string;
+  codebuddy_app_path?: string;
+  codebuddy_cn_app_path?: string;
+  qoder_app_path?: string;
+  trae_app_path?: string;
+  zed_app_path?: string;
+  opencode_sync_on_switch?: boolean;
+  opencode_auth_overwrite_on_switch?: boolean;
+  codex_launch_on_switch?: boolean;
+  cursor_quota_alert_enabled?: boolean;
+  cursor_quota_alert_threshold?: number;
+  gemini_quota_alert_enabled?: boolean;
+  gemini_quota_alert_threshold?: number;
 }
 
 interface PlatformRefreshDescriptor {
@@ -60,7 +86,6 @@ interface PlatformRefreshDescriptor {
   label: string;
   intervalMinutes: number;
   currentMinutes: number;
-  allowFullRefresh?: boolean;
   fullRefreshingRef: MutableRefObject<boolean>;
   currentRefreshingRef: MutableRefObject<boolean>;
   runFullRefresh: () => Promise<void>;
@@ -75,31 +100,14 @@ function minutesToMs(minutes: number): number {
   return minutes * 60 * 1000;
 }
 
-function shouldRunFullRefresh(descriptor: PlatformRefreshDescriptor): boolean {
-  return descriptor.allowFullRefresh !== false && descriptor.intervalMinutes > 0;
-}
-
-function shouldRunCurrentRefresh(descriptor: PlatformRefreshDescriptor): boolean {
-  if (descriptor.currentMinutes <= 0) {
-    return false;
-  }
-
-  // Codex 不再做全量配额自动刷新，但仍允许只刷新当前账号。
-  if (descriptor.allowFullRefresh === false) {
-    return true;
-  }
-
-  return descriptor.intervalMinutes > 0;
-}
-
 function buildEnabledPlatformsSummary(
   descriptors: PlatformRefreshDescriptor[],
 ): string {
   const fullSummary = descriptors
-    .filter(shouldRunFullRefresh)
+    .filter((descriptor) => descriptor.intervalMinutes > 0)
     .map((descriptor) => `${descriptor.key}=${descriptor.intervalMinutes}`);
   const currentSummary = descriptors
-    .filter(shouldRunCurrentRefresh)
+    .filter((descriptor) => descriptor.intervalMinutes > 0)
     .map((descriptor) => `${descriptor.key}:${descriptor.currentMinutes}`);
 
   const parts = [...fullSummary];
@@ -125,63 +133,27 @@ function getCurrentAccountEmails(): Record<CurrentAccountRefreshPlatform, string
     getDisplayEmail: (account: T) => string,
   ): string | null => {
     const state = store.getState();
-    const account = state.accounts.find((item) => item.id === state.currentAccountId);
+    const account = state.accounts.find((a) => a.id === state.currentAccountId);
     if (!account) return null;
     return account.email ?? getDisplayEmail(account);
   };
 
   return {
-    antigravity: canOpenAntigravityRuntimeTarget()
-      ? useAccountStore.getState().currentAccount?.email ?? null
-      : null,
-    codex: usePlatformPackageStore.getState().canOpenPlatform('codex')
-      ? useCodexAccountStore.getState().currentAccount?.email ?? null
-      : null,
-    claude: usePlatformPackageStore.getState().canOpenPlatform('claude_manager')
-      ? getProviderEmail(useClaudeAccountStore, getClaudeAccountDisplayEmail)
-      : null,
-    ghcp: usePlatformPackageStore.getState().canOpenPlatform('github-copilot')
-      ? getProviderEmail(useGitHubCopilotAccountStore, getGitHubCopilotAccountDisplayEmail)
-      : null,
-    windsurf: usePlatformPackageStore.getState().canOpenPlatform('windsurf')
-      ? getProviderEmail(useWindsurfAccountStore, getWindsurfAccountDisplayEmail)
-      : null,
-    kiro: usePlatformPackageStore.getState().canOpenPlatform('kiro')
-      ? getProviderEmail(useKiroAccountStore, getKiroAccountDisplayEmail)
-      : null,
-    cursor: usePlatformPackageStore.getState().canOpenPlatform('cursor')
-      ? getProviderEmail(useCursorAccountStore, getCursorAccountDisplayEmail)
-      : null,
-    gemini: usePlatformPackageStore.getState().canOpenPlatform('gemini')
-      ? getProviderEmail(useGeminiAccountStore, getGeminiAccountDisplayEmail)
-      : null,
-    codebuddy: usePlatformPackageStore.getState().canOpenPlatform('codebuddy')
-      ? getProviderEmail(useCodebuddyAccountStore, getCodebuddyAccountDisplayEmail)
-      : null,
-    codebuddy_cn: usePlatformPackageStore.getState().canOpenPlatform('codebuddy_cn')
-      ? getProviderEmail(useCodebuddyCnAccountStore, getCodebuddyAccountDisplayEmail)
-      : null,
-    workbuddy: usePlatformPackageStore.getState().canOpenPlatform('workbuddy')
-      ? getProviderEmail(useWorkbuddyAccountStore, getWorkbuddyAccountDisplayEmail)
-      : null,
-    qoder: usePlatformPackageStore.getState().canOpenPlatform('qoder')
-      ? getProviderEmail(useQoderAccountStore, getQoderAccountDisplayEmail)
-      : null,
-    trae: usePlatformPackageStore.getState().canOpenPlatform('trae')
-      ? getProviderEmail(useTraeAccountStore, getTraeAccountDisplayEmail)
-      : null,
-    zed: usePlatformPackageStore.getState().canOpenPlatform('zed')
-      ? getProviderEmail(useZedAccountStore, getZedAccountDisplayEmail)
-      : null,
+    antigravity: useAccountStore.getState().currentAccount?.email ?? null,
+    codex: useCodexAccountStore.getState().currentAccount?.email ?? null,
+    claude: getProviderEmail(useClaudeAccountStore, getClaudeAccountDisplayEmail),
+    ghcp: getProviderEmail(useGitHubCopilotAccountStore, getGitHubCopilotAccountDisplayEmail),
+    windsurf: getProviderEmail(useWindsurfAccountStore, getWindsurfAccountDisplayEmail),
+    kiro: getProviderEmail(useKiroAccountStore, getKiroAccountDisplayEmail),
+    cursor: getProviderEmail(useCursorAccountStore, getCursorAccountDisplayEmail),
+    gemini: getProviderEmail(useGeminiAccountStore, getGeminiAccountDisplayEmail),
+    codebuddy: getProviderEmail(useCodebuddyAccountStore, getCodebuddyAccountDisplayEmail),
+    codebuddy_cn: getProviderEmail(useCodebuddyCnAccountStore, getCodebuddyAccountDisplayEmail),
+    workbuddy: getProviderEmail(useWorkbuddyAccountStore, getWorkbuddyAccountDisplayEmail),
+    qoder: getProviderEmail(useQoderAccountStore, getQoderAccountDisplayEmail),
+    trae: getProviderEmail(useTraeAccountStore, getTraeAccountDisplayEmail),
+    zed: getProviderEmail(useZedAccountStore, getZedAccountDisplayEmail),
   };
-}
-
-function canOpenAntigravityRuntimeTarget(): boolean {
-  const target = getAntigravityRuntimeTarget();
-  const platformPackages = usePlatformPackageStore.getState();
-  return platformPackages.canOpenPlatform(target)
-    || platformPackages.canOpenPlatform('antigravity')
-    || platformPackages.canOpenPlatform('antigravity_ide');
 }
 
 export function useAutoRefresh() {
@@ -189,6 +161,7 @@ export function useAutoRefresh() {
   const fetchAccounts = useAccountStore((state) => state.fetchAccounts);
   const fetchCurrentAccount = useAccountStore((state) => state.fetchCurrentAccount);
 
+  const refreshAllCodexQuotas = useCodexAccountStore((state) => state.refreshAllQuotas);
   const fetchCodexAccounts = useCodexAccountStore((state) => state.fetchAccounts);
   const fetchCurrentCodexAccount = useCodexAccountStore((state) => state.fetchCurrentAccount);
   const refreshAllClaudeQuotas = useClaudeAccountStore((state) => state.refreshAllTokens);
@@ -298,11 +271,13 @@ export function useAutoRefresh() {
     console.log('[StartupPerf][AutoRefresh] setupAutoRefresh start');
 
     if (destroyedRef.current) {
+      console.log('[StartupPerf][AutoRefresh] setupAutoRefresh aborted: destroyed flag set');
       return;
     }
 
     if (setupRunningRef.current) {
       setupPendingRef.current = true;
+      console.log('[StartupPerf][AutoRefresh] setupAutoRefresh skipped: previous run still active');
       return;
     }
 
@@ -313,8 +288,95 @@ export function useAutoRefresh() {
         setupPendingRef.current = false;
 
         try {
+          const configInvokeStartedAt = performance.now();
           const config = await invoke<GeneralConfig>('get_general_config');
+          console.log(
+            `[StartupPerf][AutoRefresh] get_general_config completed in ${(performance.now() - configInvokeStartedAt).toFixed(2)}ms`,
+          );
+
           if (destroyedRef.current) {
+            console.log('[StartupPerf][AutoRefresh] setupAutoRefresh aborted after config load: destroyed flag set');
+            return;
+          }
+
+          const wakeupEnabled = localStorage.getItem('agtools.wakeup.enabled') === 'true';
+          if (wakeupEnabled) {
+            const tasksJson = localStorage.getItem('agtools.wakeup.tasks');
+            if (tasksJson) {
+              try {
+                const tasks = JSON.parse(tasksJson);
+                const hasActiveResetTask = Array.isArray(tasks)
+                  && tasks.some((task: unknown) => {
+                    if (!task || typeof task !== 'object') {
+                      return false;
+                    }
+                    const taskObject = task as {
+                      enabled?: boolean;
+                      schedule?: { wakeOnReset?: boolean };
+                    };
+                    return Boolean(taskObject.enabled && taskObject.schedule?.wakeOnReset);
+                  });
+
+                if (
+                  hasActiveResetTask
+                  && (config.auto_refresh_minutes === -1 || config.auto_refresh_minutes > 2)
+                ) {
+                  console.log(
+                    `[AutoRefresh] 检测到活跃的配额重置任务，自动修正刷新间隔: ${config.auto_refresh_minutes} -> 2`,
+                  );
+                  const saveConfigStartedAt = performance.now();
+                  await invoke('save_general_config', {
+                    language: config.language,
+                    theme: config.theme,
+                    autoRefreshMinutes: 2,
+                    codexAutoRefreshMinutes: config.codex_auto_refresh_minutes,
+                    claudeAutoRefreshMinutes: config.claude_auto_refresh_minutes,
+                    ghcpAutoRefreshMinutes: config.ghcp_auto_refresh_minutes,
+                    windsurfAutoRefreshMinutes: config.windsurf_auto_refresh_minutes,
+                    kiroAutoRefreshMinutes: config.kiro_auto_refresh_minutes,
+                    cursorAutoRefreshMinutes: config.cursor_auto_refresh_minutes,
+                    geminiAutoRefreshMinutes: config.gemini_auto_refresh_minutes,
+                    codebuddyAutoRefreshMinutes: config.codebuddy_auto_refresh_minutes,
+                    codebuddyCnAutoRefreshMinutes: config.codebuddy_cn_auto_refresh_minutes,
+                    workbuddyAutoRefreshMinutes: config.workbuddy_auto_refresh_minutes,
+                    qoderAutoRefreshMinutes: config.qoder_auto_refresh_minutes,
+                    traeAutoRefreshMinutes: config.trae_auto_refresh_minutes,
+                    zedAutoRefreshMinutes: config.zed_auto_refresh_minutes,
+                    closeBehavior: config.close_behavior || 'ask',
+                    opencodeAppPath: config.opencode_app_path ?? '',
+                    antigravityAppPath: config.antigravity_app_path ?? '',
+                    codexAppPath: config.codex_app_path ?? '',
+                    vscodeAppPath: config.vscode_app_path ?? '',
+                    windsurfAppPath: config.windsurf_app_path ?? '',
+                    kiroAppPath: config.kiro_app_path ?? '',
+                    cursorAppPath: config.cursor_app_path ?? '',
+                    codebuddyAppPath: config.codebuddy_app_path ?? '',
+                    codebuddyCnAppPath: config.codebuddy_cn_app_path ?? '',
+                    qoderAppPath: config.qoder_app_path ?? '',
+                    traeAppPath: config.trae_app_path ?? '',
+                    zedAppPath: config.zed_app_path ?? '',
+                    opencodeSyncOnSwitch: config.opencode_sync_on_switch ?? false,
+                    opencodeAuthOverwriteOnSwitch:
+                      config.opencode_auth_overwrite_on_switch ?? false,
+                    codexLaunchOnSwitch: config.codex_launch_on_switch ?? true,
+                    cursorQuotaAlertEnabled: config.cursor_quota_alert_enabled ?? false,
+                    cursorQuotaAlertThreshold: config.cursor_quota_alert_threshold ?? 20,
+                    geminiQuotaAlertEnabled: config.gemini_quota_alert_enabled ?? false,
+                    geminiQuotaAlertThreshold: config.gemini_quota_alert_threshold ?? 20,
+                  });
+                  console.log(
+                    `[StartupPerf][AutoRefresh] save_general_config completed in ${(performance.now() - saveConfigStartedAt).toFixed(2)}ms`,
+                  );
+                  config.auto_refresh_minutes = 2;
+                }
+              } catch (error) {
+                console.error('[AutoRefresh] 解析任务列表失败:', error);
+              }
+            }
+          }
+
+          if (destroyedRef.current) {
+            console.log('[StartupPerf][AutoRefresh] setupAutoRefresh aborted before scheduler setup: destroyed flag set');
             return;
           }
 
@@ -332,13 +394,9 @@ export function useAutoRefresh() {
             }
             await refreshProviderToken(accountId);
           };
-          const optionalDescriptor = (
-            enabled: boolean,
-            descriptor: PlatformRefreshDescriptor,
-          ): PlatformRefreshDescriptor[] => (enabled ? [descriptor] : []);
 
           const descriptors: PlatformRefreshDescriptor[] = [
-            ...optionalDescriptor(canOpenAntigravityRuntimeTarget(), {
+            {
               key: 'antigravity',
               label: 'Antigravity IDE',
               intervalMinutes: config.auto_refresh_minutes,
@@ -359,16 +417,17 @@ export function useAutoRefresh() {
                 await fetchAccounts();
                 await fetchCurrentAccount();
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('codex'), {
+            },
+            {
               key: 'codex',
               label: 'Codex',
               intervalMinutes: config.codex_auto_refresh_minutes,
               currentMinutes: resolveCurrentMinutes('codex', currentAccountEmails.codex, currentRefreshMinutesMap),
-              allowFullRefresh: false,
               fullRefreshingRef: codexRefreshingRef,
               currentRefreshingRef: codexCurrentRefreshingRef,
-              runFullRefresh: async () => {},
+              runFullRefresh: async () => {
+                await refreshAllCodexQuotas();
+              },
               runCurrentRefresh: async () => {
                 if (!useCodexAccountStore.getState().currentAccount?.id) {
                   await fetchCurrentCodexAccount();
@@ -380,8 +439,8 @@ export function useAutoRefresh() {
                 await fetchCodexAccounts();
                 await fetchCurrentCodexAccount();
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('claude_manager'), {
+            },
+            {
               key: 'claude',
               label: 'Claude',
               intervalMinutes: config.claude_auto_refresh_minutes,
@@ -394,8 +453,8 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentClaudeAccountId, refreshClaudeQuota);
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('github-copilot'), {
+            },
+            {
               key: 'ghcp',
               label: 'GitHub Copilot',
               intervalMinutes: config.ghcp_auto_refresh_minutes,
@@ -408,8 +467,8 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentGhcpAccountId, refreshGhcpToken);
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('windsurf'), {
+            },
+            {
               key: 'windsurf',
               label: 'Windsurf',
               intervalMinutes: config.windsurf_auto_refresh_minutes,
@@ -420,10 +479,13 @@ export function useAutoRefresh() {
                 await refreshAllWindsurfTokens();
               },
               runCurrentRefresh: async () => {
-                await runProviderCurrentRefresh(fetchCurrentWindsurfAccountId, refreshWindsurfToken);
+                await runProviderCurrentRefresh(
+                  fetchCurrentWindsurfAccountId,
+                  refreshWindsurfToken,
+                );
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('kiro'), {
+            },
+            {
               key: 'kiro',
               label: 'Kiro',
               intervalMinutes: config.kiro_auto_refresh_minutes,
@@ -436,8 +498,8 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentKiroAccountId, refreshKiroToken);
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('cursor'), {
+            },
+            {
               key: 'cursor',
               label: 'Cursor',
               intervalMinutes: config.cursor_auto_refresh_minutes,
@@ -450,8 +512,8 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentCursorAccountId, refreshCursorToken);
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('gemini'), {
+            },
+            {
               key: 'gemini',
               label: 'Gemini',
               intervalMinutes: config.gemini_auto_refresh_minutes,
@@ -464,8 +526,8 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentGeminiAccountId, refreshGeminiToken);
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('codebuddy'), {
+            },
+            {
               key: 'codebuddy',
               label: 'CodeBuddy',
               intervalMinutes: config.codebuddy_auto_refresh_minutes,
@@ -476,10 +538,13 @@ export function useAutoRefresh() {
                 await refreshAllCodebuddyTokens();
               },
               runCurrentRefresh: async () => {
-                await runProviderCurrentRefresh(fetchCurrentCodebuddyAccountId, refreshCodebuddyToken);
+                await runProviderCurrentRefresh(
+                  fetchCurrentCodebuddyAccountId,
+                  refreshCodebuddyToken,
+                );
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('codebuddy_cn'), {
+            },
+            {
               key: 'codebuddy_cn',
               label: 'CodeBuddy CN',
               intervalMinutes: config.codebuddy_cn_auto_refresh_minutes,
@@ -490,10 +555,13 @@ export function useAutoRefresh() {
                 await refreshAllCodebuddyCnTokens();
               },
               runCurrentRefresh: async () => {
-                await runProviderCurrentRefresh(fetchCurrentCodebuddyCnAccountId, refreshCodebuddyCnToken);
+                await runProviderCurrentRefresh(
+                  fetchCurrentCodebuddyCnAccountId,
+                  refreshCodebuddyCnToken,
+                );
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('workbuddy'), {
+            },
+            {
               key: 'workbuddy',
               label: 'WorkBuddy',
               intervalMinutes: config.workbuddy_auto_refresh_minutes,
@@ -504,10 +572,13 @@ export function useAutoRefresh() {
                 await refreshAllWorkbuddyTokens();
               },
               runCurrentRefresh: async () => {
-                await runProviderCurrentRefresh(fetchCurrentWorkbuddyAccountId, refreshWorkbuddyToken);
+                await runProviderCurrentRefresh(
+                  fetchCurrentWorkbuddyAccountId,
+                  refreshWorkbuddyToken,
+                );
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('qoder'), {
+            },
+            {
               key: 'qoder',
               label: 'Qoder',
               intervalMinutes: config.qoder_auto_refresh_minutes,
@@ -520,8 +591,8 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentQoderAccountId, refreshQoderToken);
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('trae'), {
+            },
+            {
               key: 'trae',
               label: 'Trae',
               intervalMinutes: config.trae_auto_refresh_minutes,
@@ -534,8 +605,8 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentTraeAccountId, refreshTraeToken);
               },
-            }),
-            ...optionalDescriptor(usePlatformPackageStore.getState().canOpenPlatform('zed'), {
+            },
+            {
               key: 'zed',
               label: 'Zed',
               intervalMinutes: config.zed_auto_refresh_minutes,
@@ -548,12 +619,13 @@ export function useAutoRefresh() {
               runCurrentRefresh: async () => {
                 await runProviderCurrentRefresh(fetchCurrentZedAccountId, refreshZedToken);
               },
-            }),
+            },
           ];
 
           const tasks: AutoRefreshSchedulerTask[] = [];
           for (const descriptor of descriptors) {
-            if (shouldRunFullRefresh(descriptor)) {
+            if (descriptor.intervalMinutes > 0) {
+              console.log(`[AutoRefresh] ${descriptor.label} 已启用: 每 ${descriptor.intervalMinutes} 分钟`);
               tasks.push({
                 key: `full:${descriptor.key}`,
                 label: `${descriptor.label} 全量刷新`,
@@ -566,9 +638,12 @@ export function useAutoRefresh() {
                     `[AutoRefresh] ${descriptor.label} 刷新失败:`,
                   ),
               });
+            } else {
+              console.log(`[AutoRefresh] ${descriptor.label} 已禁用`);
             }
 
-            if (shouldRunCurrentRefresh(descriptor)) {
+            if (descriptor.intervalMinutes > 0 && descriptor.currentMinutes > 0) {
+              console.log(`[AutoRefresh] ${descriptor.label} 当前账号刷新: 每 ${descriptor.currentMinutes} 分钟`);
               tasks.push({
                 key: `current:${descriptor.key}`,
                 label: `${descriptor.label} 当前账号刷新`,
@@ -582,6 +657,8 @@ export function useAutoRefresh() {
                     `[AutoRefresh] ${descriptor.label} 当前账号刷新失败:`,
                   ),
               });
+            } else {
+              console.log(`[AutoRefresh] ${descriptor.label} 当前账号刷新已禁用${descriptor.currentMinutes === -1 ? '（账号级覆盖禁用）' : '（配额自动刷新未开启）'}`);
             }
           }
 
@@ -594,19 +671,26 @@ export function useAutoRefresh() {
             schedulerRef.current = scheduler;
           }
 
+          const enabledPlatforms = buildEnabledPlatformsSummary(descriptors);
           console.log(
-            `[StartupPerf][AutoRefresh] setupAutoRefresh completed in ${(performance.now() - setupStartedAt).toFixed(2)}ms; enabled=${buildEnabledPlatformsSummary(descriptors) || 'none'}`,
+            `[StartupPerf][AutoRefresh] setupAutoRefresh completed in ${(performance.now() - setupStartedAt).toFixed(2)}ms; enabled=${enabledPlatforms || 'none'}`,
           );
         } catch (err) {
           console.error('[AutoRefresh] 加载配置失败:', err);
+          console.error(
+            `[StartupPerf][AutoRefresh] setupAutoRefresh failed after ${(performance.now() - setupStartedAt).toFixed(2)}ms:`,
+            err,
+          );
         }
       } while (setupPendingRef.current && !destroyedRef.current);
     } finally {
       setupRunningRef.current = false;
+      console.log(
+        `[StartupPerf][AutoRefresh] setupAutoRefresh exit after ${(performance.now() - setupStartedAt).toFixed(2)}ms`,
+      );
     }
   }, [
     executeWithGuard,
-    fetchAccounts,
     fetchCodexAccounts,
     fetchCurrentAccount,
     fetchCurrentClaudeAccountId,
@@ -622,9 +706,11 @@ export function useAutoRefresh() {
     fetchCurrentWindsurfAccountId,
     fetchCurrentWorkbuddyAccountId,
     fetchCurrentZedAccountId,
-    refreshAllClaudeQuotas,
+    fetchAccounts,
     refreshAllCodebuddyCnTokens,
     refreshAllCodebuddyTokens,
+    refreshAllCodexQuotas,
+    refreshAllClaudeQuotas,
     refreshAllCursorTokens,
     refreshAllGeminiTokens,
     refreshAllGhcpTokens,
@@ -635,9 +721,9 @@ export function useAutoRefresh() {
     refreshAllWindsurfTokens,
     refreshAllWorkbuddyTokens,
     refreshAllZedTokens,
-    refreshClaudeQuota,
     refreshCodebuddyCnToken,
     refreshCodebuddyToken,
+    refreshClaudeQuota,
     refreshCursorToken,
     refreshGeminiToken,
     refreshGhcpToken,
@@ -654,6 +740,9 @@ export function useAutoRefresh() {
     destroyedRef.current = false;
     let startupTimer = window.setTimeout(() => {
       startupTimer = 0;
+      console.log(
+        `[StartupPerf][AutoRefresh] deferred startup setup triggered after ${STARTUP_AUTO_REFRESH_SETUP_DELAY_MS}ms`,
+      );
       void setupAutoRefresh();
     }, STARTUP_AUTO_REFRESH_SETUP_DELAY_MS);
 
@@ -662,11 +751,11 @@ export function useAutoRefresh() {
         window.clearTimeout(startupTimer);
         startupTimer = 0;
       }
+      console.log('[AutoRefresh] 检测到配置变更，重新设置调度器');
       void setupAutoRefresh();
     };
 
     window.addEventListener('config-updated', handleConfigUpdate);
-    window.addEventListener('agtools:platform-package-changed', handleConfigUpdate);
 
     return () => {
       destroyedRef.current = true;
@@ -676,7 +765,6 @@ export function useAutoRefresh() {
       }
       stopScheduler();
       window.removeEventListener('config-updated', handleConfigUpdate);
-      window.removeEventListener('agtools:platform-package-changed', handleConfigUpdate);
     };
   }, [setupAutoRefresh, stopScheduler]);
 }

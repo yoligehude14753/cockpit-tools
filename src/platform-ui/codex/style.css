@@ -1,9 +1,0 @@
-@import '../../styles/pages/codex.css';
-@import '../../components/CodexLocalAccessModal.css';
-
-.codex-platform-ui-root {
-  width: 100%;
-  min-height: 520px;
-  padding-bottom: 28px;
-  background: transparent;
-}

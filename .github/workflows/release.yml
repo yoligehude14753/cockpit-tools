@@ -1,55 +1,38 @@
 name: Release
-
 on:
   push:
     tags:
       - "v*"
   workflow_dispatch:
 
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  build:
-    name: Build (${{ matrix.label }})
-    runs-on: ${{ matrix.platform }}
+  release:
     permissions:
-      contents: read
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - label: "macos-aarch64"
-            platform: "macos-latest"
+          # macOS Apple Silicon
+          - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
-            release_dir: "target/aarch64-apple-darwin/release"
-            bootstrap_targets: "macos/aarch64"
-          - label: "macos-x86_64"
-            platform: "macos-latest"
+          # macOS Intel
+          - platform: "macos-latest"
             args: "--target x86_64-apple-darwin"
-            release_dir: "target/x86_64-apple-darwin/release"
-            bootstrap_targets: "macos/x86_64"
-          - label: "macos-universal"
-            platform: "macos-latest"
+          # macOS Universal (同时支持 Intel 和 Apple Silicon)
+          - platform: "macos-latest"
             args: "--target universal-apple-darwin"
-            release_dir: "target/universal-apple-darwin/release"
-            bootstrap_targets: "macos/aarch64,macos/x86_64"
-          - label: "linux-x86_64"
-            platform: "ubuntu-22.04"
+          # Linux x86_64
+          - platform: "ubuntu-22.04"
             args: ""
-            release_dir: "target/release"
-            bootstrap_targets: "linux/x86_64"
-          - label: "linux-aarch64"
-            platform: "ubuntu-24.04-arm"
+          # Linux ARM64
+          - platform: "ubuntu-24.04-arm"
             args: ""
-            release_dir: "target/release"
-            bootstrap_targets: "linux/aarch64"
-          - label: "windows-x86_64"
-            platform: "windows-latest"
+          # Windows x86_64
+          - platform: "windows-latest"
             args: ""
-            release_dir: "target/release"
-            bootstrap_targets: "windows/x86_64"
+
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository
@@ -103,95 +86,13 @@ jobs:
             exit 1
           fi
 
-      - name: Prepare bundled platform packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          node scripts/prepare-platform-bootstrap.cjs \
-            --from-source \
-            --targets "${{ matrix.bootstrap_targets }}"
-
-      - name: Build the app
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          COCKPIT_SENTRY_DSN: ${{ secrets.COCKPIT_SENTRY_DSN }}
-        run: |
-          set -euo pipefail
-          npx tauri build --ci ${{ matrix.args }} 2>&1 | tee "build-${{ matrix.label }}.log"
-
-      - name: Print build logs on failure
-        if: failure()
-        shell: bash
-        run: |
-          echo "=== BUILD LOG ==="
-          if [ -f "build-${{ matrix.label }}.log" ]; then
-            tail -n 200 "build-${{ matrix.label }}.log"
-          else
-            echo "Log file not found"
-          fi
-
-      - name: Upload build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-${{ matrix.label }}
-          retention-days: 7
-          if-no-files-found: error
-          path: build-${{ matrix.label }}.log
-
-      - name: Upload release assets
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-assets-${{ matrix.label }}
-          retention-days: 7
-          if-no-files-found: error
-          path: |
-            ${{ matrix.release_dir }}/bundle/**/*.AppImage
-            ${{ matrix.release_dir }}/bundle/**/*.deb
-            ${{ matrix.release_dir }}/bundle/**/*.dmg
-            ${{ matrix.release_dir }}/bundle/**/*.exe
-            ${{ matrix.release_dir }}/bundle/**/*.msi
-            ${{ matrix.release_dir }}/bundle/**/*.rpm
-            ${{ matrix.release_dir }}/bundle/**/*.sig
-            ${{ matrix.release_dir }}/bundle/**/*.tar.gz
-
-  publish-release:
-    name: Publish release as latest
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Node.js setup
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Determine version
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          PACKAGE_VERSION="$(node -e "console.log(require('./package.json').version)")"
-          if [ "${VERSION}" != "${PACKAGE_VERSION}" ]; then
-            echo "Tag (${GITHUB_REF_NAME}) does not match package.json version (v${PACKAGE_VERSION})."
-            exit 1
-          fi
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-          echo "TAG=v${VERSION}" >> "$GITHUB_ENV"
-
       - name: Build bilingual release notes from changelog
+        id: release_notes
         shell: bash
         run: |
           set -euo pipefail
+
+          VERSION="${{ steps.app_version.outputs.VERSION }}"
 
           extract_section() {
             local file="$1"
@@ -228,17 +129,18 @@ jobs:
             ' "$file"
           }
 
-          if ! zh_section="$(extract_section CHANGELOG.zh-CN.md "${VERSION}")"; then
-            echo "Missing changelog section for version ${VERSION} in CHANGELOG.zh-CN.md"
+          if ! zh_section="$(extract_section CHANGELOG.zh-CN.md "$VERSION")"; then
+            echo "Missing changelog section for version $VERSION in CHANGELOG.zh-CN.md"
             exit 1
           fi
 
-          if ! en_section="$(extract_section CHANGELOG.md "${VERSION}")"; then
-            echo "Missing changelog section for version ${VERSION} in CHANGELOG.md"
+          if ! en_section="$(extract_section CHANGELOG.md "$VERSION")"; then
+            echo "Missing changelog section for version $VERSION in CHANGELOG.md"
             exit 1
           fi
 
           {
+            echo "body<<EOF"
             echo "## 更新日志（中文）"
             echo
             printf '%s\n' "$zh_section"
@@ -246,118 +148,94 @@ jobs:
             echo "## Changelog (English)"
             echo
             printf '%s\n' "$en_section"
-          } > release-notes.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Download release assets
-        uses: actions/download-artifact@v4
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          pattern: release-assets-*
-          path: downloaded-release-assets
+          tagName: "v${{ steps.app_version.outputs.VERSION }}"
+          releaseName: "Cockpit Tools v${{ steps.app_version.outputs.VERSION }}"
+          releaseBody: ${{ steps.release_notes.outputs.body }}
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
 
-      - name: Flatten and validate assets
+  rebuild-latest-json:
+    name: Rebuild merged latest.json
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Node.js setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Determine version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Download release assets (retry)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          find downloaded-release-assets -type f \
-            \( -name "*.AppImage" -o -name "*.deb" -o -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.rpm" -o -name "*.sig" -o -name "*.tar.gz" \) \
-            -print0 |
-            while IFS= read -r -d '' file; do
-              artifact_dir="${file#downloaded-release-assets/}"
-              artifact_dir="${artifact_dir%%/*}"
-              base="$(basename "$file")"
-
-              case "$base" in
-                "Cockpit Tools.app.tar.gz")
-                  case "$artifact_dir" in
-                    release-assets-macos-aarch64) base="Cockpit.Tools_aarch64.app.tar.gz" ;;
-                    release-assets-macos-x86_64) base="Cockpit.Tools_x64.app.tar.gz" ;;
-                    release-assets-macos-universal) base="Cockpit.Tools_universal.app.tar.gz" ;;
-                    *)
-                      echo "Cannot determine macOS app tar architecture from artifact: ${artifact_dir}"
-                      exit 1
-                      ;;
-                  esac
-                  ;;
-                "Cockpit Tools.app.tar.gz.sig")
-                  case "$artifact_dir" in
-                    release-assets-macos-aarch64) base="Cockpit.Tools_aarch64.app.tar.gz.sig" ;;
-                    release-assets-macos-x86_64) base="Cockpit.Tools_x64.app.tar.gz.sig" ;;
-                    release-assets-macos-universal) base="Cockpit.Tools_universal.app.tar.gz.sig" ;;
-                    *)
-                      echo "Cannot determine macOS app tar signature architecture from artifact: ${artifact_dir}"
-                      exit 1
-                      ;;
-                  esac
-                  ;;
-                Cockpit\ Tools*)
-                  base="Cockpit.Tools${base#Cockpit Tools}"
-                  ;;
-              esac
-
-              target="release-assets/${base}"
-              if [[ "$base" != Cockpit.Tools* ]]; then
-                continue
-              fi
-              if [ -e "$target" ]; then
-                if cmp -s "$file" "$target"; then
-                  continue
-                fi
-                echo "Duplicate release asset name with different content: ${base}"
-                exit 1
-              fi
-              cp "$file" "$target"
-            done
-
-          find release-assets -maxdepth 1 -type f | sort
-
-          required_patterns=(
-            'Cockpit.Tools_'"${VERSION}"'_aarch64.dmg'
-            'Cockpit.Tools_'"${VERSION}"'_x64.dmg'
-            'Cockpit.Tools_'"${VERSION}"'_universal.dmg'
-            'Cockpit.Tools_aarch64.app.tar.gz'
-            'Cockpit.Tools_aarch64.app.tar.gz.sig'
-            'Cockpit.Tools_x64.app.tar.gz'
-            'Cockpit.Tools_x64.app.tar.gz.sig'
-            'Cockpit.Tools_universal.app.tar.gz'
-            'Cockpit.Tools_universal.app.tar.gz.sig'
-            'Cockpit.Tools_'"${VERSION}"'_x64_en-US.msi'
-            'Cockpit.Tools_'"${VERSION}"'_x64_en-US.msi.sig'
-            'Cockpit.Tools_'"${VERSION}"'_x64-setup.exe'
-            'Cockpit.Tools_'"${VERSION}"'_x64-setup.exe.sig'
-            'Cockpit.Tools_'"${VERSION}"'_amd64.AppImage'
-            'Cockpit.Tools_'"${VERSION}"'_amd64.AppImage.sig'
-            'Cockpit.Tools_'"${VERSION}"'_aarch64.AppImage'
-            'Cockpit.Tools_'"${VERSION}"'_aarch64.AppImage.sig'
-            'Cockpit.Tools_'"${VERSION}"'_amd64.deb'
-            'Cockpit.Tools_'"${VERSION}"'_amd64.deb.sig'
-            'Cockpit.Tools_'"${VERSION}"'_arm64.deb'
-            'Cockpit.Tools_'"${VERSION}"'_arm64.deb.sig'
-            'Cockpit.Tools-'"${VERSION}"'-1.x86_64.rpm'
-            'Cockpit.Tools-'"${VERSION}"'-1.x86_64.rpm.sig'
-            'Cockpit.Tools-'"${VERSION}"'-1.aarch64.rpm'
-            'Cockpit.Tools-'"${VERSION}"'-1.aarch64.rpm.sig'
-          )
-
-          for name in "${required_patterns[@]}"; do
-            if [ ! -f "release-assets/${name}" ]; then
-              echo "Missing required release asset: ${name}"
-              exit 1
+          TAG="v${VERSION}"
+          downloaded="false"
+          for i in $(seq 1 30); do
+            if gh release download "$TAG" --dir release-assets --pattern "*" --clobber; then
+              downloaded="true"
+              echo "Downloaded release assets from $TAG"
+              break
             fi
+            echo "Release assets not ready yet (attempt $i/30). Sleeping 10s..."
+            sleep 10
           done
+          if [ "$downloaded" != "true" ]; then
+            echo "Failed to download release assets from $TAG after retries."
+            exit 1
+          fi
+
+      - name: Read release metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "v${VERSION}" --json body --jq '.body' > release-notes.md
+          PUBLISHED_AT="$(gh release view "v${VERSION}" --json publishedAt,createdAt --jq '.publishedAt // .createdAt')"
+          if [ -z "${PUBLISHED_AT}" ] || [ "${PUBLISHED_AT}" = "null" ]; then
+            PUBLISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          fi
+          echo "PUBLISHED_AT=${PUBLISHED_AT}" >> "$GITHUB_ENV"
 
       - name: Build merged latest.json
         shell: bash
         run: |
           set -euo pipefail
-          PUBLISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           node scripts/release/build_merged_latest_json.cjs \
             --version "${VERSION}" \
             --repo "${GITHUB_REPOSITORY}" \
             --assets-dir "release-assets" \
             --notes-file "release-notes.md" \
             --published-at "${PUBLISHED_AT}" \
-            --output "release-assets/latest.json"
+            --output "latest.json"
 
       - name: Validate merged latest.json
         shell: bash
@@ -374,70 +252,96 @@ jobs:
             .platforms["linux-aarch64-appimage"] and
             .platforms["linux-aarch64-deb"] and
             .platforms["linux-aarch64-rpm"]
-          ' release-assets/latest.json > /dev/null
-          jq -r '.platforms | keys[]' release-assets/latest.json
+          ' latest.json > /dev/null
+          jq -r '.platforms | keys[]' latest.json
 
-      - name: Generate SHA256SUMS.txt
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd release-assets
-          find . -type f ! -name SHA256SUMS.txt -print0 \
-            | sort -z \
-            | while IFS= read -r -d '' file; do
-                shasum -a 256 "$file"
-              done \
-            | sed 's#  \./#  #' \
-            > SHA256SUMS.txt
-          test -s SHA256SUMS.txt
-          cat SHA256SUMS.txt
-
-      - name: Create and publish GitHub release
+      - name: Upload merged latest.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          gh release upload "v${VERSION}" latest.json --clobber
 
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
-            --jq '.[] | select(.tag_name == "'"${TAG}"'" and .draft == true) | .id' |
-            while IFS= read -r release_id; do
-              if [ -n "$release_id" ]; then
-                echo "Deleting stale draft release ${release_id} for ${TAG}"
-                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
-              fi
-            done
+  upload-checksums:
+    name: Upload SHA256SUMS
+    needs:
+      - release
+      - rebuild-latest-json
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Determine version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft' >/tmp/release-draft-state 2>/dev/null; then
-            draft_state="$(cat /tmp/release-draft-state)"
-            if [ "$draft_state" != "true" ]; then
-              echo "Release ${TAG} already exists and is not a draft."
-              exit 1
+      - name: Download release assets (retry)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          TAG="v${VERSION}"
+          downloaded="false"
+          for i in $(seq 1 30); do
+            if gh release download "$TAG" --dir release-assets --pattern "*" --clobber; then
+              downloaded="true"
+              echo "Downloaded release assets from $TAG"
+              break
             fi
+            echo "Release assets not ready yet (attempt $i/30). Sleeping 10s..."
+            sleep 10
+          done
+          if [ "$downloaded" != "true" ]; then
+            echo "Failed to download release assets from $TAG after retries."
+            exit 1
           fi
 
-          gh release create "${TAG}" release-assets/* \
-            --repo "${GITHUB_REPOSITORY}" \
-            --draft \
-            --title "Cockpit Tools v${VERSION}" \
-            --notes-file release-notes.md \
-            --target "${GITHUB_SHA}"
+      - name: Generate SHA256SUMS.txt from release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          rm -f SHA256SUMS.txt
+          find . -type f -print0 \
+            | sort -z \
+            | while IFS= read -r -d '' file; do
+                shasum -a 256 "$file"
+              done \
+            | sed 's#  \./#  #' \
+            > ../SHA256SUMS.txt
+          cd ..
+          test -s SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
-          gh release edit "${TAG}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --draft=false \
-            --prerelease=false \
-            --latest
+      - name: Upload SHA256SUMS.txt to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION}" SHA256SUMS.txt --clobber
 
   update-homebrew-cask:
     name: Update Homebrew Cask
-    needs: publish-release
+    needs:
+      - release
+      - rebuild-latest-json
+      - upload-checksums
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
       pull-requests: write
     steps:
+      # Update the cask on main, not on the tag ref.
       - name: Checkout main
         uses: actions/checkout@v4
         with:
@@ -517,3 +421,27 @@ jobs:
             exit 1
           fi
           gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+
+  publish-release:
+    name: Publish release as latest
+    needs:
+      - release
+      - rebuild-latest-json
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Determine version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --draft=false --prerelease=false --latest

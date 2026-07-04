@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
@@ -129,11 +128,9 @@ import {
   type CodexServicePanelActionItem,
   type CodexServicePanelMetricItem,
 } from "./CodexServicePanelModal";
-import { withTimeout } from "../../utils/promiseTimeout";
 
 const DEFAULT_INSTANCE_ID = "__default__";
 const OAUTH_BINDING_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
-const CODEX_PROVIDER_LOAD_TIMEOUT_MS = 12_000;
 type OAuthBindingSortBy = "account" | "created_at" | "last_used" | "plan";
 type ProviderSortBy = "name" | "created_at" | "custom";
 type InstanceSortField = "createdAt" | "lastLaunchedAt";
@@ -629,7 +626,6 @@ export function CodexModelProviderManager({
   const [batchTestDeleting, setBatchTestDeleting] = useState(false);
   const [batchTestResultSelectedProviderIds, setBatchTestResultSelectedProviderIds] =
     useState<Set<string>>(() => new Set());
-  const providerLoadRunRef = useRef(0);
 
   const sponsorProviderTemplates = useMemo<SponsorProviderTemplate[]>(() => {
     const sponsors = sponsorModule?.sponsors ?? [];
@@ -850,21 +846,13 @@ export function CodexModelProviderManager({
   );
 
   const reloadProviders = useCallback(async () => {
-    const runId = providerLoadRunRef.current + 1;
-    providerLoadRunRef.current = runId;
     setLoading(true);
     setError(null);
     try {
-      const next = await withTimeout(
-        listCodexModelProviders(),
-        CODEX_PROVIDER_LOAD_TIMEOUT_MS,
-        t("codex.modelProviders.loadTimeout", "加载模型供应商超时，请重试。"),
-      );
-      if (providerLoadRunRef.current !== runId) return;
+      const next = await listCodexModelProviders();
       setProviders(next);
       onProvidersChanged?.(next);
     } catch (err) {
-      if (providerLoadRunRef.current !== runId) return;
       setError(
         t("codex.modelProviders.loadFailed", {
           defaultValue: "加载模型供应商失败：{{error}}",
@@ -872,9 +860,7 @@ export function CodexModelProviderManager({
         }),
       );
     } finally {
-      if (providerLoadRunRef.current === runId) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, [onProvidersChanged, t]);
 
@@ -1403,9 +1389,10 @@ export function CodexModelProviderManager({
   }, []);
 
   const closeModal = useCallback(() => {
+    if (saving) return;
     setShowModal(false);
     setFormError(null);
-  }, []);
+  }, [saving]);
 
   useEscClose(showModal, closeModal);
 
@@ -4134,6 +4121,7 @@ export function CodexModelProviderManager({
                 className="modal-close"
                 onClick={closeModal}
                 aria-label={t("common.close", "关闭")}
+                disabled={saving}
               >
                 <X />
               </button>
@@ -4669,6 +4657,7 @@ export function CodexModelProviderManager({
               <button
                 className="btn btn-secondary"
                 onClick={closeModal}
+                disabled={saving}
               >
                 {t("common.cancel", "取消")}
               </button>

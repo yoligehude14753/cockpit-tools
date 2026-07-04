@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 fn default_token_source_mode() -> String {
     "managed".to_string()
@@ -48,28 +47,6 @@ pub struct CodexQuickConfig {
     pub detected_auto_compact_token_limit: Option<i64>,
 }
 
-/// Codex 官方 App 推理速度
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum CodexAppSpeed {
-    Standard,
-    Fast,
-}
-
-impl Default for CodexAppSpeed {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
-
-/// Codex 官方 App 推理速度配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexAppSpeedConfig {
-    pub speed: CodexAppSpeed,
-    pub global_state_path: String,
-}
-
 /// Codex 账号数据结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexAccount {
@@ -87,26 +64,10 @@ pub struct CodexAccount {
     pub api_provider_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_provider_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub api_model_catalog: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub api_wire_api: Option<String>,
-    #[serde(default)]
-    pub api_supports_vision: bool,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub api_model_vision_support: HashMap<String, bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub api_vision_routing_model: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bound_oauth_account_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub bound_oauth_use_local_gateway: bool,
     pub user_id: Option<String>,
     pub plan_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subscription_active_until: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_file_plan_type: Option<String>,
     pub account_id: Option<String>,
     pub organization_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -115,29 +76,6 @@ pub struct CodexAccount {
     pub account_structure: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_note: Option<String>,
-    #[serde(
-        default,
-        alias = "twoFactorSecret",
-        alias = "accountTwoFactorSecret",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub two_factor_secret: Option<String>,
-    #[serde(
-        default,
-        alias = "accountPassword",
-        alias = "password",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub account_password: Option<String>,
-    #[serde(
-        default,
-        alias = "phoneNumber",
-        alias = "accountPhoneNumber",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub phone_number: Option<String>,
-    #[serde(default)]
-    pub app_speed: CodexAppSpeed,
     pub tokens: CodexTokens,
     #[serde(default)]
     pub token_generation: u64,
@@ -145,12 +83,6 @@ pub struct CodexAccount {
     pub token_updated_at: Option<i64>,
     #[serde(default = "default_token_source_mode")]
     pub token_source_mode: String,
-    #[serde(
-        default,
-        alias = "authorizationStatus",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub authorization_status: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub requires_reauth: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -160,20 +92,6 @@ pub struct CodexAccount {
     pub quota_error: Option<CodexQuotaErrorInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage_updated_at: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subscription_query_last_attempt_at: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subscription_query_last_success_at: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subscription_query_next_retry_at: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subscription_query_last_error: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_retry_after: Option<i64>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub quota_exceeded: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_error: Option<String>,
     pub tags: Option<Vec<String>>,
     pub created_at: i64,
     pub last_used: i64,
@@ -211,37 +129,9 @@ pub struct CodexQuota {
     /// 次窗口是否存在（接口返回）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weekly_window_present: Option<bool>,
-    /// 主动重置次数（rate-limit reset credits）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reset_credits_available: Option<i64>,
-    /// 主动重置明细（rate-limit reset credits）
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reset_credits: Vec<CodexResetCredit>,
-    /// 最近一张可用主动重置次数的到期时间 (Unix timestamp)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reset_credits_next_expires_at: Option<i64>,
     /// 原始响应数据
     #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_data: Option<serde_json::Value>,
-}
-
-/// Codex 主动重置次数明细
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CodexResetCredit {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reset_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub granted_at: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub redeemed_at: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub raw_status: Option<String>,
 }
 
 /// Codex 配额错误信息
@@ -299,8 +189,6 @@ pub struct CodexAccountSummary {
     pub id: String,
     pub email: String,
     pub plan_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subscription_active_until: Option<String>,
     pub created_at: i64,
     pub last_used: i64,
 }
@@ -334,15 +222,6 @@ pub struct CodexJwtPayload {
     pub sub: Option<String>,
     #[serde(rename = "https://api.openai.com/auth")]
     pub auth_data: Option<CodexAuthData>,
-    #[serde(rename = "https://api.openai.com/profile")]
-    pub profile_data: Option<CodexProfileData>,
-}
-
-/// JWT 中的 profile 数据
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CodexProfileData {
-    pub email: Option<String>,
-    pub email_verified: Option<bool>,
 }
 
 /// JWT 中的 auth 数据
@@ -350,7 +229,6 @@ pub struct CodexProfileData {
 pub struct CodexAuthData {
     pub chatgpt_user_id: Option<String>,
     pub chatgpt_plan_type: Option<String>,
-    pub chatgpt_subscription_active_until: Option<serde_json::Value>,
     pub account_id: Option<String>,
     pub organization_id: Option<String>,
 }
@@ -367,43 +245,23 @@ impl CodexAccount {
             api_provider_mode: CodexApiProviderMode::OpenaiBuiltin,
             api_provider_id: None,
             api_provider_name: None,
-            api_model_catalog: Vec::new(),
-            api_wire_api: None,
-            api_supports_vision: false,
-            api_model_vision_support: HashMap::new(),
-            api_vision_routing_model: None,
-            bound_oauth_account_id: None,
             bound_oauth_use_local_gateway: false,
             user_id: None,
             plan_type: None,
-            subscription_active_until: None,
-            auth_file_plan_type: None,
             account_id: None,
             organization_id: None,
             account_name: None,
             account_structure: None,
             account_note: None,
-            two_factor_secret: None,
-            account_password: None,
-            phone_number: None,
-            app_speed: CodexAppSpeed::Standard,
             tokens,
             token_generation: 0,
             token_updated_at: Some(now),
             token_source_mode: default_token_source_mode(),
-            authorization_status: None,
             requires_reauth: false,
             reauth_reason: None,
             quota: None,
             quota_error: None,
             usage_updated_at: None,
-            subscription_query_last_attempt_at: None,
-            subscription_query_last_success_at: None,
-            subscription_query_next_retry_at: None,
-            subscription_query_last_error: None,
-            next_retry_after: None,
-            quota_exceeded: false,
-            last_error: None,
             tags: None,
             created_at: now,
             last_used: now,
@@ -418,7 +276,6 @@ impl CodexAccount {
         api_base_url: Option<String>,
         api_provider_id: Option<String>,
         api_provider_name: Option<String>,
-        api_model_catalog: Vec<String>,
     ) -> Self {
         let mut account = Self::new(
             id,
@@ -435,11 +292,6 @@ impl CodexAccount {
         account.api_base_url = api_base_url;
         account.api_provider_id = api_provider_id;
         account.api_provider_name = api_provider_name;
-        account.api_model_catalog = api_model_catalog;
-        account.api_wire_api = None;
-        account.api_supports_vision = false;
-        account.api_model_vision_support = HashMap::new();
-        account.api_vision_routing_model = None;
         account.plan_type = Some("API_KEY".to_string());
         account
     }

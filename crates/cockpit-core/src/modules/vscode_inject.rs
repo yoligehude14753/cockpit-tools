@@ -37,7 +37,6 @@ use pbkdf2::pbkdf2_hmac;
 use rusqlite::Connection;
 #[cfg(not(target_os = "windows"))]
 use sha1::Sha1;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::{LocalFree, HLOCAL};
@@ -689,15 +688,7 @@ fn encrypt_secret_payload_with_mode(
 const GITHUB_AUTH_SECRET_KEY: &str =
     r#"secret://{"extensionId":"vscode.github-authentication","key":"github.auth"}"#;
 const GITHUB_COPILOT_LOGIN_KEY: &str = "github.copilot-github";
-const GITHUB_COPILOT_CHAT_ACCOUNT_PREFERENCE_KEY: &str = "github.copilot-chat-github";
-const GITHUB_AUTH_PROVIDER_ID: &str = "github";
-const GITHUB_COPILOT_CHAT_EXTENSION_ID: &str = "github.copilot-chat";
-const GITHUB_COPILOT_CHAT_EXTENSION_NAME: &str = "GitHub Copilot Chat";
 const GITHUB_COPILOT_SESSION_SCOPES: &[&str] = &["read:user", "user:email", "repo", "workflow"];
-const GITHUB_COPILOT_EMAIL_SESSION_SCOPES: &[&str] = &["user:email"];
-const GITHUB_COPILOT_READ_USER_SESSION_SCOPES: &[&str] = &["read:user"];
-const COPILOT_CHAT_CACHE_KEYS_ON_SWITCH: &[&str] =
-    &["chat.cachedLanguageModels", "chat.cachedLanguageModels.v2"];
 
 fn encode_secret_buffer(encrypted: Vec<u8>) -> Result<String, String> {
     let buffer_json = serde_json::json!({
@@ -719,18 +710,16 @@ fn read_item_table_value(db_path: &Path, key: &str) -> Result<Option<String>, St
             e
         )
     })?;
-    read_item_table_value_from_conn(&conn, key)
-}
-
-fn read_item_table_value_from_conn(conn: &Connection, key: &str) -> Result<Option<String>, String> {
     match conn.query_row("SELECT value FROM ItemTable WHERE key = ?", [key], |row| {
         row.get(0)
     }) {
         Ok(value) => Ok(Some(value)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(format!(
-            "Failed to query key '{}' from VS Code database: {}",
-            key, e
+            "Failed to query key '{}' from VS Code database {}: {}",
+            key,
+            db_path.display(),
+            e
         )),
     }
 }
@@ -757,15 +746,6 @@ fn write_copilot_items_to_db(
         [],
     )
     .map_err(|e| format!("Failed to init ItemTable in {}: {}", db_path.display(), e))?;
-
-    let access_key = github_auth_access_key(username);
-    let usage_key = github_auth_usage_key(username);
-    let access_value = build_github_auth_access_value(
-        read_item_table_value_from_conn(&conn, &access_key)?.as_deref(),
-    )?;
-    let usage_value = build_github_auth_usage_value(
-        read_item_table_value_from_conn(&conn, &usage_key)?.as_deref(),
-    )?;
 
     let tx = conn
         .unchecked_transaction()
@@ -795,137 +775,8 @@ fn write_copilot_items_to_db(
         )
     })?;
 
-    tx.execute(
-        "INSERT OR REPLACE INTO ItemTable (key, value) VALUES (?, ?)",
-        [GITHUB_COPILOT_CHAT_ACCOUNT_PREFERENCE_KEY, username],
-    )
-    .map_err(|e| {
-        format!(
-            "Failed to write github.copilot-chat-github to {}: {}",
-            db_path.display(),
-            e
-        )
-    })?;
-
-    tx.execute(
-        "INSERT OR REPLACE INTO ItemTable (key, value) VALUES (?, ?)",
-        rusqlite::params![access_key, access_value],
-    )
-    .map_err(|e| {
-        format!(
-            "Failed to write GitHub auth access to {}: {}",
-            db_path.display(),
-            e
-        )
-    })?;
-
-    tx.execute(
-        "INSERT OR REPLACE INTO ItemTable (key, value) VALUES (?, ?)",
-        rusqlite::params![usage_key, usage_value],
-    )
-    .map_err(|e| {
-        format!(
-            "Failed to write GitHub auth usage to {}: {}",
-            db_path.display(),
-            e
-        )
-    })?;
-
-    for key in COPILOT_CHAT_CACHE_KEYS_ON_SWITCH {
-        tx.execute("DELETE FROM ItemTable WHERE key = ?", [key])
-            .map_err(|e| {
-                format!(
-                    "Failed to clear Copilot Chat cache key '{}' from {}: {}",
-                    key,
-                    db_path.display(),
-                    e
-                )
-            })?;
-    }
-
     tx.commit()
         .map_err(|e| format!("Failed to commit transaction: {}", e))
-}
-
-fn github_auth_access_key(username: &str) -> String {
-    format!("{}-{}", GITHUB_AUTH_PROVIDER_ID, username)
-}
-
-fn github_auth_usage_key(username: &str) -> String {
-    format!("{}-{}-usages", GITHUB_AUTH_PROVIDER_ID, username)
-}
-
-fn current_unix_millis() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis().min(i64::MAX as u128) as i64)
-        .unwrap_or(0)
-}
-
-fn build_github_auth_access_value(existing: Option<&str>) -> Result<String, String> {
-    let mut entries = existing
-        .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
-        .and_then(|value| value.as_array().cloned())
-        .unwrap_or_default();
-
-    upsert_json_array_object_by_string_field(
-        &mut entries,
-        "id",
-        GITHUB_COPILOT_CHAT_EXTENSION_ID,
-        serde_json::json!({
-            "id": GITHUB_COPILOT_CHAT_EXTENSION_ID,
-            "name": GITHUB_COPILOT_CHAT_EXTENSION_NAME,
-            "allowed": true
-        }),
-    );
-
-    serde_json::to_string(&entries)
-        .map_err(|e| format!("Failed to serialize GitHub auth access: {}", e))
-}
-
-fn build_github_auth_usage_value(existing: Option<&str>) -> Result<String, String> {
-    build_github_auth_usage_value_with_time(existing, current_unix_millis())
-}
-
-fn build_github_auth_usage_value_with_time(
-    existing: Option<&str>,
-    last_used: i64,
-) -> Result<String, String> {
-    let mut entries = existing
-        .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
-        .and_then(|value| value.as_array().cloned())
-        .unwrap_or_default();
-
-    upsert_json_array_object_by_string_field(
-        &mut entries,
-        "extensionId",
-        GITHUB_COPILOT_CHAT_EXTENSION_ID,
-        serde_json::json!({
-            "extensionId": GITHUB_COPILOT_CHAT_EXTENSION_ID,
-            "extensionName": GITHUB_COPILOT_CHAT_EXTENSION_NAME,
-            "scopes": GITHUB_COPILOT_SESSION_SCOPES,
-            "lastUsed": last_used
-        }),
-    );
-
-    serde_json::to_string(&entries)
-        .map_err(|e| format!("Failed to serialize GitHub auth usage: {}", e))
-}
-
-fn upsert_json_array_object_by_string_field(
-    entries: &mut Vec<serde_json::Value>,
-    field: &str,
-    value: &str,
-    replacement: serde_json::Value,
-) {
-    if let Some(existing) = entries
-        .iter_mut()
-        .find(|entry| entry.get(field).and_then(serde_json::Value::as_str) == Some(value))
-    {
-        *existing = replacement;
-    } else {
-        entries.push(replacement);
-    }
 }
 
 fn copilot_state_db_write_paths(data_root: &Path) -> Result<Vec<PathBuf>, String> {
@@ -1085,7 +936,7 @@ fn read_secret_storage_value_with_data_root_and_mode(
             return Err(format!(
                 "Failed to query VS Code secret '{}' for extension '{}': {}",
                 key, extension_id, err
-            ));
+            ))
         }
     };
 
@@ -1236,7 +1087,7 @@ fn read_secret_storage_value_by_db_path_and_mode(
             return Err(format!(
                 "Failed to query VS Code secret key '{}': {}",
                 db_key, err
-            ));
+            ))
         }
     };
 
@@ -1290,43 +1141,46 @@ fn build_github_auth_sessions(
     token: &str,
     github_user_id: Option<&str>,
 ) -> Result<(serde_json::Value, Option<String>), String> {
-    let (_, existing_prefix) = load_existing_sessions(existing_encrypted_value, data_root)?;
+    let (mut sessions, existing_prefix) =
+        load_existing_sessions(existing_encrypted_value, data_root)?;
 
     let user_id = github_user_id.unwrap_or("0");
-    let new_sessions = github_copilot_session_scope_sets()
-        .iter()
-        .map(|scopes| build_github_auth_session(username, user_id, token, scopes))
-        .collect::<Vec<_>>();
-
-    Ok((serde_json::Value::Array(new_sessions), existing_prefix))
-}
-
-fn github_copilot_session_scope_sets() -> [&'static [&'static str]; 3] {
-    [
-        GITHUB_COPILOT_SESSION_SCOPES,
-        GITHUB_COPILOT_EMAIL_SESSION_SCOPES,
-        GITHUB_COPILOT_READ_USER_SESSION_SCOPES,
-    ]
-}
-
-fn build_github_auth_session(
-    username: &str,
-    user_id: &str,
-    token: &str,
-    scopes: &[&str],
-) -> serde_json::Value {
-    serde_json::json!({
+    let new_session = serde_json::json!({
         "id": uuid::Uuid::new_v4().to_string(),
-        "scopes": scopes,
+        "scopes": GITHUB_COPILOT_SESSION_SCOPES,
         "accessToken": token,
         "account": {
             "label": username,
             "id": user_id
         }
-    })
+    });
+
+    let mut replaced = false;
+    for session in &mut sessions {
+        if is_same_github_account_session(session, username, user_id)
+            && github_session_scopes_match(session, GITHUB_COPILOT_SESSION_SCOPES)
+        {
+            *session = new_session.clone();
+            replaced = true;
+            break;
+        }
+    }
+    if !replaced {
+        sessions.push(new_session);
+    }
+
+    Ok((serde_json::Value::Array(sessions), existing_prefix))
 }
 
-#[cfg(test)]
+fn is_same_github_account_session(
+    session: &serde_json::Value,
+    username: &str,
+    github_user_id: &str,
+) -> bool {
+    let account = &session["account"];
+    account["label"].as_str() == Some(username) || account["id"].as_str() == Some(github_user_id)
+}
+
 fn github_session_scopes_match(session: &serde_json::Value, expected_scopes: &[&str]) -> bool {
     let Some(scopes) = session["scopes"].as_array() else {
         return false;
@@ -1492,29 +1346,22 @@ mod tests {
             build_github_auth_sessions(None, None, "octocat", "ghu_new", Some("123")).unwrap();
         let sessions = sessions_array(sessions);
 
-        assert_eq!(sessions.len(), 3);
-        for scopes in github_copilot_session_scope_sets() {
-            assert!(sessions
-                .iter()
-                .any(|session| github_session_scopes_match(session, scopes)
-                    && session["accessToken"].as_str() == Some("ghu_new")));
-        }
+        assert_eq!(sessions.len(), 1);
+        assert!(github_session_scopes_match(
+            &sessions[0],
+            GITHUB_COPILOT_SESSION_SCOPES
+        ));
+        assert_eq!(sessions[0]["accessToken"].as_str(), Some("ghu_new"));
     }
 
     #[test]
-    fn github_auth_sessions_replace_all_sessions_with_target_account() {
+    fn github_auth_sessions_preserve_plain_github_session_and_add_copilot_session() {
         let existing = serde_json::json!([
             {
                 "id": "plain-session",
                 "scopes": ["read:user", "user:email"],
                 "accessToken": "ghu_plain",
                 "account": { "label": "octocat", "id": "123" }
-            },
-            {
-                "id": "other-account-session",
-                "scopes": ["read:user", "user:email"],
-                "accessToken": "ghu_other",
-                "account": { "label": "hubot", "id": "456" }
             }
         ])
         .to_string();
@@ -1529,40 +1376,25 @@ mod tests {
         .unwrap();
         let sessions = sessions_array(sessions);
 
-        assert_eq!(sessions.len(), 3);
-        assert!(!sessions
+        assert_eq!(sessions.len(), 2);
+        assert!(sessions
             .iter()
-            .any(|session| session["id"].as_str() == Some("plain-session")));
-        assert!(!sessions
-            .iter()
-            .any(|session| session["id"].as_str() == Some("other-account-session")));
-        for scopes in github_copilot_session_scope_sets() {
-            assert!(sessions
-                .iter()
-                .any(|session| github_session_scopes_match(session, scopes)
-                    && session["accessToken"].as_str() == Some("ghu_copilot")));
-        }
+            .any(|session| session["id"].as_str() == Some("plain-session")
+                && session["accessToken"].as_str() == Some("ghu_plain")));
+        assert!(sessions.iter().any(|session| github_session_scopes_match(
+            session,
+            GITHUB_COPILOT_SESSION_SCOPES
+        ) && session["accessToken"].as_str()
+            == Some("ghu_copilot")));
     }
 
     #[test]
-    fn github_auth_sessions_replace_existing_copilot_sessions_for_same_account() {
+    fn github_auth_sessions_replace_existing_copilot_session_for_same_account() {
         let existing = serde_json::json!([
             {
                 "id": "old-copilot-session",
                 "scopes": ["workflow", "repo", "user:email", "read:user"],
                 "accessToken": "ghu_old",
-                "account": { "label": "octocat", "id": "123" }
-            },
-            {
-                "id": "old-email-session",
-                "scopes": ["user:email"],
-                "accessToken": "ghu_old_email",
-                "account": { "label": "octocat", "id": "123" }
-            },
-            {
-                "id": "old-read-user-session",
-                "scopes": ["read:user"],
-                "accessToken": "ghu_old_read_user",
                 "account": { "label": "octocat", "id": "123" }
             }
         ])
@@ -1573,77 +1405,11 @@ mod tests {
                 .unwrap();
         let sessions = sessions_array(sessions);
 
-        assert_eq!(sessions.len(), 3);
-        assert!(!sessions
-            .iter()
-            .any(|session| session["accessToken"].as_str() != Some("ghu_new")));
-        for scopes in github_copilot_session_scope_sets() {
-            assert!(sessions
-                .iter()
-                .any(|session| github_session_scopes_match(session, scopes)));
-        }
-    }
-
-    #[test]
-    fn github_auth_access_value_allows_copilot_chat_without_dropping_other_extensions() {
-        let existing = serde_json::json!([
-            {
-                "id": "vscode.github",
-                "name": "GitHub",
-                "allowed": true
-            },
-            {
-                "id": "github.copilot-chat",
-                "name": "Old Name",
-                "allowed": false
-            }
-        ])
-        .to_string();
-
-        let value = build_github_auth_access_value(Some(&existing)).unwrap();
-        let entries: Vec<serde_json::Value> = serde_json::from_str(&value).unwrap();
-
-        assert_eq!(entries.len(), 2);
-        assert!(entries
-            .iter()
-            .any(|entry| entry["id"].as_str() == Some("vscode.github")
-                && entry["allowed"].as_bool() == Some(true)));
-        assert!(entries.iter().any(|entry| entry["id"].as_str()
-            == Some(GITHUB_COPILOT_CHAT_EXTENSION_ID)
-            && entry["name"].as_str() == Some(GITHUB_COPILOT_CHAT_EXTENSION_NAME)
-            && entry["allowed"].as_bool() == Some(true)));
-    }
-
-    #[test]
-    fn github_auth_usage_value_records_copilot_chat_full_scope_usage() {
-        let existing = serde_json::json!([
-            {
-                "extensionId": "vscode.github",
-                "extensionName": "GitHub",
-                "scopes": ["read:user"],
-                "lastUsed": 1
-            },
-            {
-                "extensionId": "github.copilot-chat",
-                "extensionName": "Old Name",
-                "scopes": ["user:email"],
-                "lastUsed": 2
-            }
-        ])
-        .to_string();
-
-        let value = build_github_auth_usage_value_with_time(Some(&existing), 12345).unwrap();
-        let entries: Vec<serde_json::Value> = serde_json::from_str(&value).unwrap();
-
-        assert_eq!(entries.len(), 2);
-        assert!(entries.iter().any(
-            |entry| entry["extensionId"].as_str() == Some("vscode.github")
-                && entry["lastUsed"].as_i64() == Some(1)
+        assert_eq!(sessions.len(), 1);
+        assert!(github_session_scopes_match(
+            &sessions[0],
+            GITHUB_COPILOT_SESSION_SCOPES
         ));
-        assert!(entries.iter().any(|entry| entry["extensionId"].as_str()
-            == Some(GITHUB_COPILOT_CHAT_EXTENSION_ID)
-            && entry["extensionName"].as_str() == Some(GITHUB_COPILOT_CHAT_EXTENSION_NAME)
-            && entry["lastUsed"].as_i64() == Some(12345)
-            && github_session_scopes_match(entry, GITHUB_COPILOT_SESSION_SCOPES)));
+        assert_eq!(sessions[0]["accessToken"].as_str(), Some("ghu_new"));
     }
 }

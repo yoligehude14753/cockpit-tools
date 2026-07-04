@@ -1,7 +1,0 @@
-{
-  "platformId": "codebuddy_cn",
-  "displayName": "CodeBuddy CN",
-  "packageMode": "hotUpdate",
-  "installKind": "sidecarAdapter",
-  "version": "1.0.1"
-}

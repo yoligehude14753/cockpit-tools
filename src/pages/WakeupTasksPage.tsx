@@ -37,7 +37,6 @@ import {
 import { ModalErrorMessage, useModalErrorState } from '../components/ModalErrorMessage';
 import { useEscClose } from '../hooks/useEscClose';
 import { OverviewTabsHeader } from '../components/OverviewTabsHeader';
-import { useAntigravityRuntimeTarget } from '../hooks/useAntigravityRuntimeTarget';
 
 const TASKS_STORAGE_KEY = 'agtools.wakeup.tasks';
 const WAKEUP_ENABLED_KEY = 'agtools.wakeup.enabled';
@@ -84,7 +83,6 @@ type NoticeTone = 'error' | 'warning' | 'success';
 
 interface WakeupPageProps {
   onNavigate?: (page: Page) => void;
-  hideHeader?: boolean;
 }
 
 type AvailableModel = AntigravityModelOption;
@@ -661,11 +659,9 @@ const getTriggerMode = (task: WakeupTask): TriggerMode => {
   return 'scheduled';
 };
 
-export function WakeupTasksPage({ onNavigate, hideHeader = false }: WakeupPageProps) {
+export function WakeupTasksPage({ onNavigate }: WakeupPageProps) {
   const { t, i18n } = useTranslation();
-  const antigravityRuntimeTarget = useAntigravityRuntimeTarget();
-  const { accounts, currentAccountsByTarget, fetchAccounts, fetchCurrentAccount } = useAccountStore();
-  const currentAccount = currentAccountsByTarget[antigravityRuntimeTarget] ?? null;
+  const { accounts, currentAccount, fetchAccounts, fetchCurrentAccount } = useAccountStore();
   const locale = i18n.language || 'zh-CN';
   const [tasks, setTasks] = useState<WakeupTask[]>(() => loadTasks(t('wakeup.defaultTaskName')));
   const [wakeupEnabled, setWakeupEnabled] = useState(() => {
@@ -1019,8 +1015,8 @@ export function WakeupTasksPage({ onNavigate, hideHeader = false }: WakeupPagePr
 
   useEffect(() => {
     fetchAccounts();
-    fetchCurrentAccount(antigravityRuntimeTarget);
-  }, [antigravityRuntimeTarget, fetchAccounts, fetchCurrentAccount]);
+    fetchCurrentAccount();
+  }, [fetchAccounts, fetchCurrentAccount]);
 
   useEffect(() => {
     const syncMode = () => {
@@ -2238,13 +2234,11 @@ export function WakeupTasksPage({ onNavigate, hideHeader = false }: WakeupPagePr
 
   return (
     <main className="main-content wakeup-page accounts-page">
-      {!hideHeader && (
-        <OverviewTabsHeader
-          active="wakeup"
-          onNavigate={onNavigate}
-          subtitle={t('wakeup.subtitle')}
-        />
-      )}
+      <OverviewTabsHeader
+        active="wakeup"
+        onNavigate={onNavigate}
+        subtitle={t('wakeup.subtitle')}
+      />
       <div className="toolbar wakeup-toolbar">
         <div className="toolbar-left">
           <div className={`wakeup-global-toggle ${wakeupEnabled ? 'is-on' : 'is-off'}`}>

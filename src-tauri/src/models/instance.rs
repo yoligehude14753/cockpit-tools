@@ -92,7 +92,7 @@ impl Default for DefaultInstanceSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceProfileView {
     pub id: String,

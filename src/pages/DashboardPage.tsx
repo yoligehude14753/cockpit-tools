@@ -17,14 +17,6 @@ import { useZedAccountStore } from '../stores/useZedAccountStore';
 import { useSponsorStore } from '../stores/useSponsorStore';
 import { useRemoteConfigStore } from '../stores/useRemoteConfigStore';
 import {
-  canOpenPlatformFromPackages,
-  canShowPlatformEntryFromPackages,
-  getPlatformPackageFromPackages,
-  isPlatformPackageStartupPlaceholder,
-  usePlatformPackageStore,
-} from '../stores/usePlatformPackageStore';
-import { getPlatformPackageShortStatus } from '../components/PlatformPackageToolbar';
-import {
   API_RELAY_LAYOUT_ENTRY_ID,
   ApiRelayLayoutEntryId,
   parseGroupEntryId,
@@ -96,7 +88,6 @@ import { WorkbuddyIcon } from '../components/icons/WorkbuddyIcon';
 import { PlatformId, PLATFORM_PAGE_MAP } from '../types/platform';
 import { getPlatformLabel, renderPlatformIcon } from '../utils/platformMeta';
 import { setAntigravityRuntimeTargetFromPlatform } from '../utils/antigravityRuntimeTarget';
-import { useAntigravityRuntimeTarget } from '../hooks/useAntigravityRuntimeTarget';
 import { ManualHelpIconButton } from '../components/ManualHelpIconButton';
 import { AnnouncementCenter } from '../components/AnnouncementCenter';
 import { isPrivacyModeEnabledByDefault, maskSensitiveValue } from '../utils/privacy';
@@ -133,39 +124,7 @@ interface DashboardPageProps {
 const DASHBOARD_DEFERRED_PREFETCH_DELAY_MS = 6000;
 const DASHBOARD_DEFERRED_PREFETCH_BATCH_SIZE = 1;
 const DASHBOARD_DEFERRED_PREFETCH_BATCH_DELAY_MS = 1200;
-const DASHBOARD_DISPLAY_GROUPS_CACHE_KEY = 'agtools.dashboard.display_groups.cache.v1';
-let dashboardStartupBaseLoaded = false;
-let dashboardStartupPrefetchedForPackageVersion = '';
-
-function loadCachedDashboardDisplayGroups(): DisplayGroup[] {
-  if (typeof localStorage === 'undefined') {
-    return [];
-  }
-
-  try {
-    const raw = localStorage.getItem(DASHBOARD_DISPLAY_GROUPS_CACHE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { groups?: unknown };
-    return Array.isArray(parsed.groups) ? (parsed.groups as DisplayGroup[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function persistDashboardDisplayGroups(groups: DisplayGroup[]): void {
-  if (typeof localStorage === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(
-      DASHBOARD_DISPLAY_GROUPS_CACHE_KEY,
-      JSON.stringify({ savedAt: Date.now(), groups }),
-    );
-  } catch {
-    // Cache writes are best effort only.
-  }
-}
+let dashboardStartupPrefetched = false;
 
 function normalizeDashboardCardPlatformId(platformId: PlatformId): PlatformId {
   return platformId === 'antigravity_ide' ? 'antigravity' : platformId;
@@ -262,7 +221,6 @@ export function DashboardPage({
   topCenterBanner,
 }: DashboardPageProps) {
   const { t } = useTranslation();
-  const antigravityRuntimeTarget = useAntigravityRuntimeTarget();
 
   const [tagModalState, setTagModalState] = React.useState<{ accountId: string; platform: PlatformId | 'codebuddy_cn'; tags: string[] } | null>(null);
   const [dashboardCardCollapse, setDashboardCardCollapse] = React.useState<DashboardCardCollapseState>({
@@ -282,12 +240,6 @@ export function DashboardPage({
       const accountId = tagModalState.accountId;
       switch (tagModalState.platform) {
         case 'antigravity':
-          if (
-            !usePlatformPackageStore.getState().canOpenPlatform('antigravity')
-            && !usePlatformPackageStore.getState().canOpenPlatform('antigravity_ide')
-          ) {
-            return;
-          }
           await useAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'codex':
@@ -300,9 +252,6 @@ export function DashboardPage({
           await useGitHubCopilotAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'windsurf':
-          if (!usePlatformPackageStore.getState().canOpenPlatform('windsurf')) {
-            return;
-          }
           await useWindsurfAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'kiro':
@@ -315,21 +264,15 @@ export function DashboardPage({
           await useGeminiAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'codebuddy':
-          if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy')) return;
           await useCodebuddyAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'codebuddy_cn':
-          if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy_cn')) return;
           await useCodebuddyCnAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'qoder':
-          if (!usePlatformPackageStore.getState().canOpenPlatform('qoder')) return;
           await useQoderAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'trae':
-          if (!usePlatformPackageStore.getState().canOpenPlatform('trae')) {
-            return;
-          }
           await useTraeAccountStore.getState().updateAccountTags(accountId, newTags);
           break;
         case 'workbuddy':
@@ -389,35 +332,7 @@ export function DashboardPage({
     (value?: string | null) => maskSensitiveValue(value, privacyModeEnabled),
     [privacyModeEnabled],
   );
-  const [agDisplayGroups, setAgDisplayGroups] = React.useState<DisplayGroup[]>(loadCachedDashboardDisplayGroups);
-  const platformPackages = usePlatformPackageStore((state) => state.packages);
-  const platformPackagesInitialized = usePlatformPackageStore((state) => state.initialized);
-  const canOpenPackagePlatform = useCallback(
-    (platformId: PlatformId) => canOpenPlatformFromPackages(
-      platformPackages,
-      platformPackagesInitialized,
-      platformId,
-    ),
-    [platformPackages, platformPackagesInitialized],
-  );
-  const canShowPackagePlatform = useCallback(
-    (platformId: PlatformId) => canShowPlatformEntryFromPackages(
-      platformPackages,
-      platformPackagesInitialized,
-      platformId,
-    ),
-    [platformPackages, platformPackagesInitialized],
-  );
-  const getPackageEntryStatus = useCallback(
-    (platformId: PlatformId) => {
-      const state = getPlatformPackageFromPackages(platformPackages, platformId);
-      return getPlatformPackageShortStatus(
-        isPlatformPackageStartupPlaceholder(state, platformPackagesInitialized) ? null : state,
-        t,
-      );
-    },
-    [platformPackages, platformPackagesInitialized, t],
-  );
+  const [agDisplayGroups, setAgDisplayGroups] = React.useState<DisplayGroup[]>([]);
   const navigateToPlatform = useCallback((platformId: PlatformId) => {
     setAntigravityRuntimeTargetFromPlatform(platformId);
     onNavigate(PLATFORM_PAGE_MAP[platformId]);
@@ -448,7 +363,7 @@ export function DashboardPage({
   // Antigravity Data
   const {
     accounts: agAccounts,
-    currentAccountsByTarget: agCurrentAccountsByTarget,
+    currentAccount: agCurrent,
     switchAccount: switchAgAccount,
     fetchAccounts: fetchAgAccounts,
     fetchCurrentAccount: fetchAgCurrent
@@ -552,100 +467,21 @@ export function DashboardPage({
     fetchAccounts: fetchZedAccounts,
     switchAccount: switchZedAccount,
   } = useZedAccountStore();
-  const claudeRuntimeReady = canOpenPackagePlatform('claude_manager');
-  const activeClaudeAccounts = useMemo(
-    () => (claudeRuntimeReady ? claudeAccounts : []),
-    [claudeAccounts, claudeRuntimeReady],
-  );
-  const activeClaudeCurrentId = claudeRuntimeReady ? claudeCurrentId : null;
-  const zedRuntimeReady = canOpenPackagePlatform('zed');
-  const activeZedAccounts = useMemo(
-    () => (zedRuntimeReady ? zedAccounts : []),
-    [zedAccounts, zedRuntimeReady],
-  );
-  const activeZedCurrentId = zedRuntimeReady ? zedCurrentId : null;
-  const githubCopilotRuntimeReady = canOpenPackagePlatform('github-copilot');
-  const activeGitHubCopilotAccounts = useMemo(
-    () => (githubCopilotRuntimeReady ? githubCopilotAccounts : []),
-    [githubCopilotAccounts, githubCopilotRuntimeReady],
-  );
-  const activeGitHubCopilotCurrentId = githubCopilotRuntimeReady ? githubCopilotCurrentId : null;
-  const windsurfRuntimeReady = canOpenPackagePlatform('windsurf');
-  const activeWindsurfAccounts = useMemo(
-    () => (windsurfRuntimeReady ? windsurfAccounts : []),
-    [windsurfAccounts, windsurfRuntimeReady],
-  );
-  const activeWindsurfCurrentId = windsurfRuntimeReady ? windsurfCurrentId : null;
-  const kiroRuntimeReady = canOpenPackagePlatform('kiro');
-  const activeKiroAccounts = useMemo(
-    () => (kiroRuntimeReady ? kiroAccounts : []),
-    [kiroAccounts, kiroRuntimeReady],
-  );
-  const activeKiroCurrentId = kiroRuntimeReady ? kiroCurrentId : null;
-  const cursorRuntimeReady = canOpenPackagePlatform('cursor');
-  const activeCursorAccounts = useMemo(
-    () => (cursorRuntimeReady ? cursorAccounts : []),
-    [cursorAccounts, cursorRuntimeReady],
-  );
-  const activeCursorCurrentId = cursorRuntimeReady ? cursorCurrentId : null;
-  const geminiRuntimeReady = canOpenPackagePlatform('gemini');
-  const activeGeminiAccounts = useMemo(
-    () => (geminiRuntimeReady ? geminiAccounts : []),
-    [geminiAccounts, geminiRuntimeReady],
-  );
-  const activeGeminiCurrentId = geminiRuntimeReady ? geminiCurrentId : null;
-  const codebuddyRuntimeReady = canOpenPackagePlatform('codebuddy');
-  const activeCodebuddyAccounts = useMemo(
-    () => (codebuddyRuntimeReady ? codebuddyAccounts : []),
-    [codebuddyAccounts, codebuddyRuntimeReady],
-  );
-  const activeCodebuddyCurrentId = codebuddyRuntimeReady ? codebuddyCurrentId : null;
-  const codebuddyCnRuntimeReady = canOpenPackagePlatform('codebuddy_cn');
-  const activeCodebuddyCnAccounts = useMemo(
-    () => (codebuddyCnRuntimeReady ? codebuddyCnAccounts : []),
-    [codebuddyCnAccounts, codebuddyCnRuntimeReady],
-  );
-  const activeCodebuddyCnCurrentId = codebuddyCnRuntimeReady ? codebuddyCnCurrentId : null;
-  const qoderRuntimeReady = canOpenPackagePlatform('qoder');
-  const activeQoderAccounts = useMemo(
-    () => (qoderRuntimeReady ? qoderAccounts : []),
-    [qoderAccounts, qoderRuntimeReady],
-  );
-  const activeQoderCurrentId = qoderRuntimeReady ? qoderCurrentId : null;
-  const traeRuntimeReady = canOpenPackagePlatform('trae');
-  const activeTraeAccounts = useMemo(
-    () => (traeRuntimeReady ? traeAccounts : []),
-    [traeAccounts, traeRuntimeReady],
-  );
-  const activeTraeCurrentId = traeRuntimeReady ? traeCurrentId : null;
-  const workbuddyRuntimeReady = canOpenPackagePlatform('workbuddy');
-  const activeWorkbuddyAccounts = useMemo(
-    () => (workbuddyRuntimeReady ? workbuddyAccounts : []),
-    [workbuddyAccounts, workbuddyRuntimeReady],
-  );
-  const activeWorkbuddyCurrentId = workbuddyRuntimeReady ? workbuddyCurrentId : null;
-  const codexRuntimeReady = canOpenPackagePlatform('codex');
-  const activeCodexAccounts = useMemo(
-    () => (codexRuntimeReady ? codexAccounts : []),
-    [codexAccounts, codexRuntimeReady],
-  );
-  const activeCodexCurrent = codexRuntimeReady ? codexCurrent : null;
 
-  const agCurrent = agCurrentAccountsByTarget[antigravityRuntimeTarget] ?? null;
   const agCurrentId = agCurrent?.id;
-  const codexCurrentId = activeCodexCurrent?.id;
+  const codexCurrentId = codexCurrent?.id;
 
   const agCurrentAccount = useMemo(() => {
     return resolveDashboardCurrentAccount(agAccounts, agCurrentId, agCurrent);
   }, [agAccounts, agCurrent, agCurrentId]);
 
   const codexCurrentAccount = useMemo(() => {
-    return resolveDashboardCurrentAccount(activeCodexAccounts, codexCurrentId, activeCodexCurrent);
-  }, [activeCodexAccounts, activeCodexCurrent, codexCurrentId]);
+    return resolveDashboardCurrentAccount(codexAccounts, codexCurrentId, codexCurrent);
+  }, [codexAccounts, codexCurrent, codexCurrentId]);
 
   const claudeCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeClaudeAccounts, activeClaudeCurrentId),
-    [activeClaudeAccounts, activeClaudeCurrentId],
+    () => resolveDashboardCurrentAccount(claudeAccounts, claudeCurrentId),
+    [claudeAccounts, claudeCurrentId],
   );
 
   React.useEffect(() => {
@@ -659,7 +495,6 @@ export function DashboardPage({
           if (!disposed) {
             setAgDisplayGroups(groups);
           }
-          persistDashboardDisplayGroups(groups);
         })
         .catch((error) => {
           console.error('Failed to load display groups:', error);
@@ -667,97 +502,24 @@ export function DashboardPage({
     };
 
     // 首屏优先：先拉 Antigravity 数据，其它平台延后，避免启动期并发请求过多。
-    if (!dashboardStartupBaseLoaded) {
-      dashboardStartupBaseLoaded = true;
-      void Promise.allSettled([fetchAgAccounts(), fetchAgCurrent(antigravityRuntimeTarget)]);
-      loadDisplayGroups();
-    }
+    void Promise.allSettled([fetchAgAccounts(), fetchAgCurrent()]);
+    loadDisplayGroups();
 
     const deferredTasks: Array<() => Promise<unknown>> = [
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('codex')) {
-          return undefined;
-        }
-        return fetchCodexAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('codex')) {
-          return undefined;
-        }
-        return fetchCodexCurrent();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('claude_manager')) {
-          return undefined;
-        }
-        return fetchClaudeAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('zed')) {
-          return undefined;
-        }
-        return fetchZedAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('github-copilot')) {
-          return undefined;
-        }
-        return fetchGitHubCopilotAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('windsurf')) {
-          return undefined;
-        }
-        return fetchWindsurfAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('kiro')) {
-          return undefined;
-        }
-        return fetchKiroAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('cursor')) {
-          return undefined;
-        }
-        return fetchCursorAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('gemini')) {
-          return undefined;
-        }
-        return fetchGeminiAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy')) {
-          return undefined;
-        }
-        return fetchCodebuddyAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy_cn')) {
-          return undefined;
-        }
-        return fetchCodebuddyCnAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('qoder')) {
-          return undefined;
-        }
-        return fetchQoderAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('trae')) {
-          return undefined;
-        }
-        return fetchTraeAccounts();
-      },
-      async () => {
-        if (!usePlatformPackageStore.getState().canOpenPlatform('workbuddy')) {
-          return undefined;
-        }
-        return fetchWorkbuddyAccounts();
-      },
+      fetchCodexAccounts,
+      fetchCodexCurrent,
+      fetchClaudeAccounts,
+      fetchZedAccounts,
+      fetchGitHubCopilotAccounts,
+      fetchWindsurfAccounts,
+      fetchKiroAccounts,
+      fetchCursorAccounts,
+      fetchGeminiAccounts,
+      fetchCodebuddyAccounts,
+      fetchCodebuddyCnAccounts,
+      fetchQoderAccounts,
+      fetchTraeAccounts,
+      fetchWorkbuddyAccounts,
     ];
 
     const loadDeferredPlatforms = () => {
@@ -787,26 +549,8 @@ export function DashboardPage({
       runNextBatch();
     };
 
-    const installedRuntimeSignature = platformPackages
-      .filter((item) =>
-        item.packageMode === 'hotUpdate'
-        && item.runtimeReady
-        && (
-          item.installStatus === 'installed'
-          || item.installStatus === 'updateAvailable'
-        ),
-      )
-      .map((item) => `${item.platformId}:${item.installedVersion || item.latestVersion || 'ready'}`)
-      .sort()
-      .join('|');
-    const packageVersion = platformPackagesInitialized
-      ? `ready:${installedRuntimeSignature}`
-      : installedRuntimeSignature
-        ? `cache:${installedRuntimeSignature}`
-        : '';
-
-    if (packageVersion && dashboardStartupPrefetchedForPackageVersion !== packageVersion) {
-      dashboardStartupPrefetchedForPackageVersion = packageVersion;
+    if (!dashboardStartupPrefetched) {
+      dashboardStartupPrefetched = true;
       deferredTimer = window.setTimeout(loadDeferredPlatforms, DASHBOARD_DEFERRED_PREFETCH_DELAY_MS);
     }
 
@@ -819,84 +563,60 @@ export function DashboardPage({
         window.clearTimeout(deferredBatchTimer);
       }
     };
-  }, [
-    antigravityRuntimeTarget,
-    fetchAgAccounts,
-    fetchAgCurrent,
-    fetchCodexAccounts,
-    fetchCodexCurrent,
-    fetchClaudeAccounts,
-    fetchZedAccounts,
-    fetchGitHubCopilotAccounts,
-    fetchWindsurfAccounts,
-    fetchKiroAccounts,
-    fetchCursorAccounts,
-    fetchGeminiAccounts,
-    fetchCodebuddyAccounts,
-    fetchCodebuddyCnAccounts,
-    fetchQoderAccounts,
-    fetchTraeAccounts,
-    fetchWorkbuddyAccounts,
-    platformPackages,
-    platformPackagesInitialized,
-  ]);
-
-  React.useEffect(() => {
-    void fetchAgCurrent(antigravityRuntimeTarget);
-  }, [antigravityRuntimeTarget, fetchAgCurrent]);
+  }, []);
 
   // Statistics
   const stats = useMemo(() => {
     return {
       total:
         agAccounts.length +
-        activeCodexAccounts.length +
-        activeClaudeAccounts.length +
-        activeZedAccounts.length +
-        activeGitHubCopilotAccounts.length +
-        activeWindsurfAccounts.length +
-        activeKiroAccounts.length +
-        activeCursorAccounts.length +
-        activeGeminiAccounts.length +
-        activeCodebuddyAccounts.length +
-        activeCodebuddyCnAccounts.length +
-        activeQoderAccounts.length +
-        activeTraeAccounts.length +
-        activeWorkbuddyAccounts.length,
+        codexAccounts.length +
+        claudeAccounts.length +
+        zedAccounts.length +
+        githubCopilotAccounts.length +
+        windsurfAccounts.length +
+        kiroAccounts.length +
+        cursorAccounts.length +
+        geminiAccounts.length +
+        codebuddyAccounts.length +
+        codebuddyCnAccounts.length +
+        qoderAccounts.length +
+        traeAccounts.length +
+        workbuddyAccounts.length,
       antigravity: agAccounts.length,
-      codex: activeCodexAccounts.length,
-      claude: activeClaudeAccounts.length,
-      zed: activeZedAccounts.length,
-      githubCopilot: activeGitHubCopilotAccounts.length,
-      windsurf: activeWindsurfAccounts.length,
-      kiro: activeKiroAccounts.length,
-      cursor: activeCursorAccounts.length,
-      gemini: activeGeminiAccounts.length,
-      codebuddy: activeCodebuddyAccounts.length,
-      codebuddy_cn: activeCodebuddyCnAccounts.length,
-      qoder: activeQoderAccounts.length,
-      trae: activeTraeAccounts.length,
-      workbuddy: activeWorkbuddyAccounts.length,
+      codex: codexAccounts.length,
+      claude: claudeAccounts.length,
+      zed: zedAccounts.length,
+      githubCopilot: githubCopilotAccounts.length,
+      windsurf: windsurfAccounts.length,
+      kiro: kiroAccounts.length,
+      cursor: cursorAccounts.length,
+      gemini: geminiAccounts.length,
+      codebuddy: codebuddyAccounts.length,
+      codebuddy_cn: codebuddyCnAccounts.length,
+      qoder: qoderAccounts.length,
+      trae: traeAccounts.length,
+      workbuddy: workbuddyAccounts.length,
     };
-  }, [agAccounts, activeCodexAccounts, activeClaudeAccounts, activeZedAccounts, activeGitHubCopilotAccounts, activeWindsurfAccounts, activeKiroAccounts, activeCursorAccounts, activeGeminiAccounts, activeCodebuddyAccounts, activeCodebuddyCnAccounts, activeQoderAccounts, activeTraeAccounts, activeWorkbuddyAccounts]);
+  }, [agAccounts, codexAccounts, claudeAccounts, zedAccounts, githubCopilotAccounts, windsurfAccounts, kiroAccounts, cursorAccounts, geminiAccounts, codebuddyAccounts, codebuddyCnAccounts, qoderAccounts, traeAccounts, workbuddyAccounts]);
 
   const dashboardAvailableTags = useMemo(() => {
     const tagSet = new Set<string>();
     const allAccounts = [
       ...agAccounts,
-      ...activeCodexAccounts,
-      ...activeClaudeAccounts,
-      ...activeZedAccounts,
-      ...activeGitHubCopilotAccounts,
-      ...activeWindsurfAccounts,
-      ...activeKiroAccounts,
-      ...activeCursorAccounts,
-      ...activeGeminiAccounts,
-      ...activeCodebuddyAccounts,
-      ...activeCodebuddyCnAccounts,
-      ...activeQoderAccounts,
-      ...activeTraeAccounts,
-      ...activeWorkbuddyAccounts,
+      ...codexAccounts,
+      ...claudeAccounts,
+      ...zedAccounts,
+      ...githubCopilotAccounts,
+      ...windsurfAccounts,
+      ...kiroAccounts,
+      ...cursorAccounts,
+      ...geminiAccounts,
+      ...codebuddyAccounts,
+      ...codebuddyCnAccounts,
+      ...qoderAccounts,
+      ...traeAccounts,
+      ...workbuddyAccounts,
     ];
     for (const acc of allAccounts) {
       if (acc.tags) {
@@ -906,7 +626,7 @@ export function DashboardPage({
       }
     }
     return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
-  }, [agAccounts, activeCodexAccounts, activeClaudeAccounts, activeZedAccounts, activeGitHubCopilotAccounts, activeWindsurfAccounts, activeKiroAccounts, activeCursorAccounts, activeGeminiAccounts, activeCodebuddyAccounts, activeCodebuddyCnAccounts, activeQoderAccounts, activeTraeAccounts, activeWorkbuddyAccounts]);
+  }, [agAccounts, codexAccounts, claudeAccounts, zedAccounts, githubCopilotAccounts, windsurfAccounts, kiroAccounts, cursorAccounts, geminiAccounts, codebuddyAccounts, codebuddyCnAccounts, qoderAccounts, traeAccounts, workbuddyAccounts]);
 
 
   // Refresh States
@@ -954,7 +674,7 @@ export function DashboardPage({
     if (refreshing.has(accountId)) return;
     setRefreshing(prev => new Set(prev).add(accountId));
     try {
-      await useAccountStore.getState().refreshQuota(accountId, antigravityRuntimeTarget);
+      await useAccountStore.getState().refreshQuota(accountId);
     } catch (error) {
       console.error('Refresh failed:', error);
     } finally {
@@ -968,7 +688,6 @@ export function DashboardPage({
 
   const handleRefreshCodex = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('codex')) return;
     setRefreshing(prev => new Set(prev).add(accountId));
     try {
       await useCodexAccountStore.getState().refreshQuota(accountId);
@@ -985,7 +704,6 @@ export function DashboardPage({
 
   const handleRefreshClaude = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('claude_manager')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useClaudeAccountStore.getState().refreshToken(accountId);
@@ -1017,7 +735,6 @@ export function DashboardPage({
   };
 
   const refreshCodexApiUsage = useCallback(async (account: CodexAccount) => {
-    if (!usePlatformPackageStore.getState().canOpenPlatform('codex')) return;
     if (isCodexChatCompletionsApiKeyAccount(account)) return;
     const apiKey = (account.openai_api_key || '').trim();
     const baseUrl = (account.api_base_url || '').trim();
@@ -1072,7 +789,6 @@ export function DashboardPage({
 
   const handleRefreshWindsurf = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('windsurf')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useWindsurfAccountStore.getState().refreshToken(accountId);
@@ -1105,7 +821,6 @@ export function DashboardPage({
 
   const handleRefreshCursor = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('cursor')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useCursorAccountStore.getState().refreshToken(accountId);
@@ -1122,7 +837,6 @@ export function DashboardPage({
 
   const handleRefreshGemini = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('gemini')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useGeminiAccountStore.getState().refreshToken(accountId);
@@ -1143,7 +857,7 @@ export function DashboardPage({
     const idsToRefresh = Array.from(new Set([agCurrentAccount?.id, agRecommended?.id].filter(Boolean))) as string[];
     try {
       for (const id of idsToRefresh) {
-        await useAccountStore.getState().refreshQuota(id, antigravityRuntimeTarget);
+        await useAccountStore.getState().refreshQuota(id);
       }
     } catch (error) {
       console.error('Card refresh failed:', error);
@@ -1154,7 +868,6 @@ export function DashboardPage({
 
   const handleRefreshClaudeCard = async () => {
     if (cardRefreshing.claude) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('claude_manager')) return;
     setCardRefreshing((prev) => ({ ...prev, claude: true }));
     const idsToRefresh = Array.from(new Set([claudeCurrent?.id, claudeRecommended?.id].filter(Boolean))) as string[];
     try {
@@ -1170,7 +883,6 @@ export function DashboardPage({
 
   const handleRefreshZedCard = async () => {
     if (cardRefreshing.zed) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('zed')) return;
     setCardRefreshing((prev) => ({ ...prev, zed: true }));
     const idsToRefresh = [zedCurrent?.id, zedRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1186,7 +898,6 @@ export function DashboardPage({
 
   const handleRefreshGitHubCopilotCard = async () => {
     if (cardRefreshing.githubCopilot) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('github-copilot')) return;
     setCardRefreshing(prev => ({ ...prev, githubCopilot: true }));
     const idsToRefresh = [githubCopilotCurrent?.id, githubCopilotRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1202,7 +913,6 @@ export function DashboardPage({
 
   const handleRefreshWindsurfCard = async () => {
     if (cardRefreshing.windsurf) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('windsurf')) return;
     setCardRefreshing((prev) => ({ ...prev, windsurf: true }));
     const idsToRefresh = [windsurfCurrent?.id, windsurfRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1218,7 +928,6 @@ export function DashboardPage({
 
   const handleRefreshKiroCard = async () => {
     if (cardRefreshing.kiro) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('kiro')) return;
     setCardRefreshing((prev) => ({ ...prev, kiro: true }));
     const idsToRefresh = [kiroCurrent?.id, kiroRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1234,7 +943,6 @@ export function DashboardPage({
 
   const handleRefreshCursorCard = async () => {
     if (cardRefreshing.cursor) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('cursor')) return;
     setCardRefreshing((prev) => ({ ...prev, cursor: true }));
     const idsToRefresh = [cursorCurrent?.id, cursorRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1250,7 +958,6 @@ export function DashboardPage({
 
   const handleRefreshGeminiCard = async () => {
     if (cardRefreshing.gemini) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('gemini')) return;
     setCardRefreshing((prev) => ({ ...prev, gemini: true }));
     const idsToRefresh = [geminiCurrent?.id, geminiRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1282,7 +989,6 @@ export function DashboardPage({
 
   const handleSwitchClaude = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('claude_manager')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchClaudeAccount(accountId);
@@ -1326,7 +1032,6 @@ export function DashboardPage({
 
   const handleSwitchWindsurf = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('windsurf')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchWindsurfAccount(accountId);
@@ -1343,7 +1048,6 @@ export function DashboardPage({
 
   const handleSwitchKiro = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('kiro')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchKiroAccount(accountId);
@@ -1360,7 +1064,6 @@ export function DashboardPage({
 
   const handleSwitchCursor = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('cursor')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchCursorAccount(accountId);
@@ -1377,7 +1080,6 @@ export function DashboardPage({
 
   const handleSwitchGemini = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('gemini')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchGeminiAccount(accountId);
@@ -1394,7 +1096,6 @@ export function DashboardPage({
 
   const handleRefreshCodebuddy = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useCodebuddyAccountStore.getState().refreshToken(accountId);
@@ -1411,7 +1112,6 @@ export function DashboardPage({
 
   const handleRefreshCodebuddyCn = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy_cn')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useCodebuddyCnAccountStore.getState().refreshToken(accountId);
@@ -1428,7 +1128,6 @@ export function DashboardPage({
 
   const handleRefreshQoder = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('qoder')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useQoderAccountStore.getState().refreshToken(accountId);
@@ -1445,7 +1144,6 @@ export function DashboardPage({
 
   const handleRefreshTrae = async (accountId: string) => {
     if (refreshing.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('trae')) return;
     setRefreshing((prev) => new Set(prev).add(accountId));
     try {
       await useTraeAccountStore.getState().refreshToken(accountId);
@@ -1477,7 +1175,7 @@ export function DashboardPage({
   };
 
   const handleRefreshCodebuddyCard = async () => {
-    if (cardRefreshing.codebuddy || !codebuddyRuntimeReady) return;
+    if (cardRefreshing.codebuddy) return;
     setCardRefreshing((prev) => ({ ...prev, codebuddy: true }));
     const idsToRefresh = [codebuddyCurrent?.id, codebuddyRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1492,7 +1190,7 @@ export function DashboardPage({
   };
 
   const handleRefreshCodebuddyCnCard = async () => {
-    if (cardRefreshing.codebuddyCn || !codebuddyCnRuntimeReady) return;
+    if (cardRefreshing.codebuddyCn) return;
     setCardRefreshing((prev) => ({ ...prev, codebuddyCn: true }));
     const idsToRefresh = Array.from(new Set([codebuddyCnCurrent?.id, codebuddyCnRecommended?.id].filter(Boolean))) as string[];
     try {
@@ -1508,7 +1206,6 @@ export function DashboardPage({
 
   const handleRefreshQoderCard = async () => {
     if (cardRefreshing.qoder) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('qoder')) return;
     setCardRefreshing((prev) => ({ ...prev, qoder: true }));
     const idsToRefresh = [qoderCurrent?.id, qoderRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1524,7 +1221,6 @@ export function DashboardPage({
 
   const handleRefreshTraeCard = async () => {
     if (cardRefreshing.trae) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('trae')) return;
     setCardRefreshing((prev) => ({ ...prev, trae: true }));
     const idsToRefresh = [traeCurrent?.id, traeRecommended?.id].filter(Boolean) as string[];
     try {
@@ -1540,7 +1236,6 @@ export function DashboardPage({
 
   const handleRefreshWorkbuddyCard = async () => {
     if (cardRefreshing.workbuddy) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('workbuddy')) return;
     setCardRefreshing((prev) => ({ ...prev, workbuddy: true }));
     const idsToRefresh = Array.from(new Set([workbuddyCurrent?.id, workbuddyRecommended?.id].filter(Boolean))) as string[];
     try {
@@ -1556,7 +1251,6 @@ export function DashboardPage({
 
   const handleSwitchCodebuddy = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchCodebuddyAccount(accountId);
@@ -1573,7 +1267,6 @@ export function DashboardPage({
 
   const handleSwitchCodebuddyCn = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('codebuddy_cn')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchCodebuddyCnAccount(accountId);
@@ -1590,7 +1283,6 @@ export function DashboardPage({
 
   const handleSwitchQoder = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('qoder')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchQoderAccount(accountId);
@@ -1607,7 +1299,6 @@ export function DashboardPage({
 
   const handleSwitchTrae = async (accountId: string) => {
     if (switching.has(accountId)) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('trae')) return;
     setSwitching((prev) => new Set(prev).add(accountId));
     try {
       await switchTraeAccount(accountId);
@@ -1668,10 +1359,10 @@ export function DashboardPage({
 
   // Codex Recommendation Logic
   const codexRecommended = useMemo(() => {
-    if (activeCodexAccounts.length <= 1) return null;
+    if (codexAccounts.length <= 1) return null;
     const currentId = codexCurrentAccount?.id;
 
-    const others = activeCodexAccounts.filter((a) => {
+    const others = codexAccounts.filter((a) => {
       if (a.id === currentId) return false;
       if (isCodexChatCompletionsApiKeyAccount(a)) return false;
       if (!a.quota) return false;
@@ -1686,7 +1377,7 @@ export function DashboardPage({
       };
       return getScore(curr) > getScore(prev) ? curr : prev;
     });
-  }, [activeCodexAccounts, codexCurrentAccount?.id]);
+  }, [codexAccounts, codexCurrentAccount?.id]);
 
   const codexCardRefreshTargets = useMemo(() => {
     const deduped = new Map<string, CodexAccount>();
@@ -1697,11 +1388,10 @@ export function DashboardPage({
     return Array.from(deduped.values());
   }, [codexCurrentAccount, codexRecommended]);
 
-  const canRefreshCodexCard = codexRuntimeReady && codexCardRefreshTargets.length > 0;
+  const canRefreshCodexCard = codexCardRefreshTargets.length > 0;
 
   const handleRefreshCodexCard = async () => {
     if (cardRefreshing.codex || !canRefreshCodexCard) return;
-    if (!usePlatformPackageStore.getState().canOpenPlatform('codex')) return;
     setCardRefreshing(prev => ({ ...prev, codex: true }));
     try {
       for (const account of codexCardRefreshTargets) {
@@ -1719,9 +1409,9 @@ export function DashboardPage({
   };
 
   const claudeRecommended = useMemo(() => {
-    if (activeClaudeAccounts.length <= 1) return null;
+    if (claudeAccounts.length <= 1) return null;
     const currentId = claudeCurrent?.id;
-    const others = activeClaudeAccounts.filter((account) => account.id !== currentId);
+    const others = claudeAccounts.filter((account) => account.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: ClaudeAccount) => {
@@ -1744,67 +1434,67 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeClaudeAccounts, claudeCurrent?.id]);
+  }, [claudeAccounts, claudeCurrent?.id]);
 
   const githubCopilotCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeGitHubCopilotAccounts, activeGitHubCopilotCurrentId),
-    [activeGitHubCopilotAccounts, activeGitHubCopilotCurrentId],
+    () => resolveDashboardCurrentAccount(githubCopilotAccounts, githubCopilotCurrentId),
+    [githubCopilotAccounts, githubCopilotCurrentId],
   );
 
   const windsurfCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeWindsurfAccounts, activeWindsurfCurrentId),
-    [activeWindsurfAccounts, activeWindsurfCurrentId],
+    () => resolveDashboardCurrentAccount(windsurfAccounts, windsurfCurrentId),
+    [windsurfAccounts, windsurfCurrentId],
   );
 
   const kiroCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeKiroAccounts, activeKiroCurrentId),
-    [activeKiroAccounts, activeKiroCurrentId],
+    () => resolveDashboardCurrentAccount(kiroAccounts, kiroCurrentId),
+    [kiroAccounts, kiroCurrentId],
   );
 
   const cursorCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeCursorAccounts, activeCursorCurrentId),
-    [activeCursorAccounts, activeCursorCurrentId],
+    () => resolveDashboardCurrentAccount(cursorAccounts, cursorCurrentId),
+    [cursorAccounts, cursorCurrentId],
   );
 
   const geminiCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeGeminiAccounts, activeGeminiCurrentId),
-    [activeGeminiAccounts, activeGeminiCurrentId],
+    () => resolveDashboardCurrentAccount(geminiAccounts, geminiCurrentId),
+    [geminiAccounts, geminiCurrentId],
   );
 
   const codebuddyCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeCodebuddyAccounts, activeCodebuddyCurrentId),
-    [activeCodebuddyAccounts, activeCodebuddyCurrentId],
+    () => resolveDashboardCurrentAccount(codebuddyAccounts, codebuddyCurrentId),
+    [codebuddyAccounts, codebuddyCurrentId],
   );
 
   const codebuddyCnCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeCodebuddyCnAccounts, activeCodebuddyCnCurrentId),
-    [activeCodebuddyCnAccounts, activeCodebuddyCnCurrentId],
+    () => resolveDashboardCurrentAccount(codebuddyCnAccounts, codebuddyCnCurrentId),
+    [codebuddyCnAccounts, codebuddyCnCurrentId],
   );
 
   const qoderCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeQoderAccounts, activeQoderCurrentId),
-    [activeQoderAccounts, activeQoderCurrentId],
+    () => resolveDashboardCurrentAccount(qoderAccounts, qoderCurrentId),
+    [qoderAccounts, qoderCurrentId],
   );
 
   const traeCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeTraeAccounts, activeTraeCurrentId),
-    [activeTraeAccounts, activeTraeCurrentId],
+    () => resolveDashboardCurrentAccount(traeAccounts, traeCurrentId),
+    [traeAccounts, traeCurrentId],
   );
 
   const workbuddyCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeWorkbuddyAccounts, activeWorkbuddyCurrentId),
-    [activeWorkbuddyAccounts, activeWorkbuddyCurrentId],
+    () => resolveDashboardCurrentAccount(workbuddyAccounts, workbuddyCurrentId),
+    [workbuddyAccounts, workbuddyCurrentId],
   );
 
   const zedCurrent = useMemo(
-    () => resolveDashboardCurrentAccount(activeZedAccounts, activeZedCurrentId),
-    [activeZedAccounts, activeZedCurrentId],
+    () => resolveDashboardCurrentAccount(zedAccounts, zedCurrentId),
+    [zedAccounts, zedCurrentId],
   );
 
   const githubCopilotRecommended = useMemo(() => {
-    if (activeGitHubCopilotAccounts.length <= 1) return null;
+    if (githubCopilotAccounts.length <= 1) return null;
     const currentId = githubCopilotCurrent?.id;
-    const others = activeGitHubCopilotAccounts.filter((a) => a.id !== currentId);
+    const others = githubCopilotAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (acc: GitHubCopilotAccount) => {
@@ -1816,12 +1506,12 @@ export function DashboardPage({
     };
 
     return others.reduce((prev, curr) => (getScore(curr) < getScore(prev) ? curr : prev));
-  }, [activeGitHubCopilotAccounts, githubCopilotCurrent?.id]);
+  }, [githubCopilotAccounts, githubCopilotCurrent?.id]);
 
   const windsurfRecommended = useMemo(() => {
-    if (activeWindsurfAccounts.length <= 1) return null;
+    if (windsurfAccounts.length <= 1) return null;
     const currentId = windsurfCurrent?.id;
-    const others = activeWindsurfAccounts.filter((account) => account.id !== currentId);
+    const others = windsurfAccounts.filter((account) => account.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: WindsurfAccount) => {
@@ -1845,12 +1535,12 @@ export function DashboardPage({
     };
 
     return others.reduce((prev, curr) => (getScore(curr) > getScore(prev) ? curr : prev));
-  }, [activeWindsurfAccounts, windsurfCurrent?.id]);
+  }, [windsurfAccounts, windsurfCurrent?.id]);
 
   const kiroRecommended = useMemo(() => {
-    if (activeKiroAccounts.length <= 1) return null;
+    if (kiroAccounts.length <= 1) return null;
     const currentId = kiroCurrent?.id;
-    const others = activeKiroAccounts.filter(
+    const others = kiroAccounts.filter(
       (account) => account.id !== currentId && !isKiroAccountBanned(account),
     );
     if (others.length === 0) return null;
@@ -1876,12 +1566,12 @@ export function DashboardPage({
     };
 
     return others.reduce((prev, curr) => (getScore(curr) > getScore(prev) ? curr : prev));
-  }, [activeKiroAccounts, kiroCurrent?.id]);
+  }, [kiroAccounts, kiroCurrent?.id]);
 
   const cursorRecommended = useMemo(() => {
-    if (activeCursorAccounts.length <= 1) return null;
+    if (cursorAccounts.length <= 1) return null;
     const currentId = cursorCurrent?.id;
-    const others = activeCursorAccounts.filter((a) => a.id !== currentId);
+    const others = cursorAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: CursorAccount) => {
@@ -1942,12 +1632,12 @@ export function DashboardPage({
 
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeCursorAccounts, cursorCurrent?.id]);
+  }, [cursorAccounts, cursorCurrent?.id]);
 
   const geminiRecommended = useMemo(() => {
-    if (activeGeminiAccounts.length <= 1) return null;
+    if (geminiAccounts.length <= 1) return null;
     const currentId = geminiCurrent?.id;
-    const others = activeGeminiAccounts.filter((a) => a.id !== currentId);
+    const others = geminiAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: GeminiAccount) => {
@@ -1979,12 +1669,12 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeGeminiAccounts, geminiCurrent?.id]);
+  }, [geminiAccounts, geminiCurrent?.id]);
 
   const codebuddyRecommended = useMemo(() => {
-    if (activeCodebuddyAccounts.length <= 1) return null;
+    if (codebuddyAccounts.length <= 1) return null;
     const currentId = codebuddyCurrent?.id;
-    const others = activeCodebuddyAccounts.filter((a) => a.id !== currentId);
+    const others = codebuddyAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: CodebuddyAccount) => {
@@ -2005,13 +1695,13 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeCodebuddyAccounts, codebuddyCurrent?.id]);
+  }, [codebuddyAccounts, codebuddyCurrent?.id]);
 
 
   const codebuddyCnRecommended = useMemo(() => {
-    if (activeCodebuddyCnAccounts.length <= 1) return null;
+    if (codebuddyCnAccounts.length <= 1) return null;
     const currentId = codebuddyCnCurrent?.id;
-    const others = activeCodebuddyCnAccounts.filter((a) => a.id !== currentId);
+    const others = codebuddyCnAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: CodebuddyAccount) => {
@@ -2043,12 +1733,12 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeCodebuddyCnAccounts, codebuddyCnCurrent?.id]);
+  }, [codebuddyCnAccounts, codebuddyCnCurrent?.id]);
 
   const qoderRecommended = useMemo(() => {
-    if (activeQoderAccounts.length <= 1) return null;
+    if (qoderAccounts.length <= 1) return null;
     const currentId = qoderCurrent?.id;
-    const others = activeQoderAccounts.filter((a) => a.id !== currentId);
+    const others = qoderAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: QoderAccount) => {
@@ -2068,12 +1758,12 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeQoderAccounts, qoderCurrent?.id]);
+  }, [qoderAccounts, qoderCurrent?.id]);
 
   const traeRecommended = useMemo(() => {
-    if (activeTraeAccounts.length <= 1) return null;
+    if (traeAccounts.length <= 1) return null;
     const currentId = traeCurrent?.id;
-    const others = activeTraeAccounts.filter((a) => a.id !== currentId);
+    const others = traeAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: TraeAccount) => {
@@ -2093,12 +1783,12 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeTraeAccounts, traeCurrent?.id]);
+  }, [traeAccounts, traeCurrent?.id]);
 
   const workbuddyRecommended = useMemo(() => {
-    if (activeWorkbuddyAccounts.length <= 1) return null;
+    if (workbuddyAccounts.length <= 1) return null;
     const currentId = workbuddyCurrent?.id;
-    const others = activeWorkbuddyAccounts.filter((a) => a.id !== currentId);
+    const others = workbuddyAccounts.filter((a) => a.id !== currentId);
     if (others.length === 0) return null;
 
     const getScore = (account: WorkbuddyAccount) => {
@@ -2130,12 +1820,12 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeWorkbuddyAccounts, workbuddyCurrent?.id]);
+  }, [workbuddyAccounts, workbuddyCurrent?.id]);
 
   const zedRecommended = useMemo(() => {
-    if (activeZedAccounts.length <= 1) return null;
+    if (zedAccounts.length <= 1) return null;
     const currentId = zedCurrent?.id;
-    const others = activeZedAccounts.filter((account) => account.id !== currentId);
+    const others = zedAccounts.filter((account) => account.id !== currentId);
     if (others.length === 0) return null;
 
     return others.reduce((best, candidate) => {
@@ -2148,7 +1838,7 @@ export function DashboardPage({
       }
       return candidateScore.freshness > bestScore.freshness ? candidate : best;
     });
-  }, [activeZedAccounts, zedCurrent?.id]);
+  }, [zedAccounts, zedCurrent?.id]);
 
   // Render Helpers
   const formatQuotaValue = (value: number) => {
@@ -2351,7 +2041,7 @@ export function DashboardPage({
           </button>
           <button
             className="mini-icon-btn"
-            onClick={() => switchAgAccount(account.id, antigravityRuntimeTarget)}
+            onClick={() => switchAgAccount(account.id)}
             title={t('dashboard.switch', '切换')}
           >
             <Play size={14} />
@@ -2460,13 +2150,8 @@ export function DashboardPage({
             )}
             <button
               className="mini-icon-btn"
-              onClick={() => {
-                if (codexRuntimeReady) {
-                  void switchCodexAccount(account.id);
-                }
-              }}
+              onClick={() => switchCodexAccount(account.id)}
               title={t('dashboard.switch', '切换')}
-              disabled={!codexRuntimeReady}
             >
               <Play size={14} />
             </button>
@@ -2479,11 +2164,7 @@ export function DashboardPage({
     return renderUnifiedAccountCard({
       presentation,
       onRefresh: () => handleRefreshCodex(account.id),
-      onSwitch: () => {
-        if (codexRuntimeReady) {
-          void switchCodexAccount(account.id);
-        }
-      },
+      onSwitch: () => switchCodexAccount(account.id),
       isRefreshing: refreshing.has(account.id),
       isSwitching: false,
       maxMetrics: 4,
@@ -2742,7 +2423,7 @@ export function DashboardPage({
     const result = new Map<PlatformLayoutEntryId, number>();
     for (const entryId of visibleEntryOrder) {
       const platformIds = resolveEntryPlatformIds(entryId, platformGroups).filter(
-        (platformId) => !remoteHiddenPlatformSet.has(platformId) && canOpenPackagePlatform(platformId),
+        (platformId) => !remoteHiddenPlatformSet.has(platformId),
       );
       const countedPlatformIds = new Set<PlatformId>();
       const count = platformIds.reduce((sum, platformId) => {
@@ -2759,7 +2440,7 @@ export function DashboardPage({
       result.set(entryId, count);
     }
     return result;
-  }, [visibleEntryOrder, platformGroups, platformCounts, remoteHiddenPlatformSet, canOpenPackagePlatform]);
+  }, [visibleEntryOrder, platformGroups, platformCounts, remoteHiddenPlatformSet]);
 
   const visibleDashboardCardIds = useMemo(() => {
     const seen = new Set<PlatformId>();
@@ -2769,7 +2450,7 @@ export function DashboardPage({
         continue;
       }
       const entryPlatformIds = resolveEntryPlatformIds(entryId, platformGroups).filter(
-        (candidate) => !remoteHiddenPlatformSet.has(candidate) && canShowPackagePlatform(candidate),
+        (candidate) => !remoteHiddenPlatformSet.has(candidate),
       );
       if (entryPlatformIds.length === 0) {
         continue;
@@ -2790,7 +2471,7 @@ export function DashboardPage({
       result.push(normalizedPlatformId);
     }
     return result;
-  }, [canShowPackagePlatform, platformGroups, remoteHiddenPlatformSet, visibleDashboardEntryOrder]);
+  }, [platformGroups, remoteHiddenPlatformSet, visibleDashboardEntryOrder]);
   const isSinglePlatformMode = visibleDashboardCardIds.length === 1;
   const cardRows = useMemo(() => {
     const rows: PlatformId[][] = [];
@@ -2822,28 +2503,19 @@ export function DashboardPage({
   );
 
   const renderPlatformCard = (platformId: PlatformId) => {
-    const packageStatus = getPackageEntryStatus(platformId);
-
-  if (platformId === 'antigravity') {
-      const antigravityPlatformId = antigravityRuntimeTarget;
-      const antigravityPackageStatus = getPackageEntryStatus(antigravityPlatformId);
+    if (platformId === 'antigravity') {
       return (
         <div className="main-card antigravity-card" key={platformId}>
           <div className="main-card-header">
             <div className="header-title">
               <RobotIcon className="" style={{ width: 18, height: 18 }} />
-              <h3>{getPlatformLabel(antigravityPlatformId, t)}</h3>
-              {antigravityPackageStatus && (
-                <span className={`platform-package-card-status is-${antigravityPackageStatus.tone}`}>
-                  {antigravityPackageStatus.label}
-                </span>
-              )}
+              <h3>{getPlatformLabel(platformId, t)}</h3>
             </div>
             <div className="header-action-group">
               <button
                 className="header-action-btn"
                 onClick={handleRefreshAgCard}
-                disabled={cardRefreshing.ag || Boolean(antigravityPackageStatus)}
+                disabled={cardRefreshing.ag}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.ag ? 'loading-spinner' : ''} />
@@ -2853,45 +2525,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {antigravityPackageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                {renderPlatformIcon(antigravityPlatformId, 30)}
-              </div>
-              <div>
-                <strong>{antigravityPackageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(antigravityPlatformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderAgAccountContent(agCurrentAccount)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderAgAccountContent(agCurrentAccount)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {agRecommended ? (
-                  renderAgAccountContent(agRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {agRecommended ? (
+                renderAgAccountContent(agRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
-          <button className="card-footer-action" onClick={() => navigateToPlatform(antigravityPlatformId)}>
-            {antigravityPackageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+          <button className="card-footer-action" onClick={() => onNavigate('overview')}>
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -2904,11 +2557,6 @@ export function DashboardPage({
             <div className="header-title">
               <CodexIcon size={18} />
               <h3>{getPlatformLabel(platformId, t)}</h3>
-              {packageStatus && (
-                <span className={`platform-package-card-status is-${packageStatus.tone}`}>
-                  {packageStatus.label}
-                </span>
-              )}
             </div>
             <div className="header-action-group">
               <button
@@ -2924,45 +2572,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {packageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                <CodexIcon size={30} />
-              </div>
-              <div>
-                <strong>{packageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(platformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderCodexAccountContent(codexCurrentAccount)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderCodexAccountContent(codexCurrentAccount)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {codexRecommended ? (
-                  renderCodexAccountContent(codexRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {codexRecommended ? (
+                renderCodexAccountContent(codexRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
           <button className="card-footer-action" onClick={() => onNavigate('codex')}>
-            {packageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -2980,7 +2609,7 @@ export function DashboardPage({
               <button
                 className="header-action-btn"
                 onClick={handleRefreshClaudeCard}
-                disabled={cardRefreshing.claude || !claudeRuntimeReady}
+                disabled={cardRefreshing.claude}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.claude ? 'loading-spinner' : ''} />
@@ -3022,17 +2651,12 @@ export function DashboardPage({
             <div className="header-title">
               {renderPlatformIcon(platformId, 18)}
               <h3>{getPlatformLabel(platformId, t)}</h3>
-              {packageStatus && (
-                <span className={`platform-package-card-status is-${packageStatus.tone}`}>
-                  {packageStatus.label}
-                </span>
-              )}
             </div>
             <div className="header-action-group">
               <button
                 className="header-action-btn"
                 onClick={handleRefreshZedCard}
-                disabled={cardRefreshing.zed || !zedRuntimeReady}
+                disabled={cardRefreshing.zed}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.zed ? 'loading-spinner' : ''} />
@@ -3042,45 +2666,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {packageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                {renderPlatformIcon(platformId, 30)}
-              </div>
-              <div>
-                <strong>{packageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(platformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderZedAccountContent(zedCurrent)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderZedAccountContent(zedCurrent)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {zedRecommended ? (
-                  renderZedAccountContent(zedRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {zedRecommended ? (
+                renderZedAccountContent(zedRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
-          <button className="card-footer-action" onClick={() => navigateToPlatform('zed')}>
-            {packageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+          <button className="card-footer-action" onClick={() => onNavigate('zed')}>
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -3093,17 +2698,12 @@ export function DashboardPage({
             <div className="header-title">
               <Github size={18} />
               <h3>{getPlatformLabel(platformId, t)}</h3>
-              {packageStatus && (
-                <span className={`platform-package-card-status is-${packageStatus.tone}`}>
-                  {packageStatus.label}
-                </span>
-              )}
             </div>
             <div className="header-action-group">
               <button
                 className="header-action-btn"
                 onClick={handleRefreshGitHubCopilotCard}
-                disabled={cardRefreshing.githubCopilot || !githubCopilotRuntimeReady}
+                disabled={cardRefreshing.githubCopilot}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.githubCopilot ? 'loading-spinner' : ''} />
@@ -3113,45 +2713,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {packageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                {renderPlatformIcon(platformId, 30)}
-              </div>
-              <div>
-                <strong>{packageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(platformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderGitHubCopilotAccountContent(githubCopilotCurrent)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderGitHubCopilotAccountContent(githubCopilotCurrent)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {githubCopilotRecommended ? (
-                  renderGitHubCopilotAccountContent(githubCopilotRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {githubCopilotRecommended ? (
+                renderGitHubCopilotAccountContent(githubCopilotRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
           <button className="card-footer-action" onClick={() => onNavigate('github-copilot')}>
-            {packageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -3163,18 +2744,13 @@ export function DashboardPage({
           <div className="main-card-header">
             <div className="header-title">
               <WindsurfIcon className="" style={{ width: 18, height: 18 }} />
-              <h3>{getPlatformLabel(platformId, t)}</h3>
-              {packageStatus && (
-                <span className={`platform-package-card-status is-${packageStatus.tone}`}>
-                  {packageStatus.label}
-                </span>
-              )}
+              <h3>Windsurf</h3>
             </div>
             <div className="header-action-group">
               <button
                 className="header-action-btn"
                 onClick={handleRefreshWindsurfCard}
-                disabled={cardRefreshing.windsurf || !windsurfRuntimeReady}
+                disabled={cardRefreshing.windsurf}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.windsurf ? 'loading-spinner' : ''} />
@@ -3184,45 +2760,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {packageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                {renderPlatformIcon(platformId, 30)}
-              </div>
-              <div>
-                <strong>{packageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(platformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderWindsurfAccountContent(windsurfCurrent)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderWindsurfAccountContent(windsurfCurrent)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {windsurfRecommended ? (
-                  renderWindsurfAccountContent(windsurfRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {windsurfRecommended ? (
+                renderWindsurfAccountContent(windsurfRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
-          <button className="card-footer-action" onClick={() => navigateToPlatform('windsurf')}>
-            {packageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+          <button className="card-footer-action" onClick={() => onNavigate('windsurf')}>
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -3234,18 +2791,13 @@ export function DashboardPage({
           <div className="main-card-header">
             <div className="header-title">
               <KiroIcon style={{ width: 18, height: 18 }} />
-              <h3>{getPlatformLabel(platformId, t)}</h3>
-              {packageStatus && (
-                <span className={`platform-package-card-status is-${packageStatus.tone}`}>
-                  {packageStatus.label}
-                </span>
-              )}
+              <h3>Kiro</h3>
             </div>
             <div className="header-action-group">
               <button
                 className="header-action-btn"
                 onClick={handleRefreshKiroCard}
-                disabled={cardRefreshing.kiro || !kiroRuntimeReady}
+                disabled={cardRefreshing.kiro}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.kiro ? 'loading-spinner' : ''} />
@@ -3255,45 +2807,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {packageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                {renderPlatformIcon(platformId, 30)}
-              </div>
-              <div>
-                <strong>{packageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(platformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderKiroAccountContent(kiroCurrent)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderKiroAccountContent(kiroCurrent)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {kiroRecommended ? (
-                  renderKiroAccountContent(kiroRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {kiroRecommended ? (
+                renderKiroAccountContent(kiroRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
-          <button className="card-footer-action" onClick={() => navigateToPlatform('kiro')}>
-            {packageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+          <button className="card-footer-action" onClick={() => onNavigate('kiro')}>
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -3306,17 +2839,12 @@ export function DashboardPage({
             <div className="header-title">
               <CursorIcon style={{ width: 18, height: 18 }} />
               <h3>Cursor</h3>
-              {packageStatus && (
-                <span className={`platform-package-card-status is-${packageStatus.tone}`}>
-                  {packageStatus.label}
-                </span>
-              )}
             </div>
             <div className="header-action-group">
               <button
                 className="header-action-btn"
                 onClick={handleRefreshCursorCard}
-                disabled={cardRefreshing.cursor || !cursorRuntimeReady}
+                disabled={cardRefreshing.cursor}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.cursor ? 'loading-spinner' : ''} />
@@ -3326,45 +2854,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {packageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                {renderPlatformIcon(platformId, 30)}
-              </div>
-              <div>
-                <strong>{packageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(platformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderCursorAccountContent(cursorCurrent)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderCursorAccountContent(cursorCurrent)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {cursorRecommended ? (
-                  renderCursorAccountContent(cursorRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {cursorRecommended ? (
+                renderCursorAccountContent(cursorRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
-          <button className="card-footer-action" onClick={() => navigateToPlatform('cursor')}>
-            {packageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+          <button className="card-footer-action" onClick={() => onNavigate('cursor')}>
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -3377,17 +2886,12 @@ export function DashboardPage({
             <div className="header-title">
               <GeminiIcon style={{ width: 18, height: 18 }} />
               <h3>Gemini Cli</h3>
-              {packageStatus && (
-                <span className={`platform-package-card-status is-${packageStatus.tone}`}>
-                  {packageStatus.label}
-                </span>
-              )}
             </div>
             <div className="header-action-group">
               <button
                 className="header-action-btn"
                 onClick={handleRefreshGeminiCard}
-                disabled={cardRefreshing.gemini || !geminiRuntimeReady}
+                disabled={cardRefreshing.gemini}
                 title={t('common.refresh', '刷新')}
               >
                 <RotateCw size={14} className={cardRefreshing.gemini ? 'loading-spinner' : ''} />
@@ -3397,45 +2901,26 @@ export function DashboardPage({
             </div>
           </div>
 
-          {packageStatus ? (
-            <div className="platform-package-dashboard-state">
-              <div className="platform-package-dashboard-icon">
-                {renderPlatformIcon(platformId, 30)}
-              </div>
-              <div>
-                <strong>{packageStatus.label}</strong>
-                <p>
-                  {t('platformLayout.packageDashboardStateDesc', {
-                    platform: getPlatformLabel(platformId, t),
-                    defaultValue: '打开 {{platform}} 页面后，可在右上角安装、更新、修复或查看更新日志。',
-                  })}
-                </p>
-              </div>
+          <div className="split-content">
+            <div className="split-half current-half">
+              <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
+              {renderGeminiAccountContent(geminiCurrent)}
             </div>
-          ) : (
-            <div className="split-content">
-              <div className="split-half current-half">
-                <span className="half-label"><CheckCircle2 size={12} /> {t('dashboard.current', '当前账户')}</span>
-                {renderGeminiAccountContent(geminiCurrent)}
-              </div>
 
-              <div className="split-divider"></div>
+            <div className="split-divider"></div>
 
-              <div className="split-half recommend-half">
-                <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
-                {geminiRecommended ? (
-                  renderGeminiAccountContent(geminiRecommended)
-                ) : (
-                  <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
-                )}
-              </div>
+            <div className="split-half recommend-half">
+              <span className="half-label"><Sparkles size={12} /> {t('dashboard.recommended', '推荐账号')}</span>
+              {geminiRecommended ? (
+                renderGeminiAccountContent(geminiRecommended)
+              ) : (
+                <div className="empty-slot-text">{t('dashboard.noRecommendation', '暂无更好推荐')}</div>
+              )}
             </div>
-          )}
+          </div>
 
-          <button className="card-footer-action" onClick={() => navigateToPlatform('gemini')}>
-            {packageStatus
-              ? t('platformLayout.packageOpenPlatformPage', '打开平台页面')
-              : t('dashboard.viewAllAccounts', '查看所有账号')}
+          <button className="card-footer-action" onClick={() => onNavigate('gemini')}>
+            {t('dashboard.viewAllAccounts', '查看所有账号')}
           </button>
         </div>
       );
@@ -3769,7 +3254,7 @@ export function DashboardPage({
           }
 
           const entryPlatformIds = resolveEntryPlatformIds(entryId, platformGroups).filter(
-            (candidate) => !remoteHiddenPlatformSet.has(candidate) && canShowPackagePlatform(candidate),
+            (candidate) => !remoteHiddenPlatformSet.has(candidate),
           );
           if (entryPlatformIds.length === 0) {
             return null;
@@ -3785,9 +3270,7 @@ export function DashboardPage({
           const groupId = parseGroupEntryId(entryId);
           const group = groupId ? platformGroups.find((item) => item.id === groupId) : null;
           const groupChildLabels = group
-            ? group.platformIds.filter((childPlatformId) =>
-              !remoteHiddenPlatformSet.has(childPlatformId) && canShowPackagePlatform(childPlatformId),
-            ).map((childPlatformId) =>
+            ? group.platformIds.filter((childPlatformId) => !remoteHiddenPlatformSet.has(childPlatformId)).map((childPlatformId) =>
               resolveGroupChildName(group, childPlatformId, getPlatformLabel(childPlatformId, t)),
             )
             : [];
@@ -3796,7 +3279,6 @@ export function DashboardPage({
           const label = group
             ? group.name
             : getPlatformLabel(platformId, t);
-          const packageStatus = getPackageEntryStatus(platformId);
           const iconClass =
             platformId === 'antigravity'
               ? 'success'
@@ -3815,13 +3297,11 @@ export function DashboardPage({
                           : 'windsurf';
           return (
             <button
-              className={`stat-card stat-card-button ${packageStatus ? `is-package-install-required is-package-status-${packageStatus.tone}` : ''}`}
+              className="stat-card stat-card-button"
               key={entryId}
               onClick={() => navigateToPlatform(platformId)}
               title={
-                packageStatus
-                  ? `${label} · ${packageStatus.label}`
-                  : groupExtraCount > 0
+                groupExtraCount > 0
                   ? `${t('dashboard.switchTo', '切换到此账号')} · ${groupTooltip}`
                   : t('dashboard.switchTo', '切换到此账号')
               }
@@ -3852,11 +3332,7 @@ export function DashboardPage({
               </div>
               <div className="stat-info">
                 <span className="stat-label">{label}</span>
-                <span className={`stat-value ${packageStatus ? `is-package-install-required-value is-package-status-${packageStatus.tone}` : ''}`}>
-                  {packageStatus
-                    ? packageStatus.label
-                    : entryCounts.get(entryId) ?? 0}
-                </span>
+                <span className="stat-value">{entryCounts.get(entryId) ?? 0}</span>
               </div>
             </button>
           );

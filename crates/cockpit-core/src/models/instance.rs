@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::codex::CodexAppSpeed;
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum InstanceLaunchMode {
@@ -27,8 +25,6 @@ pub struct InstanceProfile {
     pub bind_account_id: Option<String>,
     #[serde(default)]
     pub launch_mode: InstanceLaunchMode,
-    #[serde(default, skip_serializing_if = "is_standard_app_speed")]
-    pub app_speed: CodexAppSpeed,
     pub created_at: i64,
     pub last_launched_at: Option<i64>,
     #[serde(default)]
@@ -60,15 +56,9 @@ pub struct DefaultInstanceSettings {
     #[serde(default)]
     pub extra_args: String,
     #[serde(default)]
-    pub working_dir: Option<String>,
-    #[serde(default)]
     pub launch_mode: InstanceLaunchMode,
-    #[serde(default, skip_serializing_if = "is_standard_app_speed")]
-    pub app_speed: CodexAppSpeed,
     #[serde(default = "default_follow_local_account")]
     pub follow_local_account: bool,
-    #[serde(default)]
-    pub auto_sync_threads: bool,
     #[serde(default)]
     pub last_pid: Option<u32>,
 }
@@ -82,17 +72,14 @@ impl Default for DefaultInstanceSettings {
         Self {
             bind_account_id: None,
             extra_args: String::new(),
-            working_dir: None,
             launch_mode: InstanceLaunchMode::App,
-            app_speed: CodexAppSpeed::Standard,
             follow_local_account: true,
-            auto_sync_threads: false,
             last_pid: None,
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceProfileView {
     pub id: String,
@@ -128,8 +115,4 @@ impl InstanceProfileView {
             follow_local_account: false,
         }
     }
-}
-
-fn is_standard_app_speed(speed: &CodexAppSpeed) -> bool {
-    matches!(speed, CodexAppSpeed::Standard)
 }

@@ -5,10 +5,6 @@ export type CodexExportFormat = 'cockpit_tools' | 'sub2api' | 'cpa';
 type JsonRecord = Record<string, unknown>;
 const INVALID_FILE_CHARS_REGEX = /[<>:"/\\|?*\x00-\x1F]/g;
 
-export interface CodexExportOptions {
-  includeSensitiveAccountNotes?: boolean;
-}
-
 interface Sub2apiBatchCreatePayload {
   exported_at: string;
   proxies: [];
@@ -277,93 +273,11 @@ function toPortableApiKeyStorage(account: CodexAccount): JsonRecord {
   return payload;
 }
 
-function applyCockpitToolsAccountNoteFields(
-  payload: JsonRecord,
-  account: CodexAccount,
-  options?: CodexExportOptions,
-): JsonRecord {
-  if (account.account_note?.trim()) {
-    payload.account_note = account.account_note.trim();
+function toCockpitToolsPortableStorage(account: CodexAccount): CodexPortableTokenStorage | JsonRecord {
+  if (isCodexApiKeyAccount(account)) {
+    return toPortableApiKeyStorage(account);
   }
-
-  if (options?.includeSensitiveAccountNotes === false) {
-    return payload;
-  }
-
-  if (account.two_factor_secret?.trim()) {
-    payload.two_factor_secret = account.two_factor_secret.trim();
-  }
-  if (account.account_password?.trim()) {
-    payload.account_password = account.account_password.trim();
-  }
-  if (account.phone_number?.trim()) {
-    payload.phone_number = account.phone_number.trim();
-  }
-
-  return payload;
-}
-
-function toCockpitToolsPortableStorage(
-  account: CodexAccount,
-  options?: CodexExportOptions,
-): CodexPortableTokenStorage | JsonRecord {
-  const payload: JsonRecord = isCodexApiKeyAccount(account)
-    ? toPortableApiKeyStorage(account)
-    : { ...toPortableTokenStorage(account) };
-  applyCockpitToolsAccountNoteFields(payload, account, options);
-  return payload;
-}
-
-function hasSensitiveAccountNoteFields(account: CodexAccount): boolean {
-  return Boolean(
-    account.two_factor_secret?.trim() ||
-      account.account_password?.trim() ||
-      account.phone_number?.trim(),
-  );
-}
-
-export function codexExportHasSensitiveAccountNotes(rawJson: string): boolean {
-  try {
-    return parseCockpitToolsCodexExport(rawJson).some(hasSensitiveAccountNoteFields);
-  } catch {
-    return false;
-  }
-}
-
-function toCockpitToolsPortableAccounts(
-  accounts: CodexAccount[],
-  options?: CodexExportOptions,
-): Array<CodexPortableTokenStorage | JsonRecord> {
-  return accounts.map((account) => toCockpitToolsPortableStorage(account, options));
-}
-
-function toCpaPayload(accounts: CodexAccount[]): CodexPortableTokenStorage | CodexPortableTokenStorage[] {
-  const cpaPayload = accounts.map(toPortableTokenStorage);
-  return cpaPayload.length === 1 ? cpaPayload[0] : cpaPayload;
-}
-
-function toSub2apiPayload(accounts: CodexAccount[]): Sub2apiBatchCreatePayload {
-  return {
-    exported_at: formatSub2apiExportedAt(),
-    proxies: [],
-    accounts: accounts.map(toSub2apiAccount),
-    type: 'sub2api-data',
-    version: 1,
-  };
-}
-
-function toFormattedCodexExportPayload(
-  accounts: CodexAccount[],
-  format: CodexExportFormat,
-  options?: CodexExportOptions,
-): unknown {
-  if (format === 'cockpit_tools') {
-    return toCockpitToolsPortableAccounts(accounts, options);
-  }
-  if (format === 'sub2api') {
-    return toSub2apiPayload(accounts);
-  }
-  return toCpaPayload(accounts);
+  return toPortableTokenStorage(account);
 }
 
 export function parseCockpitToolsCodexExport(rawJson: string): CodexAccount[] {
@@ -380,10 +294,27 @@ export function parseCockpitToolsCodexExport(rawJson: string): CodexAccount[] {
 export function transformCodexExportJson(
   rawJson: string,
   format: CodexExportFormat,
-  options?: CodexExportOptions,
 ): string {
   const accounts = parseCockpitToolsCodexExport(rawJson);
-  return JSON.stringify(toFormattedCodexExportPayload(accounts, format, options), null, 2);
+
+  if (format === 'cockpit_tools') {
+    return JSON.stringify(accounts.map(toCockpitToolsPortableStorage), null, 2);
+  }
+
+  if (format === 'sub2api') {
+    const payload: Sub2apiBatchCreatePayload = {
+      exported_at: formatSub2apiExportedAt(),
+      proxies: [],
+      accounts: accounts.map(toSub2apiAccount),
+      type: 'sub2api-data',
+      version: 1,
+    };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  const cpaPayload = accounts.map(toPortableTokenStorage);
+  const normalizedPayload = cpaPayload.length === 1 ? cpaPayload[0] : cpaPayload;
+  return JSON.stringify(normalizedPayload, null, 2);
 }
 
 export function buildCodexExportFileNameBase(
@@ -425,7 +356,6 @@ export function buildCodexExportContent(
   rawJson: string,
   format: CodexExportFormat,
   baseName: string,
-  options?: CodexExportOptions,
 ): CodexExportContent {
   const fileNameBase = buildCodexExportFileNameBase(baseName, format);
   const accounts = parseCockpitToolsCodexExport(rawJson);
@@ -434,7 +364,7 @@ export function buildCodexExportContent(
     return {
       type: 'single',
       fileNameBase,
-      jsonContent: transformCodexExportJson(rawJson, format, options),
+      jsonContent: transformCodexExportJson(rawJson, format),
     };
   }
 

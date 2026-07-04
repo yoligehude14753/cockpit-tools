@@ -26,75 +26,35 @@ fn apply_app_auto_launch_enabled(app: &tauri::AppHandle, enabled: bool) -> Resul
 fn load_instance_store_by_platform(platform: &str) -> Result<InstanceStore, String> {
     match platform {
         "antigravity" => modules::instance::load_instance_store(),
-        "codex" => {
-            modules::platform_adapter::call_codex("instances.store.get", serde_json::json!({}))
-        }
-        "claude_manager" => modules::platform_adapter::call_claude_manager(
-            "instances.store.get",
-            serde_json::json!({}),
-        ),
-        "github-copilot" => modules::platform_adapter::call_github_copilot(
-            "instances.store.get",
-            serde_json::json!({}),
-        ),
-        "windsurf" => {
-            modules::platform_adapter::call_windsurf("instances.store.get", serde_json::json!({}))
-        }
-        "kiro" => {
-            modules::platform_adapter::call_kiro("instances.store.get", serde_json::json!({}))
-        }
-        "cursor" => {
-            modules::platform_adapter::call_cursor("instances.store.get", serde_json::json!({}))
-        }
-        "gemini" => {
-            modules::platform_adapter::call_gemini("instances.store.get", serde_json::json!({}))
-        }
-        "codebuddy" => {
-            modules::platform_adapter::call_codebuddy("instances.store.get", serde_json::json!({}))
-        }
-        "codebuddy_cn" => modules::platform_adapter::call_codebuddy_cn(
-            "instances.store.get",
-            serde_json::json!({}),
-        ),
-        "qoder" => {
-            modules::platform_adapter::call_qoder("instances.store.get", serde_json::json!({}))
-        }
-        "trae" => {
-            modules::platform_adapter::call_trae("instances.store.get", serde_json::json!({}))
-        }
-        "workbuddy" => {
-            modules::platform_adapter::call_workbuddy("instances.store.get", serde_json::json!({}))
-        }
+        "codex" => modules::codex_instance::load_instance_store(),
+        "github-copilot" => modules::github_copilot_instance::load_instance_store(),
+        "windsurf" => modules::windsurf_instance::load_instance_store(),
+        "kiro" => modules::kiro_instance::load_instance_store(),
+        "cursor" => modules::cursor_instance::load_instance_store(),
+        "gemini" => modules::gemini_instance::load_instance_store(),
+        "codebuddy" => modules::codebuddy_instance::load_instance_store(),
+        "codebuddy_cn" => modules::codebuddy_cn_instance::load_instance_store(),
+        "qoder" => modules::qoder_instance::load_instance_store(),
+        "trae" => modules::trae_instance::load_instance_store(),
+        "workbuddy" => modules::workbuddy_instance::load_instance_store(),
         _ => Err("不支持的实例平台".to_string()),
     }
 }
 
 fn save_instance_store_by_platform(platform: &str, store: &InstanceStore) -> Result<(), String> {
-    let payload = serde_json::json!({ "store": store });
     match platform {
         "antigravity" => modules::instance::save_instance_store(store),
-        "codex" => modules::platform_adapter::call_codex("instances.store.replace", payload),
-        "claude_manager" => {
-            modules::platform_adapter::call_claude_manager("instances.store.replace", payload)
-        }
-        "github-copilot" => {
-            modules::platform_adapter::call_github_copilot("instances.store.replace", payload)
-        }
-        "windsurf" => modules::platform_adapter::call_windsurf("instances.store.replace", payload),
-        "kiro" => modules::platform_adapter::call_kiro("instances.store.replace", payload),
-        "cursor" => modules::platform_adapter::call_cursor("instances.store.replace", payload),
-        "gemini" => modules::platform_adapter::call_gemini("instances.store.replace", payload),
-        "codebuddy" => {
-            modules::platform_adapter::call_codebuddy("instances.store.replace", payload)
-        }
-        "codebuddy_cn" => {
-            modules::platform_adapter::call_codebuddy_cn("instances.store.replace", payload)
-        }
-        "qoder" => modules::platform_adapter::call_qoder("instances.store.replace", payload),
-        "trae" => modules::platform_adapter::call_trae("instances.store.replace", payload),
-        "workbuddy" => {
-            modules::platform_adapter::call_workbuddy("instances.store.replace", payload)
-        }
+        "codex" => modules::codex_instance::save_instance_store(store),
+        "github-copilot" => modules::github_copilot_instance::save_instance_store(store),
+        "windsurf" => modules::windsurf_instance::save_instance_store(store),
+        "kiro" => modules::kiro_instance::save_instance_store(store),
+        "cursor" => modules::cursor_instance::save_instance_store(store),
+        "gemini" => modules::gemini_instance::save_instance_store(store),
+        "codebuddy" => modules::codebuddy_instance::save_instance_store(store),
+        "codebuddy_cn" => modules::codebuddy_cn_instance::save_instance_store(store),
+        "qoder" => modules::qoder_instance::save_instance_store(store),
+        "trae" => modules::trae_instance::save_instance_store(store),
+        "workbuddy" => modules::workbuddy_instance::save_instance_store(store),
         _ => Err("不支持的实例平台".to_string()),
     }
 }
@@ -195,69 +155,10 @@ pub fn data_transfer_get_instance_store(platform: String) -> Result<InstanceStor
 }
 
 #[tauri::command]
-pub fn data_transfer_get_import_instance_dir(
-    platform: String,
-    instance_id: String,
-) -> Result<String, String> {
-    let platform = platform.trim();
-    if platform.is_empty() {
-        return Err("不支持的实例平台".to_string());
-    }
-    let safe_platform = platform
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>();
-    let safe_instance_id = instance_id
-        .trim()
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>();
-    let safe_instance_id = if safe_instance_id.is_empty() {
-        "imported".to_string()
-    } else {
-        safe_instance_id
-    };
-    Ok(modules::app_data::get_data_dir()?
-        .join("data-transfer")
-        .join("instances")
-        .join(safe_platform)
-        .join(safe_instance_id)
-        .to_string_lossy()
-        .to_string())
-}
-
-#[tauri::command]
 pub fn data_transfer_replace_instance_store(
     platform: String,
     store: InstanceStore,
 ) -> Result<(), String> {
     let sanitized = sanitize_instance_store(&store);
     save_instance_store_by_platform(platform.trim(), &sanitized)
-}
-
-#[tauri::command]
-pub fn data_transfer_export_codex_sessions() -> Result<serde_json::Value, String> {
-    modules::platform_adapter::call_codex("sessions.transfer.export", serde_json::json!({}))
-}
-
-#[tauri::command]
-pub fn data_transfer_import_codex_sessions(
-    bundle: serde_json::Value,
-) -> Result<serde_json::Value, String> {
-    modules::platform_adapter::call_codex(
-        "sessions.transfer.import",
-        serde_json::json!({ "bundle": bundle }),
-    )
 }

@@ -42,7 +42,6 @@ import {
 
 interface WakeupVerificationPageProps {
   onNavigate?: (page: Page) => void;
-  hideHeader?: boolean;
 }
 
 type AvailableModel = AntigravityModelOption;
@@ -185,10 +184,7 @@ function matchesDetailFilter(item: WakeupVerificationStateItem, filter: DetailFi
   return isFailedStatus(normalized);
 }
 
-export function WakeupVerificationPage({
-  onNavigate,
-  hideHeader = false,
-}: WakeupVerificationPageProps) {
+export function WakeupVerificationPage({ onNavigate }: WakeupVerificationPageProps) {
   const { t, i18n } = useTranslation();
   const { accounts, fetchAccounts } = useAccountStore();
   const locale = i18n.language || 'zh-CN';
@@ -1210,13 +1206,11 @@ export function WakeupVerificationPage({
 
   return (
     <main className="main-content wakeup-page wakeup-verification-page">
-      {!hideHeader && (
-        <OverviewTabsHeader
-          active="verification"
-          onNavigate={onNavigate}
-          subtitle={t('wakeup.subtitle')}
-        />
-      )}
+      <OverviewTabsHeader
+        active="verification"
+        onNavigate={onNavigate}
+        subtitle={t('wakeup.subtitle')}
+      />
 
       <div className="toolbar">
         <div className="toolbar-left">

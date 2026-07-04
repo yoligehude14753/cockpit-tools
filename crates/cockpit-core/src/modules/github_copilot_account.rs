@@ -2,17 +2,13 @@ use crate::models::github_copilot::{
     GitHubCopilotAccount, GitHubCopilotAccountIndex, GitHubCopilotOAuthCompletePayload,
 };
 use crate::modules::{account, github_copilot_oauth, logger};
-use rusqlite::Connection;
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 const ACCOUNTS_INDEX_FILE: &str = "github_copilot_accounts.json";
 const ACCOUNTS_DIR: &str = "github_copilot_accounts";
-const ACCOUNT_STORE_PLATFORM: &str = "github_copilot";
-const VSCODE_GHCP_CURRENT_LOGIN_KEY: &str = "github.copilot-github";
-const VSCODE_GHCP_REQUIRED_SCOPES: &[&str] = &["read:user", "user:email", "repo", "workflow"];
 static GHCP_ACCOUNT_INDEX_LOCK: std::sync::LazyLock<Mutex<()>> =
     std::sync::LazyLock::new(|| Mutex::new(()));
 static GHCP_QUOTA_ALERT_LAST_SENT: std::sync::LazyLock<Mutex<HashMap<String, i64>>> =
@@ -40,42 +36,12 @@ fn get_accounts_index_path() -> Result<PathBuf, String> {
     Ok(get_data_dir()?.join(ACCOUNTS_INDEX_FILE))
 }
 
-fn ensure_account_store_migrated() -> Result<(), String> {
-    crate::modules::account_store::ensure_platform_migrated_from_json(
-        ACCOUNT_STORE_PLATFORM,
-        &get_accounts_index_path()?,
-        &get_accounts_dir()?,
-    )
-}
-
-fn account_index_from_store() -> Result<GitHubCopilotAccountIndex, String> {
-    ensure_account_store_migrated()?;
-    let accounts = crate::modules::account_store::list_accounts::<GitHubCopilotAccount>(
-        ACCOUNT_STORE_PLATFORM,
-    )?;
-    let mut index = GitHubCopilotAccountIndex::new();
-    index.accounts = accounts.iter().map(|account| account.summary()).collect();
-    Ok(index)
-}
-
 pub fn accounts_index_path_string() -> Result<String, String> {
     Ok(get_accounts_index_path()?.to_string_lossy().to_string())
 }
 
 /// Load a single account by ID (public wrapper)
 pub fn load_account(account_id: &str) -> Option<GitHubCopilotAccount> {
-    if let Err(err) = ensure_account_store_migrated() {
-        logger::log_warn(&format!(
-            "[GitHub Copilot Account][Store] 账号数据库迁移检查失败，回退文件读取: account_id={}, error={}",
-            account_id, err
-        ));
-    } else if let Ok(Some(account)) = crate::modules::account_store::load_account::<
-        GitHubCopilotAccount,
-    >(ACCOUNT_STORE_PLATFORM, account_id)
-    {
-        return Some(account);
-    }
-
     load_account_file(account_id)
 }
 
@@ -91,12 +57,6 @@ fn load_account_file(account_id: &str) -> Option<GitHubCopilotAccount> {
 }
 
 fn save_account_file(account: &GitHubCopilotAccount) -> Result<(), String> {
-    ensure_account_store_migrated()?;
-    crate::modules::account_store::save_account(
-        ACCOUNT_STORE_PLATFORM,
-        account.id.as_str(),
-        account,
-    )?;
     let path = get_accounts_dir()?.join(format!("{}.json", account.id));
     let content =
         serde_json::to_string_pretty(account).map_err(|e| format!("序列化账号失败: {}", e))?;
@@ -114,7 +74,6 @@ fn persist_quota_query_error(account_id: &str, message: &str) {
 }
 
 fn delete_account_file(account_id: &str) -> Result<(), String> {
-    crate::modules::account_store::delete_account(ACCOUNT_STORE_PLATFORM, account_id)?;
     let path = get_accounts_dir()?.join(format!("{}.json", account_id));
     if path.exists() {
         fs::remove_file(path).map_err(|e| format!("删除账号失败: {}", e))?;
@@ -123,14 +82,6 @@ fn delete_account_file(account_id: &str) -> Result<(), String> {
 }
 
 fn load_account_index() -> GitHubCopilotAccountIndex {
-    match account_index_from_store() {
-        Ok(index) => return index,
-        Err(error) => logger::log_warn(&format!(
-            "[GitHub Copilot Account][Store] 从 SQLite 读取账号索引失败，回退 JSON: {}",
-            error
-        )),
-    }
-
     let path = match get_accounts_index_path() {
         Ok(p) => p,
         Err(_) => return GitHubCopilotAccountIndex::new(),
@@ -168,14 +119,6 @@ fn load_account_index() -> GitHubCopilotAccountIndex {
 }
 
 fn load_account_index_checked() -> Result<GitHubCopilotAccountIndex, String> {
-    match account_index_from_store() {
-        Ok(index) => return Ok(index),
-        Err(error) => logger::log_warn(&format!(
-            "[GitHub Copilot Account][Store] 从 SQLite 读取账号索引失败，继续检查 JSON: {}",
-            error
-        )),
-    }
-
     let path = get_accounts_index_path()?;
     if !path.exists() {
         if let Some(index) = repair_account_index_from_details("索引文件不存在") {
@@ -225,12 +168,6 @@ fn load_account_index_checked() -> Result<GitHubCopilotAccountIndex, String> {
 }
 
 fn save_account_index(index: &GitHubCopilotAccountIndex) -> Result<(), String> {
-    let ordered_ids = index
-        .accounts
-        .iter()
-        .map(|summary| summary.id.clone())
-        .collect::<Vec<_>>();
-    crate::modules::account_store::save_account_order(ACCOUNT_STORE_PLATFORM, &ordered_ids)?;
     let path = get_accounts_index_path()?;
     let content =
         serde_json::to_string_pretty(index).map_err(|e| format!("序列化账号索引失败: {}", e))?;
@@ -317,7 +254,7 @@ pub fn list_accounts() -> Vec<GitHubCopilotAccount> {
     index
         .accounts
         .iter()
-        .filter_map(|summary| load_account(&summary.id))
+        .filter_map(|summary| load_account_file(&summary.id))
         .collect()
 }
 
@@ -326,7 +263,7 @@ pub fn list_accounts_checked() -> Result<Vec<GitHubCopilotAccount>, String> {
     Ok(index
         .accounts
         .iter()
-        .filter_map(|summary| load_account(&summary.id))
+        .filter_map(|summary| load_account_file(&summary.id))
         .collect())
 }
 
@@ -532,170 +469,9 @@ pub fn import_from_json(json_content: &str) -> Result<Vec<GitHubCopilotAccount>,
 pub fn export_accounts(account_ids: &[String]) -> Result<String, String> {
     let accounts: Vec<GitHubCopilotAccount> = account_ids
         .iter()
-        .filter_map(|id| load_account(id))
+        .filter_map(|id| load_account_file(id))
         .collect();
     serde_json::to_string_pretty(&accounts).map_err(|e| format!("序列化失败: {}", e))
-}
-
-fn read_vscdb_string_item(conn: &Connection, key: &str) -> Result<Option<String>, String> {
-    match conn.query_row("SELECT value FROM ItemTable WHERE key = ?1", [key], |row| {
-        row.get::<_, String>(0)
-    }) {
-        Ok(value) => {
-            let trimmed = value.trim();
-            if trimmed.is_empty() {
-                Ok(None)
-            } else {
-                Ok(Some(trimmed.to_string()))
-            }
-        }
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(error) => Err(format!("读取 VS Code 本地状态失败: {}", error)),
-    }
-}
-
-fn read_local_copilot_github_login(db_path: &Path) -> Result<Option<String>, String> {
-    if !db_path.exists() {
-        return Ok(None);
-    }
-
-    let conn = Connection::open(db_path).map_err(|error| {
-        format!(
-            "打开 VS Code 本地数据库失败({}): {}",
-            db_path.display(),
-            error
-        )
-    })?;
-
-    read_vscdb_string_item(&conn, VSCODE_GHCP_CURRENT_LOGIN_KEY)
-}
-
-fn copilot_login_db_paths(data_root: &Path) -> Vec<PathBuf> {
-    let legacy_path = crate::modules::vscode_paths::vscode_state_db_path(data_root);
-
-    #[cfg(target_os = "windows")]
-    {
-        let mut paths = Vec::new();
-        if let Some(shared_path) =
-            crate::modules::vscode_paths::vscode_shared_storage_db_path(data_root)
-        {
-            paths.push(shared_path);
-        }
-        paths.push(legacy_path);
-        paths
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        vec![legacy_path]
-    }
-}
-
-fn read_local_copilot_github_login_from_data_root(
-    data_root: &Path,
-) -> Result<Option<(String, PathBuf)>, String> {
-    for db_path in copilot_login_db_paths(data_root) {
-        if let Some(login) = read_local_copilot_github_login(&db_path)? {
-            return Ok(Some((login, db_path)));
-        }
-    }
-
-    Ok(None)
-}
-
-fn github_session_account_field<'a>(
-    session: &'a serde_json::Value,
-    field: &str,
-) -> Option<&'a str> {
-    session
-        .get("account")
-        .and_then(|account| account.get(field))
-        .and_then(|value| value.as_str())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn github_session_matches_login(session: &serde_json::Value, login: &str) -> bool {
-    github_session_account_field(session, "label") == Some(login)
-        || github_session_account_field(session, "id") == Some(login)
-}
-
-fn github_session_access_token(session: &serde_json::Value) -> Option<&str> {
-    session
-        .get("accessToken")
-        .and_then(|value| value.as_str())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn github_session_has_scopes(session: &serde_json::Value, expected_scopes: &[&str]) -> bool {
-    let Some(scopes) = session.get("scopes").and_then(|value| value.as_array()) else {
-        return false;
-    };
-    if scopes.len() != expected_scopes.len() {
-        return false;
-    }
-
-    let mut actual = scopes
-        .iter()
-        .filter_map(|scope| scope.as_str())
-        .collect::<Vec<_>>();
-    if actual.len() != expected_scopes.len() {
-        return false;
-    }
-
-    let mut expected = expected_scopes.to_vec();
-    actual.sort_unstable();
-    expected.sort_unstable();
-    actual == expected
-}
-
-pub async fn import_from_local() -> Result<Option<GitHubCopilotAccount>, String> {
-    let data_root = crate::modules::vscode_paths::resolve_vscode_data_root_for_state_db()?;
-
-    let (target_login, db_path) = match read_local_copilot_github_login_from_data_root(&data_root)?
-    {
-        Some(value) => value,
-        None => return Ok(None),
-    };
-
-    let data_root_string = data_root.to_string_lossy().to_string();
-    let sessions = match crate::modules::vscode_inject::read_github_auth_sessions(Some(
-        data_root_string.as_str(),
-    ))? {
-        Some(value) => value,
-        None => return Ok(None),
-    };
-
-    let matching_sessions = sessions
-        .iter()
-        .filter(|session| github_session_matches_login(session, &target_login))
-        .collect::<Vec<_>>();
-
-    let access_token = matching_sessions
-        .iter()
-        .copied()
-        .find(|session| github_session_has_scopes(session, VSCODE_GHCP_REQUIRED_SCOPES))
-        .or_else(|| matching_sessions.first().copied())
-        .and_then(github_session_access_token)
-        .ok_or_else(|| {
-            format!(
-                "VS Code GitHub 登录会话中未找到 GitHub Copilot 当前账号: {}",
-                target_login
-            )
-        })?
-        .to_string();
-
-    let payload =
-        github_copilot_oauth::build_payload_from_github_access_token(&access_token).await?;
-    let account = upsert_account(payload)?;
-    logger::log_info(&format!(
-        "[GitHub Copilot Account] 从本机 VS Code 导入成功: id={}, login={}, db={}",
-        account.id,
-        account.github_login,
-        db_path.display()
-    ));
-    Ok(Some(account))
 }
 
 fn normalize_quota_alert_threshold(raw: i32) -> i32 {
@@ -822,7 +598,7 @@ fn average_quota_percentage(metrics: &[(String, i32)]) -> f64 {
     sum as f64 / metrics.len() as f64
 }
 
-pub fn resolve_current_account_id(accounts: &[GitHubCopilotAccount]) -> Option<String> {
+pub(crate) fn resolve_current_account_id(accounts: &[GitHubCopilotAccount]) -> Option<String> {
     if let Ok(settings) = crate::modules::github_copilot_instance::load_default_settings() {
         if let Some(bind_id) = settings.bind_account_id {
             let trimmed = bind_id.trim();

@@ -1,90 +1,22 @@
-use std::time::{Duration, Instant};
-
-use serde::de::DeserializeOwned;
-use serde_json::{json, Value};
+use std::time::Instant;
 use tauri::AppHandle;
 
-use crate::models::gemini::GeminiAccount;
-use crate::modules::{logger, platform_adapter, platform_package};
+use crate::models::gemini::{GeminiAccount, GeminiOAuthCompletePayload, GeminiOAuthStartResponse};
+use crate::modules::{gemini_account, gemini_oauth, logger};
 
-const GEMINI_FAST_LOCAL_MUTATION_TIMEOUT: Duration = Duration::from_secs(20);
-
-fn ensure_gemini_package_installed() -> Result<(), String> {
-    platform_package::ensure_platform_package_installed("gemini")
-}
-
-fn gemini_call<T: DeserializeOwned>(method: &str, payload: Value) -> Result<T, String> {
-    ensure_gemini_package_installed()?;
-    platform_adapter::call_gemini(method, payload)
-}
-
-async fn gemini_call_async<T>(method: &'static str, payload: Value) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static,
-{
-    ensure_gemini_package_installed()?;
-    tauri::async_runtime::spawn_blocking(move || platform_adapter::call_gemini(method, payload))
-        .await
-        .map_err(|error| format!("Gemini adapter 任务失败: {}", error))?
-}
-
-async fn gemini_call_async_with_timeout<T>(
-    method: &'static str,
-    payload: Value,
-    timeout: Duration,
-) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static,
-{
-    ensure_gemini_package_installed()?;
-    tauri::async_runtime::spawn_blocking(move || {
-        platform_adapter::call_gemini_with_timeout(method, payload, timeout)
-    })
-    .await
-    .map_err(|error| format!("Gemini adapter 任务失败: {}", error))?
-}
-
-fn update_tray_menu_in_background(app: AppHandle) {
-    tauri::async_runtime::spawn_blocking(move || {
-        let _ = crate::modules::tray::update_tray_menu(&app);
-    });
+#[tauri::command]
+pub fn list_gemini_accounts() -> Result<Vec<GeminiAccount>, String> {
+    gemini_account::list_accounts_checked()
 }
 
 #[tauri::command]
-pub async fn list_gemini_accounts() -> Result<Vec<GeminiAccount>, String> {
-    gemini_call_async_with_timeout(
-        "accounts.list",
-        json!({}),
-        GEMINI_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await
+pub fn delete_gemini_account(account_id: String) -> Result<(), String> {
+    gemini_account::remove_account(&account_id)
 }
 
 #[tauri::command]
-pub async fn delete_gemini_account(app: AppHandle, account_id: String) -> Result<(), String> {
-    gemini_call_async_with_timeout::<()>(
-        "accounts.delete",
-        json!({ "accountId": account_id }),
-        GEMINI_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn delete_gemini_accounts(
-    app: AppHandle,
-    account_ids: Vec<String>,
-) -> Result<(), String> {
-    gemini_call_async_with_timeout::<()>(
-        "accounts.deleteMany",
-        json!({ "accountIds": account_ids }),
-        GEMINI_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(())
+pub fn delete_gemini_accounts(account_ids: Vec<String>) -> Result<(), String> {
+    gemini_account::remove_accounts(&account_ids)
 }
 
 #[tauri::command]
@@ -92,31 +24,55 @@ pub async fn import_gemini_from_json(
     app: AppHandle,
     json_content: String,
 ) -> Result<Vec<GeminiAccount>, String> {
-    let accounts = gemini_call_async_with_timeout(
-        "accounts.importJson",
-        json!({ "jsonContent": json_content }),
-        GEMINI_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
+    let mut accounts = gemini_account::import_from_json(&json_content)?;
+
+    for account in accounts.iter_mut() {
+        match gemini_account::refresh_account_token(&account.id).await {
+            Ok(refreshed) => *account = refreshed,
+            Err(error) => {
+                logger::log_warn(&format!(
+                    "[Gemini Command] JSON 导入后刷新失败: account_id={}, error={}",
+                    account.id, error
+                ));
+                let _ =
+                    gemini_account::set_account_status(&account.id, Some("error"), Some(&error));
+                account.status = Some("error".to_string());
+                account.status_reason = Some(error);
+            }
+        }
+    }
+
+    let _ = crate::modules::tray::update_tray_menu(&app);
     Ok(accounts)
 }
 
 #[tauri::command]
 pub async fn import_gemini_from_local(app: AppHandle) -> Result<Vec<GeminiAccount>, String> {
-    let accounts: Vec<GeminiAccount> = gemini_call_async_with_timeout(
-        "accounts.importLocal",
-        json!({}),
-        GEMINI_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(accounts)
+    let mut account = match gemini_account::import_from_local()? {
+        Some(a) => a,
+        None => return Err("未找到本地 Gemini 登录信息".to_string()),
+    };
+
+    match gemini_account::refresh_account_token(&account.id).await {
+        Ok(refreshed) => account = refreshed,
+        Err(error) => {
+            logger::log_warn(&format!(
+                "[Gemini Command] 本地导入后刷新失败: account_id={}, error={}",
+                account.id, error
+            ));
+            let _ = gemini_account::set_account_status(&account.id, Some("error"), Some(&error));
+            account.status = Some("error".to_string());
+            account.status_reason = Some(error);
+        }
+    }
+
+    let _ = crate::modules::tray::update_tray_menu(&app);
+    Ok(vec![account])
 }
 
 #[tauri::command]
 pub fn export_gemini_accounts(account_ids: Vec<String>) -> Result<String, String> {
-    gemini_call("accounts.export", json!({ "accountIds": account_ids }))
+    gemini_account::export_accounts(&account_ids)
 }
 
 #[tauri::command]
@@ -129,35 +85,54 @@ pub async fn refresh_gemini_token(
         "[Gemini Command] 手动刷新账号开始: account_id={}",
         account_id
     ));
-    let account: GeminiAccount =
-        gemini_call_async("accounts.refresh", json!({ "accountId": account_id })).await?;
-    let _ = crate::modules::tray::update_tray_menu(&app);
-    logger::log_info(&format!(
-        "[Gemini Command] 手动刷新账号完成: account_id={}, elapsed={}ms",
-        account.id,
-        started_at.elapsed().as_millis()
-    ));
-    Ok(account)
+
+    match gemini_account::refresh_account_token(&account_id).await {
+        Ok(account) => {
+            let _ = crate::modules::tray::update_tray_menu(&app);
+            logger::log_info(&format!(
+                "[Gemini Command] 刷新完成: account_id={}, email={}, elapsed={}ms",
+                account.id,
+                account.email,
+                started_at.elapsed().as_millis()
+            ));
+            Ok(account)
+        }
+        Err(err) => {
+            logger::log_warn(&format!(
+                "[Gemini Command] 刷新失败: account_id={}, elapsed={}ms, error={}",
+                account_id,
+                started_at.elapsed().as_millis(),
+                err
+            ));
+            let _ = gemini_account::set_account_status(&account_id, Some("error"), Some(&err));
+            Err(err)
+        }
+    }
 }
 
 #[tauri::command]
 pub async fn refresh_all_gemini_tokens(app: AppHandle) -> Result<i32, String> {
     let started_at = Instant::now();
-    logger::log_info("[Gemini Command] 手动批量刷新开始");
-    let success_count: i32 = gemini_call_async("accounts.refreshAll", json!({})).await?;
+    logger::log_info("[Gemini Command] 批量刷新开始");
+
+    let results = gemini_account::refresh_all_tokens().await?;
+    let success_count = results.iter().filter(|(_, item)| item.is_ok()).count();
+    let failed_count = results.len().saturating_sub(success_count);
+
     let _ = crate::modules::tray::update_tray_menu(&app);
     logger::log_info(&format!(
-        "[Gemini Command] 手动批量刷新完成: success={}, elapsed={}ms",
+        "[Gemini Command] 批量刷新完成: success={}, failed={}, elapsed={}ms",
         success_count,
+        failed_count,
         started_at.elapsed().as_millis()
     ));
-    Ok(success_count)
+    Ok(success_count as i32)
 }
 
 #[tauri::command]
-pub async fn gemini_oauth_login_start() -> Result<Value, String> {
+pub async fn gemini_oauth_login_start() -> Result<GeminiOAuthStartResponse, String> {
     logger::log_info("[Gemini Command] OAuth 登录开始");
-    gemini_call_async("oauth.start", json!({})).await
+    gemini_oauth::start_login().await
 }
 
 #[tauri::command]
@@ -169,8 +144,25 @@ pub async fn gemini_oauth_login_complete(
         "[Gemini Command] OAuth 等待完成: login_id={}",
         login_id
     ));
-    let account: GeminiAccount =
-        gemini_call_async("oauth.complete", json!({ "loginId": login_id })).await?;
+
+    let payload = gemini_oauth::complete_login(&login_id).await?;
+    let mut account = gemini_account::upsert_account(payload)?;
+
+    match gemini_account::refresh_account_token(&account.id).await {
+        Ok(refreshed) => {
+            account = refreshed;
+        }
+        Err(error) => {
+            logger::log_warn(&format!(
+                "[Gemini OAuth] 登录后自动刷新配额失败: account_id={}, error={}",
+                account.id, error
+            ));
+            let _ = gemini_account::set_account_status(&account.id, Some("error"), Some(&error));
+            account.status = Some("error".to_string());
+            account.status_reason = Some(error);
+        }
+    }
+
     let _ = crate::modules::tray::update_tray_menu(&app);
     logger::log_info(&format!(
         "[Gemini Command] OAuth 登录完成: account_id={}, email={}",
@@ -185,7 +177,7 @@ pub fn gemini_oauth_login_cancel(login_id: Option<String>) -> Result<(), String>
         "[Gemini Command] OAuth 取消: login_id={}",
         login_id.as_deref().unwrap_or("<none>")
     ));
-    gemini_call("oauth.cancel", json!({ "loginId": login_id }))
+    gemini_oauth::cancel_login(login_id.as_deref())
 }
 
 #[tauri::command]
@@ -193,10 +185,7 @@ pub fn gemini_oauth_submit_callback_url(
     login_id: String,
     callback_url: String,
 ) -> Result<(), String> {
-    gemini_call(
-        "oauth.submitCallbackUrl",
-        json!({ "loginId": login_id, "callbackUrl": callback_url }),
-    )
+    gemini_oauth::submit_callback_url(login_id.as_str(), callback_url.as_str())
 }
 
 #[tauri::command]
@@ -204,13 +193,41 @@ pub async fn add_gemini_account_with_token(
     app: AppHandle,
     access_token: String,
 ) -> Result<GeminiAccount, String> {
-    let account: GeminiAccount = gemini_call_async_with_timeout(
-        "accounts.addToken",
-        json!({ "accessToken": access_token }),
-        GEMINI_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
+    let payload = GeminiOAuthCompletePayload {
+        email: "unknown@gmail.com".to_string(),
+        auth_id: None,
+        name: None,
+        access_token,
+        refresh_token: None,
+        id_token: None,
+        token_type: None,
+        scope: None,
+        expiry_date: None,
+        selected_auth_type: Some("oauth-personal".to_string()),
+        project_id: None,
+        tier_id: None,
+        plan_name: None,
+        gemini_auth_raw: None,
+        gemini_usage_raw: None,
+        status: None,
+        status_reason: None,
+    };
+
+    let mut account = gemini_account::upsert_account(payload)?;
+    match gemini_account::refresh_account_token(&account.id).await {
+        Ok(refreshed) => account = refreshed,
+        Err(error) => {
+            logger::log_warn(&format!(
+                "[Gemini Command] Token 导入后刷新失败: account_id={}, error={}",
+                account.id, error
+            ));
+            let _ = gemini_account::set_account_status(&account.id, Some("error"), Some(&error));
+            account.status = Some("error".to_string());
+            account.status_reason = Some(error);
+        }
+    }
+
+    let _ = crate::modules::tray::update_tray_menu(&app);
     Ok(account)
 }
 
@@ -219,36 +236,36 @@ pub fn update_gemini_account_tags(
     account_id: String,
     tags: Vec<String>,
 ) -> Result<GeminiAccount, String> {
-    gemini_call(
-        "accounts.updateTags",
-        json!({ "accountId": account_id, "tags": tags }),
-    )
+    gemini_account::update_account_tags(&account_id, tags)
 }
 
 #[tauri::command]
 pub fn get_gemini_accounts_index_path() -> Result<String, String> {
-    gemini_call("accounts.indexPath", json!({}))
+    gemini_account::accounts_index_path_string()
 }
 
 #[tauri::command]
-pub async fn inject_gemini_account(app: AppHandle, account_id: String) -> Result<String, String> {
+pub fn inject_gemini_account(app: AppHandle, account_id: String) -> Result<String, String> {
     let started_at = Instant::now();
     logger::log_info(&format!(
         "[Gemini Switch] 开始切换账号: account_id={}",
         account_id
     ));
 
-    let message: String =
-        gemini_call_async("switch.inject", json!({ "accountId": account_id })).await?;
-    let _ = crate::modules::provider_current_state::set_current_account_id(
+    let account = gemini_account::load_account(&account_id)
+        .ok_or_else(|| format!("Gemini account not found: {}", account_id))?;
+    gemini_account::inject_to_gemini(&account_id)?;
+    crate::modules::provider_current_state::set_current_account_id(
         "gemini",
         Some(account_id.as_str()),
-    );
+    )?;
     let _ = crate::modules::tray::update_tray_menu(&app);
 
     logger::log_info(&format!(
-        "[Gemini Switch] 切号成功: elapsed={}ms",
+        "[Gemini Switch] 切号成功: account_id={}, email={}, elapsed={}ms",
+        account.id,
+        account.email,
         started_at.elapsed().as_millis()
     ));
-    Ok(message)
+    Ok(format!("切换完成: {}", account.email))
 }

@@ -7,83 +7,24 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
-## [1.0.3] - 2026-07-04
+## [1.0.4] - 2026-07-04
 
-### Added
-- **Installers can now include bundled platform packages**: host packages can ship target-specific platform zip packages and bootstrap them on first launch, so a fresh app install opens with the bundled platform UI ready.
-- **Codex pending OAuth accounts and richer account notes are now supported**: users can save Codex account notes before OAuth, keep a pending account card, store 2FA secrets, passwords, phone numbers, and general notes, and complete authorization later from that card.
-- **Codex account notes now integrate with the 2FA manager**: notes can reuse saved 2FA secrets or add a new secret that is also saved into the shared 2FA manager.
-- **Codex pending OAuth accounts can be imported from external links**: browser or external import flows can create a pending Codex account with notes before the account is authorized.
-- **Diagnostics settings are now available**: the app can capture startup, frontend crash, and render failure diagnostics, with a Settings toggle for anonymous error reporting.
+### Important Notice
 
-### Changed
-- **Bundled platform packages now take priority during startup**: when the app includes a different bundled package payload, it replaces the local installed platform package and refreshes the remote UI instead of continuing to render stale cached code.
-- **Release builds now prepare bundled platform packages per OS and architecture**: host release jobs build the matching platform zips before packaging the app, including universal macOS bootstrap targets.
-- **Codex hot-update coverage is broader**: API service, batch deletion, session transfer, model provider usage, request log repricing, account transfer, and settings-side Codex reads now go through the installed Codex platform adapter instead of host-only commands.
-- **Codex pending account cards are clearer**: pending OAuth cards now use a dedicated pending state, keep sensitive note details inside the note dialog, reuse the reauthorization-style action area, avoid quota/subscription placeholders, and stay out of quota, account-injection, and API service flows until authorization is complete.
-- **Settings save behavior is more resilient**: general settings now avoid overwriting newer external config updates during delayed saves, and the background token keeper reacts immediately when its setting changes.
-- **Antigravity IDE launch-on-switch is configurable**: users can switch accounts without launching or restarting Antigravity IDE when the setting is disabled.
+We are sorry for the disruption caused by the platform package and hot-update changes introduced in `1.0.1` through `1.0.3`. In some environments, those changes caused package installation, upgrade, account switching, and Codex API service issues. For `1.0.4`, we are rolling the app implementation back to the stable `0.26.5` baseline so account management, switching, and core workflows remain reliable.
 
-### Fixed
-- **Fixed Codex local API service and `image_generation` settings persistence**: saved local access runtime options remain stable across reloads, switches, and API service startup.
-- **Fixed Codex token refresh races across app and gateway processes**: managed token refresh now uses a cross-process file lock and avoids duplicate refreshes after another process has already advanced the token generation.
-- **Fixed Codex local API service retrying with stale credentials after upstream 401 responses**: gateway refreshes now use the observed token generation before retrying HTTP and WebSocket requests.
-- **Fixed Codex session ordering when session index timestamps are stale**: session lists can fall back to rollout activity time when the index is older than the real conversation activity.
-- **Fixed app updates being blocked when Codex API service shutdown fails**: restart continues with an in-app status message instead of aborting the updater flow.
-
----
-## [1.0.2] - 2026-07-03
-
-### Added
-- **Codex account notes now support sensitive details**: account notes can store 2FA secrets, passwords, phone numbers, and general notes, with current 2FA codes available from account cards and operation dialogs.
-- **Codex batch import and deletion are better suited for long-running work**: batch import can recover tasks, while batch deletion now shows progress and supports pause, resume, retry failed items, and clear actions.
-- **Codex data transfer now supports sessions**: account transfer can export and import Codex sessions, skip existing sessions, and report missing target instances.
-- **Codex local API service now supports single-account routing and history repricing**: requests can stay on the first account, and historical request estimates can be recalculated with current model prices.
-- **Codex session visibility repair now supports previews**: planned instance and session changes can be reviewed before applying the repair.
+The platform package work will be redesigned and verified more carefully before it returns. Users on `1.0.x` can upgrade directly to `1.0.4` without manually downgrading.
 
 ### Changed
-- **Codex model provider list parsing is more compatible**: more common model-list response shapes are supported, including display names.
-- **A single dashboard platform card no longer stretches across the full row**: it keeps half-row width on desktop and falls back to one column on narrow screens.
-- **Bulk selection is more consistent across platform account pages**: Antigravity, Cursor, Gemini, GitHub Copilot, Kiro, Qoder, Trae, Windsurf, Zed, and CodeBuddy account pages now share the same bulk selection toolbar.
-- **Platform package actions are more compact**: duplicate toolbar actions are reduced and secondary actions such as uninstall move into the more menu to reduce crowding in narrow windows.
 
-### Fixed
-- **Fixed Codex configuration saves resetting fields unexpectedly**: saving account notes, API key settings, or local gateway options no longer resets provider, Base URL, model catalog, or `image_generation` settings.
-- **Fixed local platform adapter RPC calls incorrectly using system proxy settings**: local adapter RPC bypasses proxies and preserves fuller low-level network errors for OAuth, account refresh, and local RPC troubleshooting.
-- **Improved Cursor account refresh and OAuth errors**: failures now include more complete low-level network error chains.
-- **Fixed top banner visibility settings not syncing immediately to the current window**.
+- **Restored the stable `0.26.5` implementation**: temporarily rolls back platform package, bundled package, and remote platform UI changes.
+- **Restored the previous account and switching flows**: account lists, authorization, switching, tray state, and related core workflows return to the stable `0.26.5` behavior.
+- **Paused the official platform zip hot-update channel**: package installation, upgrade, rollback, and host compatibility rules will be reviewed before this capability is reintroduced.
 
----
-## [1.0.1] - 2026-07-02
+### Known Notes
 
-### Added
-- **Platforms now run as independent packages**: supported platforms can be installed, uninstalled, updated, repaired, and maintained independently from the host application.
-- **Platforms now update independently**: each supported platform can be updated and maintained on its own without requiring every user to install a full host application update.
-- **General settings now include platform settings shortcuts**: platform-specific settings live on each platform page, while existing users can still jump there from General Settings and open the matching settings dialog.
-
-### Changed
-- **The host application and all platform packages are aligned to `1.0.1`**: the `1.0.0` release was withdrawn, so `1.0.1` includes the independent platform package capabilities originally prepared for `1.0.0`.
-- **Platform updates no longer affect unrelated users**: when only one platform changes, users of other platforms no longer need to update the whole application.
-- **Platform installation and removal are more flexible**: supported platforms can be installed or removed based on actual use, so unused platforms do not have to stay enabled.
-- **Account authorization keep-alive is lighter**: keep-alive now focuses on nearly expired authorization and uses delayed, batched, and backed-off background work to reduce request pressure with many accounts.
-- **Platform package replacement behaves more like uninstalling then installing**: updates, reloads, and local package replacement are less likely to fail because old package files are still in use.
-
-### Fixed
-- **Fixed account switching issues in several platforms**: fixed account switching issues in Zed, Antigravity IDE, CodeBuddy, CodeBuddy CN, and Cursor.
-- **Fixed startup issues in several platforms**: Zed, Antigravity IDE, CodeBuddy, CodeBuddy CN, and Cursor now start more reliably after switching or reopening.
-- **Fixed Codex current-account refresh custom settings**: custom values no longer flash and fall back to the default 1-minute value.
-- **Fixed repeated account-state requests on some platforms**: exhausted quota, temporary rate limits, and retry cooldowns are handled separately to reduce repeated requests against failing accounts.
-
----
-## [0.26.6] - 2026-06-22
-
-### Changed
-- **Codex referral invites now open in their own dialog**: reset-credit confirmation keeps the reset action focused, while invite email entry, consent, success state, current account context, and localized eligibility rules live in a separate modal.
-- **Account transfer now preserves Antigravity overview preferences**: backups include Antigravity view, filter, sort, grouping, active group, and privacy-mode state, and restoring them refreshes the account overview without requiring a restart.
-- **Close confirmation actions now report failures inside the dialog**: window close handling is delegated through the app shell so failed minimize or quit actions keep the dialog open and show the error in place.
-
-### Fixed
-- **Antigravity free-tier quota reset times are clearer**: Claude and Gemini 5-hour rows can fall back to weekly reset data when free-plan usage is capped by the weekly window, avoiding misleading empty reset times.
+- `1.0.4` does not include the platform package capabilities added in `1.0.1` through `1.0.3`.
+- If a user already installed `1.0.x` platform packages, this version prioritizes restoring the previous host-managed behavior; platform package cleanup and redesign will be handled separately.
 
 ---
 ## [0.26.5] - 2026-06-20

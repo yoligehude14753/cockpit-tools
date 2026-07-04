@@ -1,6 +1,0 @@
-{
-  "platformId": "zed",
-  "name": "Zed platform package",
-  "description": "Runtime contribution and sidecar adapter declaration for the Cockpit Tools Zed integration.",
-  "version": "1.0.1"
-}

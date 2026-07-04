@@ -161,16 +161,6 @@
   justify-content: flex-end;
 }
 
-.settings-row--platform-settings-entry .row-label {
-  min-width: 0;
-}
-
-.settings-row--platform-settings-entry .row-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .settings-claude-launch-control {
   flex-direction: column;
   align-items: stretch;

@@ -106,13 +106,13 @@ struct NativeMenuAccountSectionView: View {
             } else {
                 VStack(spacing: 14) {
                     VStack(alignment: .center, spacing: 6) {
-                        Text(self.platform.runtime_ready ? self.strings.empty_title : self.strings.package_install_required)
+                        Text(self.strings.empty_title)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(Color(nsColor: .labelColor))
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
 
-                        Text(self.platform.runtime_ready ? self.strings.empty_desc : self.strings.package_install_desc)
+                        Text(self.strings.empty_desc)
                             .font(.system(size: 13))
                             .foregroundColor(Color(nsColor: .secondaryLabelColor))
                             .multilineTextAlignment(.center)
@@ -127,7 +127,7 @@ struct NativeMenuAccountSectionView: View {
                         ToolbarIconButton(
                             systemName: "arrow.clockwise",
                             spinning: self.controller.isRefreshing(platformId: self.platform.id, accountId: nil),
-                            disabled: !self.platform.runtime_ready || self.controller.isRefreshing(platformId: self.platform.id, accountId: nil),
+                            disabled: self.controller.isRefreshing(platformId: self.platform.id, accountId: nil),
                             action: {
                                 self.controller.dispatch(action: .refresh)
                             }

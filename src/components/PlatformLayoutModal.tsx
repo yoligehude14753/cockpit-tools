@@ -42,8 +42,6 @@ import {
 import { CLASSIC_SIDEBAR_ENTRY_LIMIT, ORIGINAL_SIDEBAR_ENTRY_LIMIT, useSideNavLayoutStore } from '../stores/useSideNavLayoutStore';
 import { getPlatformLabel, renderPlatformIcon } from '../utils/platformMeta';
 import { useEscClose } from '../hooks/useEscClose';
-import { PlatformPackageState } from '../types/platformPackage';
-import { usePlatformPackageStore } from '../stores/usePlatformPackageStore';
 
 const PLATFORM_LAYOUT_ICON_STORAGE_KEY = 'agtools.platform_layout.custom_icons.v1';
 
@@ -96,25 +94,6 @@ function normalizeCustomIconName(fileName?: string) {
     return `Custom ${new Date().toLocaleDateString()}`;
   }
   return trimmed;
-}
-
-function formatPackageSize(size?: number | null): string {
-  if (size == null || !Number.isFinite(size) || size <= 0) {
-    return '--';
-  }
-  if (size < 1024) {
-    return `${Math.round(size)} B`;
-  }
-  const kb = size / 1024;
-  if (kb < 1024) {
-    return `${kb.toFixed(kb >= 100 ? 0 : 1)} KB`;
-  }
-  const mb = kb / 1024;
-  if (mb < 1024) {
-    return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
-  }
-  const gb = mb / 1024;
-  return `${gb.toFixed(gb >= 100 ? 0 : 1)} GB`;
 }
 
 function isPlatformLayoutEntryId(id: LayoutEntryId): id is PlatformLayoutEntryId {
@@ -433,34 +412,10 @@ export function PlatformLayoutModal({
   const [childDraftIconCustomDataUrl, setChildDraftIconCustomDataUrl] = useState('');
   const [childDraftSetDefault, setChildDraftSetDefault] = useState(false);
   const [childDraftError, setChildDraftError] = useState('');
-  const platformPackages = usePlatformPackageStore((state) => state.packages);
-  const refreshPlatformPackages = usePlatformPackageStore((state) => state.refresh);
-
-  const platformPackageMap = useMemo<Record<string, PlatformPackageState>>(() => {
-    const next: Record<string, PlatformPackageState> = {};
-    for (const state of platformPackages) {
-      if (state.packageMode !== 'hotUpdate') {
-        continue;
-      }
-      next[state.platformId] = state;
-    }
-    return next;
-  }, [platformPackages]);
 
   const hiddenSet = useMemo(() => new Set(hiddenEntryIds), [hiddenEntryIds]);
   const sidebarSet = useMemo(() => new Set(sidebarEntryIds), [sidebarEntryIds]);
   const traySet = useMemo(() => new Set(trayPlatformIds), [trayPlatformIds]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    refreshPlatformPackages()
-      .catch((error) => {
-        console.error('加载平台包状态失败:', error);
-      });
-  }, [open, refreshPlatformPackages]);
 
   const entries = useMemo<LayoutEntryItem[]>(() => {
     const result: LayoutEntryItem[] = [];
@@ -557,101 +512,11 @@ export function PlatformLayoutModal({
   const availableAddChildByGroup = useMemo(() => {
     const map = new Map<string, PlatformId[]>();
     for (const group of platformGroups) {
-      const list = MENU_VISIBLE_PLATFORM_IDS.filter((platformId) => {
-        return !group.platformIds.includes(platformId);
-      });
+      const list = MENU_VISIBLE_PLATFORM_IDS.filter((platformId) => !group.platformIds.includes(platformId));
       map.set(group.id, list);
     }
     return map;
   }, [platformGroups]);
-
-  const getPackageState = (platformId: PlatformId | null | undefined) => {
-    if (!platformId) return null;
-    return platformPackageMap[platformId] ?? null;
-  };
-
-  const isPackageUnavailable = (platformId: PlatformId | null | undefined) => {
-    const state = getPackageState(platformId);
-    return state?.packageMode === 'hotUpdate'
-      && (
-        state.installStatus === 'notInstalled'
-        || state.installStatus === 'incompatible'
-        || !state.runtimeReady
-      );
-  };
-
-  const getEntryPackagePlatformId = (entry: LayoutEntryItem): PlatformId | null => {
-    if (entry.type === 'api-relay') {
-      return null;
-    }
-    if (entry.type === 'platform') {
-      return entry.defaultPlatformId;
-    }
-    if (entry.platformIds.length === 1) {
-      return entry.platformIds[0];
-    }
-    return null;
-  };
-
-  const availableMenuPlatformIds = useMemo(() => MENU_VISIBLE_PLATFORM_IDS, []);
-
-  const groupDraftSelectablePlatformIds = useMemo(() => {
-    const result = [...availableMenuPlatformIds];
-    for (const platformId of groupDraftPlatformIds) {
-      if (!result.includes(platformId)) {
-        result.push(platformId);
-      }
-    }
-    return result;
-  }, [availableMenuPlatformIds, groupDraftPlatformIds]);
-
-  const packageStatusText = (state: PlatformPackageState) => {
-    const version = state.installedVersion || state.latestVersion || '--';
-    const installedSize = formatPackageSize(state.installedSizeBytes);
-    const downloadSize = formatPackageSize(state.downloadSizeBytes);
-    switch (state.installStatus) {
-      case 'notInstalled':
-        return t('platformLayout.packageNotInstalled', {
-          size: downloadSize,
-          defaultValue: '未下载 · {{size}}',
-        });
-      case 'updateAvailable':
-        return t('platformLayout.packageUpdateAvailable', {
-          version: state.latestVersion || '--',
-          size: downloadSize,
-          defaultValue: '可更新 {{version}} · {{size}}',
-        });
-      case 'incompatible':
-        return t('platformLayout.packageIncompatible', '主应用版本不兼容');
-      case 'error':
-        return state.errorMessage || t('platformLayout.packageError', '状态异常');
-      case 'installing':
-      case 'updating':
-      case 'uninstalling':
-        return t('platformLayout.packageOperating', '处理中');
-      default:
-        return t('platformLayout.packageInstalled', {
-          version,
-          size: installedSize,
-          defaultValue: 'v{{version}} · {{size}}',
-        });
-    }
-  };
-
-  const renderPackageMeta = (platformId: PlatformId | null | undefined, compact = false) => {
-    const state = getPackageState(platformId);
-    if (!state || state.packageMode !== 'hotUpdate') {
-      return null;
-    }
-    return (
-      <span
-        className={`platform-layout-package-meta is-${state.installStatus} ${compact ? 'is-compact' : ''}`}
-        title={packageStatusText(state)}
-      >
-        <span>{packageStatusText(state)}</span>
-      </span>
-    );
-  };
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -949,7 +814,7 @@ export function PlatformLayoutModal({
   };
 
   const handleBulkTray = (enabled: boolean) => {
-    availableMenuPlatformIds.forEach((platformId) => setTrayPlatform(platformId, enabled));
+    MENU_VISIBLE_PLATFORM_IDS.forEach((platformId) => setTrayPlatform(platformId, enabled));
   };
 
   const sidebarVisibleEntries = useMemo(
@@ -962,11 +827,10 @@ export function PlatformLayoutModal({
     && sidebarVisibleEntries.slice(0, sidebarBulkTargetCount).every(isSidebarEntrySelected);
   const dashboardBulkEnabled = entries.length > 0
     && entries.every(isDashboardEntryVisible);
-  const trayBulkEnabled = availableMenuPlatformIds.length > 0
-    && availableMenuPlatformIds.every((platformId) => traySet.has(platformId));
+  const trayBulkEnabled = MENU_VISIBLE_PLATFORM_IDS.every((platformId) => traySet.has(platformId));
 
   const openCreateGroupEditor = () => {
-    const firstPlatform = availableMenuPlatformIds[0] ?? MENU_VISIBLE_PLATFORM_IDS[0] ?? 'codebuddy';
+    const firstPlatform = MENU_VISIBLE_PLATFORM_IDS[0] ?? 'codebuddy';
 
     setEditingGroupId(null);
     setGroupDraftName('');
@@ -1262,6 +1126,7 @@ export function PlatformLayoutModal({
               { max: sidebarSelectionLimit },
             )}
           </div>
+
           <div className="platform-layout-bulk-header">
             <div className="platform-layout-bulk-header-left">
               <button type="button" className="btn btn-secondary platform-layout-expand-all-btn" onClick={toggleExpandAll}>
@@ -1323,8 +1188,6 @@ export function PlatformLayoutModal({
               const isApiRelayEntry = entry.type === 'api-relay';
               const selected = isSidebarEntrySelected(entry);
               const sidebarFull = sidebarSelectedCount >= sidebarSelectionLimit;
-              const entryPackagePlatformId = getEntryPackagePlatformId(entry);
-              const packageUnavailable = isPackageUnavailable(entryPackagePlatformId);
               const sidebarDisabled = !selected && sidebarFull;
               const isGroup = entry.type === 'group' && !!entry.group;
               const groupId = entry.id;
@@ -1341,7 +1204,6 @@ export function PlatformLayoutModal({
                 'platform-layout-row',
                 isApiRelayEntry ? 'is-api-relay-entry' : '',
                 entry.hidden ? 'is-hidden' : '',
-                packageUnavailable ? 'is-package-unavailable' : '',
                 draggingId === entry.id ? 'is-dragging' : '',
                 draggingId && draggingId !== entry.id ? 'is-drop-candidate' : '',
                 draggingId && draggingId !== entry.id && dropTargetId === entry.id ? 'is-drop-target' : '',
@@ -1425,8 +1287,7 @@ export function PlatformLayoutModal({
                           }
                         }}
                       >
-                        <span className="platform-layout-name-text">{entry.label}</span>
-                        {renderPackageMeta(entryPackagePlatformId)}
+                        {entry.label}
                       </span>
                     </div>
 
@@ -1588,10 +1449,8 @@ export function PlatformLayoutModal({
                           draggingChildInCurrentGroup && draggingChild?.platformId !== platformId;
                         const isChildDropTarget =
                           dropChildTarget?.groupId === entry.group?.id && dropChildTarget?.platformId === platformId;
-                        const childPackageUnavailable = isPackageUnavailable(platformId);
                         const childRowClass = [
                           'platform-layout-child-row',
-                          childPackageUnavailable ? 'is-package-unavailable' : '',
                           isDraggingChildRow ? 'is-dragging' : '',
                           isChildDropCandidate ? 'is-drop-candidate' : '',
                           isChildDropTarget ? 'is-drop-target' : '',
@@ -1632,7 +1491,6 @@ export function PlatformLayoutModal({
                               >
                                 {childName}
                               </span>
-                              {renderPackageMeta(platformId, true)}
                             </div>
 
                             <div className="platform-layout-controls-grid is-child-grid">
@@ -1747,7 +1605,7 @@ export function PlatformLayoutModal({
                 <div className="platform-layout-group-field full-width">
                   <span>{t('platformLayout.groupChildren', '子级平台')}</span>
                   <div className="platform-layout-group-children-picker">
-                    {groupDraftSelectablePlatformIds.map((platformId) => {
+                    {MENU_VISIBLE_PLATFORM_IDS.map((platformId) => {
                       const checked = groupDraftPlatformIds.includes(platformId);
                       return (
                         <label

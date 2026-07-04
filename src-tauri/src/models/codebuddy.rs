@@ -147,35 +147,6 @@ pub struct CodebuddyOAuthCompletePayload {
     pub checkin_rewards: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub struct CodebuddyCheckinStatusResponse {
-    pub today_checked_in: bool,
-    pub active: bool,
-    pub streak_days: i64,
-    pub daily_credit: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub today_credit: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_streak_day: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub is_streak_day: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub checkin_dates: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub struct CodebuddyCheckinResponse {
-    pub success: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reward: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_checkin_in: Option<i64>,
-}
-
 impl CodebuddyAccount {
     pub fn summary(&self) -> CodebuddyAccountSummary {
         CodebuddyAccountSummary {

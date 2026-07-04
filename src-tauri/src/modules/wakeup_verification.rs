@@ -1,11 +1,10 @@
 use crate::modules;
 use futures::stream::{FuturesUnordered, StreamExt};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
 const WAKEUP_VERIFICATION_STATE_FILE: &str = "wakeup_verification_state.json";
@@ -19,8 +18,6 @@ const STATUS_VERIFICATION_REQUIRED: &str = "verification_required";
 const STATUS_TOS_VIOLATION: &str = "tos_violation";
 const STATUS_AUTH_EXPIRED: &str = "auth_expired";
 const STATUS_FAILED: &str = "failed";
-pub const WAKEUP_VERIFICATION_PROGRESS_EVENT: &str = "wakeup://verification-progress";
-pub type WakeupVerificationProgressEmitter = Arc<dyn Fn(Value) + Send + Sync + 'static>;
 
 static VERIFY_STATE_LOCK: std::sync::LazyLock<Mutex<()>> =
     std::sync::LazyLock::new(|| Mutex::new(()));
@@ -59,7 +56,7 @@ pub struct WakeupVerificationBatchHistoryItem {
     pub records: Vec<WakeupVerificationStateItem>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WakeupVerificationProgressPayload {
     pub batch_id: String,
@@ -73,7 +70,7 @@ pub struct WakeupVerificationProgressPayload {
     pub item: Option<WakeupVerificationStateItem>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WakeupVerificationBatchResult {
     pub batch_id: String,
@@ -116,7 +113,7 @@ fn default_state_file_version() -> u8 {
 }
 
 fn state_file_path() -> Result<PathBuf, String> {
-    let data_dir = modules::app_data::get_data_dir()?;
+    let data_dir = modules::account::get_data_dir()?;
     Ok(data_dir.join(WAKEUP_VERIFICATION_STATE_FILE))
 }
 
@@ -293,30 +290,6 @@ fn append_history_batch(batch: WakeupVerificationBatchHistoryItem) -> Result<(),
     save_state_file_unlocked(&state)
 }
 
-fn emit_progress(
-    app: Option<&AppHandle>,
-    progress_emitter: Option<&WakeupVerificationProgressEmitter>,
-    payload: WakeupVerificationProgressPayload,
-) {
-    if let Some(app) = app {
-        if let Err(error) = app.emit(WAKEUP_VERIFICATION_PROGRESS_EVENT, payload.clone()) {
-            modules::logger::log_warn(&format!(
-                "[WakeupVerification] 发射验证进度事件失败: {}",
-                error
-            ));
-        }
-    }
-    if let Some(progress_emitter) = progress_emitter {
-        match serde_json::to_value(payload) {
-            Ok(value) => progress_emitter(value),
-            Err(error) => modules::logger::log_warn(&format!(
-                "[WakeupVerification] 序列化验证进度事件失败: {}",
-                error
-            )),
-        }
-    }
-}
-
 fn parse_wakeup_error_payload(error: &str) -> Option<WakeupUiErrorPayload> {
     let payload = error.strip_prefix(WAKEUP_ERROR_JSON_PREFIX)?.trim();
     if payload.is_empty() {
@@ -396,25 +369,6 @@ fn classify_failure(
 
 pub async fn run_batch(
     app: &AppHandle,
-    account_ids: Vec<String>,
-    model: &str,
-    prompt: &str,
-    max_output_tokens: u32,
-) -> Result<WakeupVerificationBatchResult, String> {
-    run_batch_with_progress_emitter(
-        Some(app),
-        None,
-        account_ids,
-        model,
-        prompt,
-        max_output_tokens,
-    )
-    .await
-}
-
-pub async fn run_batch_with_progress_emitter(
-    app: Option<&AppHandle>,
-    progress_emitter: Option<&WakeupVerificationProgressEmitter>,
     account_ids: Vec<String>,
     model: &str,
     prompt: &str,
@@ -577,7 +531,7 @@ pub async fn run_batch_with_progress_emitter(
             running: completed < total,
             item: Some(item),
         };
-        emit_progress(app, progress_emitter, payload);
+        let _ = app.emit("wakeup://verification-progress", payload);
     }
 
     records.sort_by(|a, b| a.account_email.cmp(&b.account_email));
@@ -595,7 +549,7 @@ pub async fn run_batch_with_progress_emitter(
         running: false,
         item: None,
     };
-    emit_progress(app, progress_emitter, final_payload);
+    let _ = app.emit("wakeup://verification-progress", final_payload);
 
     let history_item = WakeupVerificationBatchHistoryItem {
         batch_id: batch_id.clone(),

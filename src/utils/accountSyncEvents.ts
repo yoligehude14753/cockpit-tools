@@ -14,8 +14,6 @@ export type AccountSyncEventPayload = {
 
 const PROVIDER_PAGE_PLATFORM_MAP: Record<string, PlatformId> = {
   antigravity: 'antigravity',
-  antigravityide: 'antigravity_ide',
-  antigravity_ide: 'antigravity_ide',
   codex: 'codex',
   claude: 'claude_manager',
   zed: 'zed',

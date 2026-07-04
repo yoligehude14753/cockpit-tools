@@ -331,7 +331,10 @@ async function saveProvidersToDisk(providers: CodexModelProvider[]): Promise<voi
 
 async function ensureProvidersLoaded(): Promise<CodexModelProvider[]> {
   if (cachedProviders !== null) return cloneProviders(cachedProviders);
-  const loadResult = await loadProvidersFromDisk();
+  const loadResult = await loadProvidersFromDisk().catch(() => ({
+    providers: [],
+    migratedBoundOauthUseLocalGateway: false,
+  }));
   const loadedProviders = loadResult.providers;
   let loaded = loadedProviders.filter((provider) => {
     // 兼容清理：移除旧版本自动注入但未配置 API Key 的默认预设项
@@ -347,7 +350,7 @@ async function ensureProvidersLoaded(): Promise<CodexModelProvider[]> {
     migration.changed ||
     loadResult.migratedBoundOauthUseLocalGateway
   ) {
-    void saveProvidersToDisk(loaded).catch(() => { });
+    await saveProvidersToDisk(loaded).catch(() => { });
   }
   cachedProviders = loaded;
   return cloneProviders(cachedProviders);
@@ -392,14 +395,13 @@ function ensureApiKeyOnProvider(
   provider: CodexModelProvider,
   apiKey: string,
   apiKeyName?: string | null,
-  options?: { updateExistingName?: boolean },
 ): void {
   const normalized = sanitizeApiKey(apiKey);
   if (!normalized) return;
   const now = Date.now();
   const existing = provider.apiKeys.find((item) => sanitizeApiKey(item.apiKey) === normalized);
   if (existing) {
-    if (options?.updateExistingName !== false && apiKeyName && sanitizeName(apiKeyName)) {
+    if (apiKeyName && sanitizeName(apiKeyName)) {
       existing.name = sanitizeName(apiKeyName);
     }
     existing.updatedAt = now;
@@ -768,9 +770,7 @@ export async function upsertCodexModelProviderFromCredential(
     provider.sourceTag = sanitizeName(input.sourceTag ?? '') || undefined;
   }
 
-  ensureApiKeyOnProvider(provider, apiKey, input.apiKeyName, {
-    updateExistingName: false,
-  });
+  ensureApiKeyOnProvider(provider, apiKey, input.apiKeyName);
   provider.baseUrl = apiBaseUrl;
   provider.modelCatalog =
     normalizeModelCatalog(input.modelCatalog) ??

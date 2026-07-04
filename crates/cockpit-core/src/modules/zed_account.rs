@@ -7,14 +7,12 @@ use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 use std::process::Command;
 use std::sync::Mutex;
-use std::time::Instant;
 
 use crate::models::zed::{ZedAccount, ZedAccountIndex, ZedStoredAccount};
 use crate::modules::{account, logger};
 
 const ACCOUNTS_INDEX_FILE: &str = "zed_accounts.json";
 const ACCOUNTS_DIR: &str = "zed_accounts";
-const ACCOUNT_STORE_PLATFORM: &str = "zed";
 const ZED_SERVER_URL: &str = "https://zed.dev";
 const ZED_CLOUD_BASE_URL: &str = "https://cloud.zed.dev";
 const ZED_QUOTA_ALERT_COOLDOWN_SECONDS: i64 = 10 * 60;
@@ -45,84 +43,6 @@ struct ZedExportPayload {
 pub struct ZedKeychainCredentials {
     pub user_id: String,
     pub access_token: String,
-}
-
-fn parse_import_accounts_value(
-    value: Value,
-) -> Result<(Option<String>, Vec<ZedStoredAccount>), String> {
-    if let Ok(payload) = serde_json::from_value::<ZedExportPayload>(value.clone()) {
-        return Ok((payload.current_account_id, payload.accounts));
-    }
-    if let Ok(list) = serde_json::from_value::<Vec<ZedStoredAccount>>(value.clone()) {
-        return Ok((None, list));
-    }
-    if let Ok(single) = serde_json::from_value::<ZedStoredAccount>(value) {
-        return Ok((None, vec![single]));
-    }
-    Err("导入内容格式无效，需为 Zed 账号导出 JSON".to_string())
-}
-
-fn decode_escaped_import_text(text: &str) -> Option<String> {
-    let escaped_controls = text
-        .trim()
-        .replace('\r', "\\r")
-        .replace('\n', "\\n")
-        .replace('\t', "\\t");
-    let wrapped = format!("\"{}\"", escaped_controls);
-    serde_json::from_str::<String>(&wrapped)
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty() && value != text.trim())
-}
-
-fn normalize_backslash_quoted_import_text(text: &str) -> Option<String> {
-    if !text.contains("\\\"") {
-        return None;
-    }
-    let normalized = text.replace("\\\"", "\"").replace("\\/", "/");
-    (normalized != text).then(|| normalized.trim().to_string())
-}
-
-fn parse_import_accounts_json(
-    json_content: &str,
-) -> Result<(Option<String>, Vec<ZedStoredAccount>), String> {
-    let mut text = json_content.trim().to_string();
-    if text.is_empty() {
-        return Err("导入内容不能为空".to_string());
-    }
-
-    let mut last_error = None;
-    for _ in 0..4 {
-        match serde_json::from_str::<Value>(&text) {
-            Ok(Value::String(inner)) => {
-                text = inner.trim().to_string();
-                if text.is_empty() {
-                    return Err("导入内容不能为空".to_string());
-                }
-            }
-            Ok(value) => return parse_import_accounts_value(value),
-            Err(error) => {
-                last_error = Some(error.to_string());
-                if let Some(decoded) = decode_escaped_import_text(&text) {
-                    text = decoded;
-                    continue;
-                }
-                if let Some(normalized) = normalize_backslash_quoted_import_text(&text) {
-                    text = normalized;
-                    continue;
-                }
-                break;
-            }
-        }
-    }
-
-    let detail = last_error
-        .map(|error| format!(": {}", error))
-        .unwrap_or_default();
-    Err(format!(
-        "导入内容格式无效，需为 Zed 账号导出 JSON{}",
-        detail
-    ))
 }
 
 fn now_ts() -> i64 {
@@ -186,58 +106,12 @@ fn get_accounts_index_path() -> Result<PathBuf, String> {
     Ok(get_data_dir()?.join(ACCOUNTS_INDEX_FILE))
 }
 
-fn ensure_package_installed() -> Result<(), String> {
-    Ok(())
-}
-
-fn is_package_installed() -> bool {
-    true
-}
-
-fn ensure_account_store_migrated() -> Result<(), String> {
-    crate::modules::account_store::ensure_platform_migrated_from_json(
-        ACCOUNT_STORE_PLATFORM,
-        &get_accounts_index_path()?,
-        &get_accounts_dir()?,
-    )
-}
-
-fn account_index_from_store() -> Result<ZedAccountIndex, String> {
-    ensure_account_store_migrated()?;
-    let accounts =
-        crate::modules::account_store::list_accounts::<ZedStoredAccount>(ACCOUNT_STORE_PLATFORM)?;
-    let current_account_id = crate::modules::account_store::get_current_account_id(
-        ACCOUNT_STORE_PLATFORM,
-    )?
-    .filter(|current_id| {
-        accounts
-            .iter()
-            .any(|account| account.public_account.id == *current_id)
-    });
-    let mut index = ZedAccountIndex::new();
-    index.accounts = accounts.iter().map(|account| account.summary()).collect();
-    index.current_account_id = current_account_id;
-    Ok(index)
-}
-
 fn resolve_account_file_path(account_id: &str) -> Result<PathBuf, String> {
     let normalized = normalize_account_id(account_id)?;
     Ok(get_accounts_dir()?.join(format!("{}.json", normalized)))
 }
 
 pub fn load_stored_account(account_id: &str) -> Option<ZedStoredAccount> {
-    if let Err(err) = ensure_account_store_migrated() {
-        logger::log_warn(&format!(
-            "[Zed Account][Store] 账号数据库迁移检查失败，回退文件读取: account_id={}, error={}",
-            account_id, err
-        ));
-    } else if let Ok(Some(account)) = crate::modules::account_store::load_account::<ZedStoredAccount>(
-        ACCOUNT_STORE_PLATFORM,
-        account_id,
-    ) {
-        return Some(account);
-    }
-
     let account_path = resolve_account_file_path(account_id).ok()?;
     if !account_path.exists() {
         return None;
@@ -247,12 +121,6 @@ pub fn load_stored_account(account_id: &str) -> Option<ZedStoredAccount> {
 }
 
 fn save_stored_account_file(account: &ZedStoredAccount) -> Result<(), String> {
-    ensure_account_store_migrated()?;
-    crate::modules::account_store::save_account(
-        ACCOUNT_STORE_PLATFORM,
-        account.public_account.id.as_str(),
-        account,
-    )?;
     let path = resolve_account_file_path(account.public_account.id.as_str())?;
     let content =
         serde_json::to_string_pretty(account).map_err(|e| format!("序列化账号失败: {}", e))?;
@@ -261,7 +129,6 @@ fn save_stored_account_file(account: &ZedStoredAccount) -> Result<(), String> {
 }
 
 fn delete_account_file(account_id: &str) -> Result<(), String> {
-    crate::modules::account_store::delete_account(ACCOUNT_STORE_PLATFORM, account_id)?;
     let path = resolve_account_file_path(account_id)?;
     if path.exists() {
         fs::remove_file(path).map_err(|e| format!("删除账号文件失败: {}", e))?;
@@ -270,14 +137,6 @@ fn delete_account_file(account_id: &str) -> Result<(), String> {
 }
 
 fn load_account_index() -> ZedAccountIndex {
-    match account_index_from_store() {
-        Ok(index) => return index,
-        Err(error) => logger::log_warn(&format!(
-            "[Zed Account][Store] 从 SQLite 读取账号索引失败，回退 JSON: {}",
-            error
-        )),
-    }
-
     let path = match get_accounts_index_path() {
         Ok(p) => p,
         Err(_) => return ZedAccountIndex::new(),
@@ -312,14 +171,6 @@ fn load_account_index() -> ZedAccountIndex {
 }
 
 fn load_account_index_checked() -> Result<ZedAccountIndex, String> {
-    match account_index_from_store() {
-        Ok(index) => return Ok(index),
-        Err(error) => logger::log_warn(&format!(
-            "[Zed Account][Store] 从 SQLite 读取账号索引失败，继续检查 JSON: {}",
-            error
-        )),
-    }
-
     let path = get_accounts_index_path()?;
     if !path.exists() {
         if let Some(index) = repair_account_index_from_details("索引文件不存在") {
@@ -369,16 +220,6 @@ fn load_account_index_checked() -> Result<ZedAccountIndex, String> {
 }
 
 fn save_account_index(index: &ZedAccountIndex) -> Result<(), String> {
-    crate::modules::account_store::set_current_account_id(
-        ACCOUNT_STORE_PLATFORM,
-        index.current_account_id.as_deref(),
-    )?;
-    let ordered_ids = index
-        .accounts
-        .iter()
-        .map(|summary| summary.id.clone())
-        .collect::<Vec<_>>();
-    crate::modules::account_store::save_account_order(ACCOUNT_STORE_PLATFORM, &ordered_ids)?;
     let path = get_accounts_index_path()?;
     let content =
         serde_json::to_string_pretty(index).map_err(|e| format!("序列化账号索引失败: {}", e))?;
@@ -408,7 +249,9 @@ fn repair_account_index_from_details(reason: &str) -> Option<ZedAccountIndex> {
 
     let mut index = ZedAccountIndex::new();
     index.accounts = accounts.iter().map(|account| account.summary()).collect();
-    index.current_account_id = None;
+    index.current_account_id = accounts
+        .first()
+        .map(|account| account.public_account.id.clone());
 
     let backup_path = crate::modules::account_index_repair::backup_existing_index(&index_path)
         .unwrap_or_else(|err| {
@@ -491,9 +334,6 @@ fn list_stored_accounts_from_index(index: &ZedAccountIndex) -> Vec<ZedStoredAcco
 }
 
 pub fn list_accounts() -> Vec<ZedAccount> {
-    if !is_package_installed() {
-        return Vec::new();
-    }
     let index = load_account_index();
     list_stored_accounts_from_index(&index)
         .into_iter()
@@ -502,7 +342,6 @@ pub fn list_accounts() -> Vec<ZedAccount> {
 }
 
 pub fn list_accounts_checked() -> Result<Vec<ZedAccount>, String> {
-    ensure_package_installed()?;
     let index = load_account_index_checked()?;
     Ok(list_stored_accounts_from_index(&index)
         .into_iter()
@@ -516,24 +355,36 @@ fn load_all_stored_accounts() -> Vec<ZedStoredAccount> {
 }
 
 pub fn resolve_current_account_id() -> Option<String> {
-    if !is_package_installed() {
-        return None;
-    }
     let index = load_account_index();
     let accounts = list_stored_accounts_from_index(&index);
     if accounts.is_empty() {
         return None;
     }
 
-    let current_id = index.current_account_id?;
+    if let Ok(Some(credentials)) = read_credentials_from_keychain() {
+        if let Some(account) = accounts
+            .iter()
+            .find(|item| item.public_account.user_id == credentials.user_id)
+        {
+            return Some(account.public_account.id.clone());
+        }
+    }
+
+    if let Some(current_id) = index.current_account_id {
+        if accounts
+            .iter()
+            .any(|account| account.public_account.id == current_id)
+        {
+            return Some(current_id);
+        }
+    }
+
     accounts
-        .iter()
-        .any(|account| account.public_account.id == current_id)
-        .then_some(current_id)
+        .first()
+        .map(|account| account.public_account.id.clone())
 }
 
 pub fn set_current_account_id(account_id: Option<&str>) -> Result<(), String> {
-    ensure_package_installed()?;
     let _lock = ZED_ACCOUNT_INDEX_LOCK
         .lock()
         .map_err(|_| "获取 Zed 账号锁失败".to_string())?;
@@ -544,7 +395,7 @@ pub fn set_current_account_id(account_id: Option<&str>) -> Result<(), String> {
 
 fn upsert_account_record(
     mut account: ZedStoredAccount,
-    _set_current_if_missing: bool,
+    set_current_if_missing: bool,
     force_current: bool,
 ) -> Result<ZedAccount, String> {
     let _lock = ZED_ACCOUNT_INDEX_LOCK
@@ -563,6 +414,8 @@ fn upsert_account_record(
     refresh_summary(&mut index, &account);
 
     if force_current {
+        index.current_account_id = Some(account.public_account.id.clone());
+    } else if set_current_if_missing && index.current_account_id.is_none() {
         index.current_account_id = Some(account.public_account.id.clone());
     }
 
@@ -594,7 +447,7 @@ pub fn remove_account(account_id: &str) -> Result<(), String> {
     let mut index = load_account_index();
     index.accounts.retain(|item| item.id != account_id);
     if index.current_account_id.as_deref() == Some(account_id) {
-        index.current_account_id = None;
+        index.current_account_id = index.accounts.first().map(|item| item.id.clone());
     }
     save_account_index(&index)?;
     delete_account_file(account_id)?;
@@ -618,7 +471,7 @@ pub fn remove_accounts(account_ids: &[String]) -> Result<(), String> {
     index.accounts.retain(|item| !targets.contains(&item.id));
     if let Some(current_id) = index.current_account_id.clone() {
         if targets.contains(&current_id) {
-            index.current_account_id = None;
+            index.current_account_id = index.accounts.first().map(|item| item.id.clone());
         }
     }
     save_account_index(&index)?;
@@ -717,6 +570,7 @@ fn pick_first_i64(candidates: &[Option<i64>]) -> Option<i64> {
 fn build_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        .user_agent("cockpit-tools/zed")
         .build()
         .map_err(|e| format!("创建 Zed HTTP 客户端失败: {}", e))
 }
@@ -733,7 +587,6 @@ async fn fetch_json(
     let url = format!("{}{}", ZED_CLOUD_BASE_URL, path);
     let response = client
         .get(&url)
-        .header("Content-Type", "application/json")
         .header("Authorization", authorization_header)
         .send()
         .await
@@ -967,7 +820,6 @@ pub async fn upsert_account_from_credentials(
     user_id: &str,
     access_token: &str,
 ) -> Result<ZedAccount, String> {
-    ensure_package_installed()?;
     let existing = load_all_stored_accounts()
         .into_iter()
         .find(|account| account.public_account.user_id == user_id.trim());
@@ -978,7 +830,6 @@ pub async fn upsert_account_from_credentials(
 }
 
 pub async fn refresh_account(account_id: &str) -> Result<ZedAccount, String> {
-    ensure_package_installed()?;
     let stored =
         load_stored_account(account_id).ok_or_else(|| format!("Zed 账号不存在: {}", account_id))?;
     let bundle =
@@ -1001,9 +852,6 @@ pub async fn refresh_account(account_id: &str) -> Result<ZedAccount, String> {
 }
 
 pub async fn refresh_all_accounts() -> Result<Vec<ZedAccount>, String> {
-    if !is_package_installed() {
-        return Ok(Vec::new());
-    }
     let mut refreshed = Vec::new();
     for account in load_all_stored_accounts() {
         match refresh_account(&account.public_account.id).await {
@@ -1020,25 +868,29 @@ pub async fn refresh_all_accounts() -> Result<Vec<ZedAccount>, String> {
 }
 
 pub async fn import_from_local() -> Result<ZedAccount, String> {
-    ensure_package_installed()?;
     let credentials = read_credentials_from_keychain()?
         .ok_or_else(|| "未在本机 Zed 客户端登录态中找到可导入的账号信息".to_string())?;
     upsert_account_from_credentials(&credentials.user_id, &credentials.access_token).await
 }
 
 pub fn import_from_json(json_content: &str) -> Result<Vec<ZedAccount>, String> {
-    let started_at = Instant::now();
-    ensure_package_installed()?;
-    logger::log_info(&format!(
-        "[Zed Account][Import] start: bytes={}",
-        json_content.len()
-    ));
-    let (payload_current_id, accounts) = parse_import_accounts_json(json_content)?;
-    logger::log_info(&format!(
-        "[Zed Account][Import] parsed: accounts={}, elapsed={}ms",
-        accounts.len(),
-        started_at.elapsed().as_millis()
-    ));
+    let trimmed = json_content.trim();
+    if trimmed.is_empty() {
+        return Err("导入内容不能为空".to_string());
+    }
+
+    let mut payload_current_id = None;
+    let accounts: Vec<ZedStoredAccount> =
+        if let Ok(payload) = serde_json::from_str::<ZedExportPayload>(trimmed) {
+            payload_current_id = payload.current_account_id.clone();
+            payload.accounts
+        } else if let Ok(list) = serde_json::from_str::<Vec<ZedStoredAccount>>(trimmed) {
+            list
+        } else if let Ok(single) = serde_json::from_str::<ZedStoredAccount>(trimmed) {
+            vec![single]
+        } else {
+            return Err("导入内容格式无效，需为 Zed 账号导出 JSON".to_string());
+        };
 
     if accounts.is_empty() {
         return Ok(Vec::new());
@@ -1054,16 +906,10 @@ pub fn import_from_json(json_content: &str) -> Result<Vec<ZedAccount>, String> {
         let _ = set_current_account_id(Some(&current_id));
     }
 
-    logger::log_info(&format!(
-        "[Zed Account][Import] done: accounts={}, elapsed={}ms",
-        imported.len(),
-        started_at.elapsed().as_millis()
-    ));
     Ok(imported)
 }
 
 pub fn export_accounts(account_ids: &[String]) -> Result<String, String> {
-    ensure_package_installed()?;
     let targets: Option<HashSet<String>> = if account_ids.is_empty() {
         None
     } else {
@@ -1097,7 +943,6 @@ pub fn export_accounts(account_ids: &[String]) -> Result<String, String> {
 }
 
 pub fn update_account_tags(account_id: &str, tags: Vec<String>) -> Result<ZedAccount, String> {
-    ensure_package_installed()?;
     let mut stored =
         load_stored_account(account_id).ok_or_else(|| format!("Zed 账号不存在: {}", account_id))?;
     stored.public_account.tags = normalize_tags(tags);
@@ -1105,7 +950,6 @@ pub fn update_account_tags(account_id: &str, tags: Vec<String>) -> Result<ZedAcc
 }
 
 pub fn inject_account(account_id: &str) -> Result<ZedAccount, String> {
-    ensure_package_installed()?;
     let stored =
         load_stored_account(account_id).ok_or_else(|| format!("Zed 账号不存在: {}", account_id))?;
     write_credentials_to_keychain(&stored.public_account.user_id, &stored.access_token)?;
@@ -1114,7 +958,6 @@ pub fn inject_account(account_id: &str) -> Result<ZedAccount, String> {
 }
 
 pub fn clear_current_runtime_account() -> Result<(), String> {
-    ensure_package_installed()?;
     clear_credentials_from_keychain()?;
     set_current_account_id(None)
 }
@@ -1139,78 +982,6 @@ fn parse_account_from_security_output(text: &str) -> Option<String> {
         }
     }
     None
-}
-
-#[cfg(target_os = "windows")]
-#[repr(C)]
-struct ZedWindowsFileTime {
-    dw_low_date_time: u32,
-    dw_high_date_time: u32,
-}
-
-#[cfg(target_os = "windows")]
-#[repr(C)]
-struct ZedWindowsCredentialW {
-    flags: u32,
-    cred_type: u32,
-    target_name: *const u16,
-    comment: *const u16,
-    last_written: ZedWindowsFileTime,
-    credential_blob_size: u32,
-    credential_blob: *const u8,
-    persist: u32,
-    attribute_count: u32,
-    attributes: *const std::ffi::c_void,
-    target_alias: *const u16,
-    user_name: *const u16,
-}
-
-#[cfg(target_os = "windows")]
-#[link(name = "advapi32")]
-extern "system" {
-    fn CredDeleteW(target_name: *const u16, type_: u32, flags: u32) -> i32;
-    fn CredReadW(
-        target_name: *const u16,
-        type_: u32,
-        flags: u32,
-        credential: *mut *mut ZedWindowsCredentialW,
-    ) -> i32;
-    fn CredWriteW(credential: *const ZedWindowsCredentialW, flags: u32) -> i32;
-    fn CredFree(buffer: *mut std::ffi::c_void);
-}
-
-#[cfg(target_os = "windows")]
-const ZED_WINDOWS_CRED_TYPE_GENERIC: u32 = 1;
-#[cfg(target_os = "windows")]
-const ZED_WINDOWS_CRED_PERSIST_LOCAL_MACHINE: u32 = 2;
-#[cfg(target_os = "windows")]
-const ZED_WINDOWS_ERROR_NOT_FOUND: i32 = 1168;
-
-#[cfg(target_os = "windows")]
-fn zed_windows_credentials_target_name(url: &str) -> String {
-    format!("zed:url={}", url)
-}
-
-#[cfg(target_os = "windows")]
-fn zed_windows_wide(value: &str) -> Vec<u16> {
-    value.encode_utf16().chain(std::iter::once(0)).collect()
-}
-
-#[cfg(target_os = "windows")]
-fn zed_windows_wide_ptr_to_string(ptr: *const u16) -> Option<String> {
-    if ptr.is_null() {
-        return None;
-    }
-
-    let mut len = 0usize;
-    unsafe {
-        while *ptr.add(len) != 0 {
-            len += 1;
-        }
-        Some(String::from_utf16_lossy(std::slice::from_raw_parts(
-            ptr, len,
-        )))
-    }
 }
 
 #[cfg(target_os = "macos")]
@@ -1259,67 +1030,7 @@ pub fn read_credentials_from_keychain() -> Result<Option<ZedKeychainCredentials>
     }))
 }
 
-#[cfg(target_os = "windows")]
-pub fn read_credentials_from_keychain() -> Result<Option<ZedKeychainCredentials>, String> {
-    let target_name = zed_windows_credentials_target_name(ZED_SERVER_URL);
-    let target_wide = zed_windows_wide(&target_name);
-    let mut credential_ptr: *mut ZedWindowsCredentialW = std::ptr::null_mut();
-
-    unsafe {
-        if CredReadW(
-            target_wide.as_ptr(),
-            ZED_WINDOWS_CRED_TYPE_GENERIC,
-            0,
-            &mut credential_ptr,
-        ) == 0
-        {
-            let error = std::io::Error::last_os_error();
-            if error.raw_os_error() == Some(ZED_WINDOWS_ERROR_NOT_FOUND) {
-                return Ok(None);
-            }
-            return Err(format!(
-                "读取 Windows Credential Manager Zed 凭据失败: {}",
-                error
-            ));
-        }
-
-        if credential_ptr.is_null() {
-            return Ok(None);
-        }
-
-        let credential = &*credential_ptr;
-        let user_id_raw = zed_windows_wide_ptr_to_string(credential.user_name);
-        let token_bytes =
-            if credential.credential_blob.is_null() || credential.credential_blob_size == 0 {
-                Vec::new()
-            } else {
-                std::slice::from_raw_parts(
-                    credential.credential_blob,
-                    credential.credential_blob_size as usize,
-                )
-                .to_vec()
-            };
-        CredFree(credential_ptr.cast());
-
-        let user_id = normalize_non_empty(user_id_raw.as_deref())
-            .ok_or_else(|| "解析 Windows Credential Manager Zed user_id 失败".to_string())?;
-        let access_token = String::from_utf8(token_bytes).map_err(|e| {
-            format!(
-                "解析 Windows Credential Manager Zed access_token 失败: {}",
-                e
-            )
-        })?;
-        let access_token = normalize_non_empty(Some(&access_token))
-            .ok_or_else(|| "Windows Credential Manager Zed access_token 为空".to_string())?;
-
-        Ok(Some(ZedKeychainCredentials {
-            user_id,
-            access_token,
-        }))
-    }
-}
-
-#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+#[cfg(not(target_os = "macos"))]
 pub fn read_credentials_from_keychain() -> Result<Option<ZedKeychainCredentials>, String> {
     Ok(None)
 }
@@ -1343,30 +1054,9 @@ pub fn clear_credentials_from_keychain() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(not(target_os = "macos"))]
 pub fn clear_credentials_from_keychain() -> Result<(), String> {
-    let target_name = zed_windows_credentials_target_name(ZED_SERVER_URL);
-    let target_wide = zed_windows_wide(&target_name);
-
-    unsafe {
-        if CredDeleteW(target_wide.as_ptr(), ZED_WINDOWS_CRED_TYPE_GENERIC, 0) == 0 {
-            let error = std::io::Error::last_os_error();
-            if error.raw_os_error() == Some(ZED_WINDOWS_ERROR_NOT_FOUND) {
-                return Ok(());
-            }
-            return Err(format!(
-                "删除 Windows Credential Manager Zed 凭据失败: {}",
-                error
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-pub fn clear_credentials_from_keychain() -> Result<(), String> {
-    Err("Zed 切号当前仅支持 macOS/Windows".to_string())
+    Err("Zed 切号当前仅支持 macOS".to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -1403,56 +1093,9 @@ pub fn write_credentials_to_keychain(user_id: &str, access_token: &str) -> Resul
     Ok(())
 }
 
-#[cfg(target_os = "windows")]
-pub fn write_credentials_to_keychain(user_id: &str, access_token: &str) -> Result<(), String> {
-    let normalized_user_id =
-        normalize_non_empty(Some(user_id)).ok_or_else(|| "Zed user_id 不能为空".to_string())?;
-    let normalized_token = normalize_non_empty(Some(access_token))
-        .ok_or_else(|| "Zed access_token 不能为空".to_string())?;
-
-    let target_name = zed_windows_credentials_target_name(ZED_SERVER_URL);
-    let target_wide = zed_windows_wide(&target_name);
-    let user_wide = zed_windows_wide(&normalized_user_id);
-    let secret = normalized_token.as_bytes();
-
-    let credential = ZedWindowsCredentialW {
-        flags: 0,
-        cred_type: ZED_WINDOWS_CRED_TYPE_GENERIC,
-        target_name: target_wide.as_ptr(),
-        comment: std::ptr::null(),
-        last_written: ZedWindowsFileTime {
-            dw_low_date_time: 0,
-            dw_high_date_time: 0,
-        },
-        credential_blob_size: secret.len() as u32,
-        credential_blob: secret.as_ptr(),
-        persist: ZED_WINDOWS_CRED_PERSIST_LOCAL_MACHINE,
-        attribute_count: 0,
-        attributes: std::ptr::null(),
-        target_alias: std::ptr::null(),
-        user_name: user_wide.as_ptr(),
-    };
-
-    unsafe {
-        let _ = CredDeleteW(target_wide.as_ptr(), ZED_WINDOWS_CRED_TYPE_GENERIC, 0);
-        if CredWriteW(&credential, 0) == 0 {
-            return Err(format!(
-                "写入 Windows Credential Manager Zed 凭据失败: {}",
-                std::io::Error::last_os_error()
-            ));
-        }
-    }
-
-    logger::log_info(&format!(
-        "[Zed] 已覆盖 Windows Credential Manager 登录信息: target={}, user_id={}",
-        target_name, normalized_user_id
-    ));
-    Ok(())
-}
-
-#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+#[cfg(not(target_os = "macos"))]
 pub fn write_credentials_to_keychain(_user_id: &str, _access_token: &str) -> Result<(), String> {
-    Err("Zed 切号当前仅支持 macOS/Windows".to_string())
+    Err("Zed 切号当前仅支持 macOS".to_string())
 }
 
 fn display_account_label(account: &ZedAccount) -> String {
@@ -1585,11 +1228,8 @@ fn pick_quota_alert_recommendation(
     candidates.into_iter().next()
 }
 
-pub fn build_quota_alert_payload_if_needed(
+pub fn run_quota_alert_if_needed(
 ) -> Result<Option<crate::modules::account::QuotaAlertPayload>, String> {
-    if !is_package_installed() {
-        return Ok(None);
-    }
     let config = crate::modules::config::get_user_config();
     if !config.zed_quota_alert_enabled {
         return Ok(None);
@@ -1638,14 +1278,6 @@ pub fn build_quota_alert_payload_if_needed(
         triggered_at: now,
     };
 
+    crate::modules::account::dispatch_quota_alert(&payload);
     Ok(Some(payload))
-}
-
-pub fn run_quota_alert_if_needed(
-) -> Result<Option<crate::modules::account::QuotaAlertPayload>, String> {
-    let payload = build_quota_alert_payload_if_needed()?;
-    if let Some(payload) = payload.as_ref() {
-        crate::modules::account::dispatch_quota_alert(payload);
-    }
-    Ok(payload)
 }

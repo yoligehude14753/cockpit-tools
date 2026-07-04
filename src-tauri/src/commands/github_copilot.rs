@@ -1,192 +1,118 @@
-use std::time::{Duration, Instant};
-
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 
 use crate::models::github_copilot::{GitHubCopilotAccount, GitHubCopilotOAuthStartResponse};
-use crate::modules::{logger, platform_adapter, platform_package};
+use crate::modules::{
+    config, github_copilot_account, github_copilot_oauth, logger, opencode_auth, process,
+};
 
-const GHCP_FAST_LOCAL_MUTATION_TIMEOUT: Duration = Duration::from_secs(20);
-
-fn ensure_github_copilot_package_installed() -> Result<(), String> {
-    platform_package::ensure_platform_package_installed("github-copilot")
+async fn refresh_github_copilot_account_after_login(
+    account: GitHubCopilotAccount,
+) -> GitHubCopilotAccount {
+    let account_id = account.id.clone();
+    match github_copilot_account::refresh_account_token(&account_id).await {
+        Ok(refreshed) => refreshed,
+        Err(e) => {
+            logger::log_warn(&format!(
+                "[GitHub Copilot OAuth] 登录后自动刷新失败: account_id={}, error={}",
+                account_id, e
+            ));
+            account
+        }
+    }
 }
 
-fn github_copilot_call<T: DeserializeOwned>(method: &str, payload: Value) -> Result<T, String> {
-    ensure_github_copilot_package_installed()?;
-    platform_adapter::call_github_copilot(method, payload)
-}
-
-async fn github_copilot_call_async<T>(method: &'static str, payload: Value) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static,
-{
-    ensure_github_copilot_package_installed()?;
-    tauri::async_runtime::spawn_blocking(move || {
-        platform_adapter::call_github_copilot(method, payload)
-    })
-    .await
-    .map_err(|error| format!("GitHub Copilot adapter 任务失败: {}", error))?
-}
-
-async fn github_copilot_call_async_with_timeout<T>(
-    method: &'static str,
-    payload: Value,
-    timeout: Duration,
-) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static,
-{
-    ensure_github_copilot_package_installed()?;
-    tauri::async_runtime::spawn_blocking(move || {
-        platform_adapter::call_github_copilot_with_timeout(method, payload, timeout)
-    })
-    .await
-    .map_err(|error| format!("GitHub Copilot adapter 任务失败: {}", error))?
-}
-
-fn update_tray_menu_in_background(app: AppHandle) {
-    tauri::async_runtime::spawn_blocking(move || {
-        let _ = crate::modules::tray::update_tray_menu(&app);
-    });
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SwitchResult {
-    message: String,
-    #[serde(default)]
-    restart_error: Option<String>,
-    path_missing: bool,
-}
-
-fn emit_github_copilot_path_missing(app: &AppHandle, retry: Value) {
-    let _ = app.emit(
-        "app:path_missing",
-        json!({
-            "app": "vscode",
-            "retry": retry
-        }),
-    );
-}
-
+/// 列出所有 GitHub Copilot 账号
 #[tauri::command]
-pub async fn list_github_copilot_accounts() -> Result<Vec<GitHubCopilotAccount>, String> {
-    github_copilot_call_async_with_timeout(
-        "accounts.list",
-        json!({}),
-        GHCP_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await
+pub fn list_github_copilot_accounts() -> Result<Vec<GitHubCopilotAccount>, String> {
+    github_copilot_account::list_accounts_checked()
 }
 
+/// 删除 GitHub Copilot 账号
 #[tauri::command]
-pub async fn delete_github_copilot_account(
-    app: AppHandle,
-    account_id: String,
-) -> Result<(), String> {
-    github_copilot_call_async_with_timeout::<()>(
-        "accounts.delete",
-        json!({ "accountId": account_id }),
-        GHCP_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(())
+pub fn delete_github_copilot_account(account_id: String) -> Result<(), String> {
+    github_copilot_account::remove_account(&account_id)
 }
 
+/// 批量删除 GitHub Copilot 账号
 #[tauri::command]
-pub async fn delete_github_copilot_accounts(
-    app: AppHandle,
-    account_ids: Vec<String>,
-) -> Result<(), String> {
-    github_copilot_call_async_with_timeout::<()>(
-        "accounts.deleteMany",
-        json!({ "accountIds": account_ids }),
-        GHCP_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(())
+pub fn delete_github_copilot_accounts(account_ids: Vec<String>) -> Result<(), String> {
+    github_copilot_account::remove_accounts(&account_ids)
 }
 
+/// 从 JSON 字符串导入 GitHub Copilot 账号
 #[tauri::command]
-pub async fn import_github_copilot_from_json(
-    app: AppHandle,
+pub fn import_github_copilot_from_json(
     json_content: String,
 ) -> Result<Vec<GitHubCopilotAccount>, String> {
-    let accounts = github_copilot_call_async_with_timeout(
-        "accounts.importJson",
-        json!({ "jsonContent": json_content }),
-        GHCP_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(accounts)
+    github_copilot_account::import_from_json(&json_content)
 }
 
+/// 从本机 VS Code 导入当前 GitHub Copilot 登录账号
 #[tauri::command]
 pub async fn import_github_copilot_from_local(
     app: AppHandle,
 ) -> Result<Vec<GitHubCopilotAccount>, String> {
-    let accounts: Vec<GitHubCopilotAccount> = github_copilot_call_async_with_timeout(
-        "accounts.importLocal",
-        json!({}),
-        GHCP_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
-    Ok(accounts)
+    match github_copilot_account::import_from_local().await? {
+        Some(account) => {
+            let _ = crate::modules::tray::update_tray_menu(&app);
+            Ok(vec![account])
+        }
+        None => Err("未找到本机 VS Code GitHub Copilot 登录信息".to_string()),
+    }
 }
 
+/// 导出 GitHub Copilot 账号为 JSON
 #[tauri::command]
 pub fn export_github_copilot_accounts(account_ids: Vec<String>) -> Result<String, String> {
-    github_copilot_call("accounts.export", json!({ "accountIds": account_ids }))
+    github_copilot_account::export_accounts(&account_ids)
 }
 
+/// 刷新单个账号 Copilot token/配额信息（GitHub API）
 #[tauri::command]
 pub async fn refresh_github_copilot_token(
     app: AppHandle,
     account_id: String,
 ) -> Result<GitHubCopilotAccount, String> {
-    let started_at = Instant::now();
-    logger::log_info(&format!(
-        "[GitHubCopilot Command] 手动刷新账号开始: account_id={}",
-        account_id
-    ));
-    let account: GitHubCopilotAccount =
-        github_copilot_call_async("accounts.refresh", json!({ "accountId": account_id })).await?;
-    let _ = crate::modules::tray::update_tray_menu(&app);
-    logger::log_info(&format!(
-        "[GitHubCopilot Command] 手动刷新账号完成: account_id={}, elapsed={}ms",
-        account.id,
-        started_at.elapsed().as_millis()
-    ));
-    Ok(account)
+    let result = github_copilot_account::refresh_account_token(&account_id).await;
+    if result.is_ok() {
+        if let Err(e) = github_copilot_account::run_quota_alert_if_needed() {
+            logger::log_warn(&format!("[QuotaAlert][GitHubCopilot] 预警检查失败: {}", e));
+        }
+        let _ = crate::modules::tray::update_tray_menu(&app);
+    }
+    result
 }
 
+/// 刷新所有账号 Copilot token/配额信息（GitHub API）
 #[tauri::command]
 pub async fn refresh_all_github_copilot_tokens(app: AppHandle) -> Result<i32, String> {
-    let started_at = Instant::now();
-    logger::log_info("[GitHubCopilot Command] 手动批量刷新开始");
-    let success_count: i32 = github_copilot_call_async("accounts.refreshAll", json!({})).await?;
+    let results = github_copilot_account::refresh_all_tokens().await?;
+    let success_count = results.iter().filter(|(_, r)| r.is_ok()).count();
+    if success_count > 0 {
+        if let Err(e) = github_copilot_account::run_quota_alert_if_needed() {
+            logger::log_warn(&format!(
+                "[QuotaAlert][GitHubCopilot] 全量刷新后预警检查失败: {}",
+                e
+            ));
+        }
+    }
     let _ = crate::modules::tray::update_tray_menu(&app);
-    logger::log_info(&format!(
-        "[GitHubCopilot Command] 手动批量刷新完成: success={}, elapsed={}ms",
-        success_count,
-        started_at.elapsed().as_millis()
-    ));
-    Ok(success_count)
+    Ok(success_count as i32)
 }
 
+/// OAuth（VS Code GitHub Authentication）：开始登录（返回授权 URL）
 #[tauri::command]
 pub async fn github_copilot_oauth_login_start() -> Result<GitHubCopilotOAuthStartResponse, String> {
     logger::log_info("GitHub Copilot OAuth start 命令触发");
-    github_copilot_call_async("oauth.start", json!({})).await
+    let response = github_copilot_oauth::start_login().await?;
+    logger::log_info(&format!(
+        "GitHub Copilot OAuth start 命令成功: login_id={}",
+        response.login_id
+    ));
+    Ok(response)
 }
 
+/// OAuth（VS Code GitHub Authentication）：等待本地回调并完成登录（返回保存后的账号）
 #[tauri::command]
 pub async fn github_copilot_oauth_login_complete(
     app: AppHandle,
@@ -196,95 +122,159 @@ pub async fn github_copilot_oauth_login_complete(
         "GitHub Copilot OAuth complete 命令触发: login_id={}",
         login_id
     ));
-    let account: GitHubCopilotAccount =
-        github_copilot_call_async("oauth.complete", json!({ "loginId": login_id })).await?;
-    let _ = crate::modules::tray::update_tray_menu(&app);
+    let payload = github_copilot_oauth::complete_login(&login_id).await?;
+    let account = github_copilot_account::upsert_account(payload)?;
+    let account = refresh_github_copilot_account_after_login(account).await;
     logger::log_info(&format!(
         "GitHub Copilot OAuth complete 成功: account_id={}, login={}",
         account.id, account.github_login
     ));
+    let _ = crate::modules::tray::update_tray_menu(&app);
     Ok(account)
 }
 
+/// OAuth（VS Code GitHub Authentication）：取消登录（login_id 为空时取消当前流程）
 #[tauri::command]
 pub fn github_copilot_oauth_login_cancel(login_id: Option<String>) -> Result<(), String> {
     logger::log_info(&format!(
         "GitHub Copilot OAuth cancel 命令触发: login_id={}",
         login_id.as_deref().unwrap_or("<none>")
     ));
-    github_copilot_call("oauth.cancel", json!({ "loginId": login_id }))
+    github_copilot_oauth::cancel_login(login_id.as_deref())
 }
 
+/// 通过 GitHub access token 添加账号（会自动拉取 Copilot token/user 信息）
 #[tauri::command]
 pub async fn add_github_copilot_account_with_token(
     app: AppHandle,
     github_access_token: String,
 ) -> Result<GitHubCopilotAccount, String> {
-    let account: GitHubCopilotAccount = github_copilot_call_async_with_timeout(
-        "accounts.addToken",
-        json!({ "githubAccessToken": github_access_token }),
-        GHCP_FAST_LOCAL_MUTATION_TIMEOUT,
-    )
-    .await?;
-    update_tray_menu_in_background(app);
+    let payload =
+        github_copilot_oauth::build_payload_from_github_access_token(&github_access_token).await?;
+    let account = github_copilot_account::upsert_account(payload)?;
+    let _ = crate::modules::tray::update_tray_menu(&app);
     Ok(account)
 }
 
+/// 更新账号标签
 #[tauri::command]
 pub async fn update_github_copilot_account_tags(
     account_id: String,
     tags: Vec<String>,
 ) -> Result<GitHubCopilotAccount, String> {
-    github_copilot_call(
-        "accounts.updateTags",
-        json!({ "accountId": account_id, "tags": tags }),
-    )
+    github_copilot_account::update_account_tags(&account_id, tags)
 }
 
+/// 返回 GitHub Copilot 账号索引文件路径（便于排障/查看）
 #[tauri::command]
 pub fn get_github_copilot_accounts_index_path() -> Result<String, String> {
-    github_copilot_call("accounts.indexPath", json!({}))
+    github_copilot_account::accounts_index_path_string()
 }
 
+/// 切换 GitHub Copilot 账号并按默认实例启动流程生效（PID 精准关闭 + 注入 + 启动）。
 #[tauri::command]
 pub async fn inject_github_copilot_to_vscode(
     app: AppHandle,
     account_id: String,
 ) -> Result<String, String> {
-    let started_at = Instant::now();
+    logger::log_info(&format!("开始切换 GitHub Copilot 账号: {}", account_id));
+    let account = github_copilot_account::load_account(&account_id)
+        .ok_or_else(|| format!("GitHub Copilot account not found: {}", account_id))?;
     logger::log_info(&format!(
-        "[GitHubCopilot Switch] 开始切换账号: account_id={}",
-        account_id
+        "正在切换到 GitHub Copilot 账号: {} (ID: {})",
+        account.github_login, account.id
     ));
 
-    let result: SwitchResult = github_copilot_call_async(
-        "switch.inject",
-        json!({ "accountId": account_id, "launchDefaultInstance": true }),
-    )
-    .await?;
-    let _ = crate::modules::provider_current_state::set_current_account_id(
+    // 同步更新 VS Code 默认实例绑定账号，确保后续走默认实例启动链路时注入目标明确。
+    if let Err(e) = crate::modules::github_copilot_instance::update_default_settings(
+        Some(Some(account_id.clone())),
+        None,
+        Some(false),
+    ) {
+        logger::log_warn(&format!("更新 GitHub Copilot 默认实例绑定账号失败: {}", e));
+    } else {
+        logger::log_info(&format!(
+            "已同步更新 GitHub Copilot 默认实例绑定账号: {}",
+            account_id
+        ));
+    }
+    crate::modules::provider_current_state::set_current_account_id(
         "github_copilot",
         Some(account_id.as_str()),
-    );
-    let _ = crate::modules::tray::update_tray_menu(&app);
+    )?;
 
-    if result.path_missing {
-        emit_github_copilot_path_missing(
-            &app,
-            json!({ "kind": "switchAccount", "accountId": account_id }),
-        );
-        if let Some(error) = result.restart_error.as_deref() {
-            logger::log_warn(&format!(
-                "[GitHubCopilot Switch] 切号完成但启动失败: err={}",
-                error
-            ));
+    let user_config = config::get_user_config();
+    let mut opencode_updated = false;
+    if user_config.ghcp_opencode_auth_overwrite_on_switch {
+        match opencode_auth::replace_github_copilot_entry_from_account(&account) {
+            Ok(()) => {
+                opencode_updated = true;
+            }
+            Err(e) => {
+                logger::log_warn(&format!("OpenCode auth.json 更新跳过: {}", e));
+            }
         }
-        return Ok(result.message);
+    } else {
+        logger::log_info("已关闭切换 GitHub Copilot 时覆盖 OpenCode 登录信息");
     }
 
+    if user_config.ghcp_opencode_sync_on_switch {
+        if user_config.ghcp_opencode_auth_overwrite_on_switch && opencode_updated {
+            if process::is_opencode_running() {
+                if let Err(e) = process::close_opencode(20) {
+                    logger::log_warn(&format!("OpenCode 关闭失败: {}", e));
+                }
+            } else {
+                logger::log_info("OpenCode 未在运行，准备启动");
+            }
+            if let Err(e) = process::start_opencode_with_path(Some(&user_config.opencode_app_path))
+            {
+                logger::log_warn(&format!("OpenCode 启动失败: {}", e));
+            }
+        } else if !user_config.ghcp_opencode_auth_overwrite_on_switch {
+            logger::log_info("OpenCode 登录覆盖已关闭，跳过自动重启");
+        } else {
+            logger::log_info("OpenCode 未更新 auth.json，跳过启动/重启");
+        }
+    } else {
+        logger::log_info("已关闭 OpenCode 自动重启");
+    }
+
+    let launch_warning = if user_config.ghcp_launch_on_switch {
+        match crate::commands::github_copilot_instance::github_copilot_start_instance(
+            "__default__".to_string(),
+        )
+        .await
+        {
+            Ok(_) => None,
+            Err(e) => {
+                if e.starts_with("APP_PATH_NOT_FOUND:") || e.contains("启动 VS Code 失败") {
+                    logger::log_warn(&format!("GitHub Copilot 默认实例启动失败: {}", e));
+                    if e.starts_with("APP_PATH_NOT_FOUND:") || e.contains("APP_PATH_NOT_FOUND:") {
+                        let _ = app.emit(
+                            "app:path_missing",
+                            serde_json::json!({ "app": "vscode", "retry": { "kind": "default" } }),
+                        );
+                    }
+                    Some(e)
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+    } else {
+        logger::log_info("已关闭切换 GitHub Copilot 时自动启动 GitHub Copilot");
+        None
+    };
+
     logger::log_info(&format!(
-        "[GitHubCopilot Switch] 切号成功: elapsed={}ms",
-        started_at.elapsed().as_millis()
+        "GitHub Copilot 账号切换完成: {}",
+        account.github_login
     ));
-    Ok(result.message)
+    let _ = crate::modules::tray::update_tray_menu(&app);
+    if let Some(err) = launch_warning {
+        Ok(format!("切换完成，但 VS Code 启动失败: {}", err))
+    } else {
+        Ok("切换完成".to_string())
+    }
 }

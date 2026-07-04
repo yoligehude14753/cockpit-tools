@@ -525,13 +525,13 @@ pub async fn import_from_json_logic(json_content: String) -> Result<Vec<models::
     Ok(imported)
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(serde::Serialize, Clone)]
 pub struct FileImportResult {
     pub imported: Vec<models::Account>,
     pub failed: Vec<FileImportFailure>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(serde::Serialize, Clone)]
 pub struct FileImportFailure {
     pub email: String,
     pub error: String,

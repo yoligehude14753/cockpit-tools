@@ -105,53 +105,8 @@ fn resolve_account_api_key(account: &WindsurfAccount) -> Option<String> {
         })
         .or_else(|| {
             normalize_non_empty_text(Some(account.github_access_token.as_str()))
-                .filter(|token| token.starts_with("sk-ws-") || token.starts_with("cog_"))
+                .filter(|token| token.starts_with("sk-ws-"))
         })
-}
-
-fn is_supported_windsurf_auth_token(token: &str) -> bool {
-    token.starts_with("sk-ws-01-")
-        || token.starts_with("devin-session-token$")
-        || token.starts_with("cog_")
-}
-
-fn account_uses_auth1(account: &WindsurfAccount) -> bool {
-    normalize_non_empty_text(account.windsurf_auth_token.as_deref())
-        .map(|token| token.starts_with("devin-session-token$"))
-        .unwrap_or(false)
-        || normalize_non_empty_text(Some(account.github_access_token.as_str()))
-            .map(|token| token.starts_with("devin-session-token$"))
-            .unwrap_or(false)
-        || pick_string_from_object(
-            account.windsurf_auth_status_raw.as_ref(),
-            &["authMethod", "auth_method"],
-        )
-        .map(|value| value.eq_ignore_ascii_case("auth1"))
-        .unwrap_or(false)
-}
-
-fn resolve_account_session_access_token(account: &WindsurfAccount) -> Option<String> {
-    // Auth1 账号优先注入 devin-session-token$，避免客户端启动后继续走 API key 迁移链路。
-    let session_token = normalize_non_empty_text(account.windsurf_auth_token.as_deref())
-        .filter(|token| token.starts_with("devin-session-token$"))
-        .or_else(|| {
-            normalize_non_empty_text(Some(account.github_access_token.as_str()))
-                .filter(|token| token.starts_with("devin-session-token$"))
-        })
-        .or_else(|| {
-            pick_string_from_object(
-                account.windsurf_auth_status_raw.as_ref(),
-                &["sessionToken", "session_token"],
-            )
-            .filter(|token| token.starts_with("devin-session-token$"))
-        });
-    if session_token.is_some() {
-        return session_token;
-    }
-    if account_uses_auth1(account) {
-        return None;
-    }
-    resolve_account_api_key(account)
 }
 
 fn resolve_account_api_server_url(account: &WindsurfAccount, auth_status: &Value) -> String {
@@ -466,11 +421,7 @@ fn encode_encrypted_buffer_json(
     .map_err(|e| format!("序列化 Buffer 失败: {}", e))
 }
 
-fn upsert_windsurf_extension_state(
-    conn: &Connection,
-    api_server_url: &str,
-    access_token: &str,
-) -> Result<(), String> {
+fn upsert_windsurf_extension_state(conn: &Connection, api_server_url: &str) -> Result<(), String> {
     let existing: Option<String> = conn
         .query_row(
             "SELECT value FROM ItemTable WHERE key = ?1",
@@ -491,28 +442,6 @@ fn upsert_windsurf_extension_state(
             "apiServerUrl".to_string(),
             Value::String(api_server_url.to_string()),
         );
-        // 官方扩展优先读取 pendingApiKeyMigration；这里写入可用 token，避免再次触发迁移链路。
-        if is_supported_windsurf_auth_token(access_token) {
-            obj.insert(
-                "windsurf.pendingApiKeyMigration".to_string(),
-                Value::String(access_token.to_string()),
-            );
-        } else {
-            obj.remove("windsurf.pendingApiKeyMigration");
-        }
-        // 关键: codeium.installationId 必须存在 — 缺这个字段 Windsurf 反作弊会把这次切号
-        // 当作"新机器登录"，触发额外验证 / Permission denied (error 12)。
-        // 优先保留原有值（同一机器多次切号要稳定），不存在才生成新的。
-        if !obj
-            .get("codeium.installationId")
-            .map(|v| v.is_string() && !v.as_str().unwrap_or("").trim().is_empty())
-            .unwrap_or(false)
-        {
-            obj.insert(
-                "codeium.installationId".to_string(),
-                Value::String(Uuid::new_v4().to_string()),
-            );
-        }
     }
 
     let serialized = serde_json::to_string(&state)
@@ -525,7 +454,7 @@ fn write_windsurf_auth_data(
     profile_dir: &Path,
     auth_status: &Value,
     account_label: &str,
-    access_token: &str,
+    api_key: &str,
     api_server_url: &str,
 ) -> Result<(), String> {
     let auth_status_content = serde_json::to_string(auth_status)
@@ -536,7 +465,7 @@ fn write_windsurf_auth_data(
         query_existing_secret_prefix(conn, WINDSURF_SESSIONS_SECRET_KEY)?;
     let sessions_payload = serde_json::json!([{
         "id": Uuid::new_v4().to_string(),
-        "accessToken": access_token,
+        "accessToken": api_key,
         "account": {
             "label": account_label,
             "id": account_label
@@ -562,20 +491,7 @@ fn write_windsurf_auth_data(
     upsert_item(conn, WINDSURF_API_SERVER_SECRET_KEY, &encrypted_api_server)?;
 
     upsert_item(conn, WINDSURF_SELECTED_AUTH_KEY, account_label)?;
-    upsert_windsurf_extension_state(conn, api_server_url, access_token)?;
-
-    // Onboarding 状态：标记新手向导已完成，避免 Windsurf 启动后弹引导浮窗
-    let onboarding = serde_json::json!({
-        "completed": true,
-        "version": 1,
-        "timestamp": Utc::now().timestamp_millis(),
-    });
-    upsert_item(
-        conn,
-        "windsurfOnboarding",
-        &serde_json::to_string(&onboarding)
-            .map_err(|e| format!("序列化 windsurfOnboarding 失败: {}", e))?,
-    )?;
+    upsert_windsurf_extension_state(conn, api_server_url)?;
 
     conn.execute("DELETE FROM ItemTable WHERE key LIKE 'windsurf_auth-%'", [])
         .map_err(|e| format!("清理旧 windsurf_auth-* 键失败: {}", e))?;
@@ -673,7 +589,27 @@ pub fn get_default_windsurf_user_data_dir() -> Result<PathBuf, String> {
 }
 
 pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
-    crate::modules::account::resolve_instances_dir("windsurf")
+    #[cfg(target_os = "macos")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join(".antigravity_cockpit/instances/windsurf"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let appdata =
+            std::env::var("APPDATA").map_err(|_| "无法获取 APPDATA 环境变量".to_string())?;
+        return Ok(PathBuf::from(appdata).join(".antigravity_cockpit\\instances\\windsurf"));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+        return Ok(home.join(".antigravity_cockpit/instances/windsurf"));
+    }
+
+    #[allow(unreachable_code)]
+    Err("Windsurf 多开实例仅支持 macOS、Windows 和 Linux".to_string())
 }
 
 pub fn get_instance_defaults() -> Result<InstanceDefaults, String> {
@@ -775,7 +711,6 @@ pub fn create_instance(params: CreateInstanceParams) -> Result<InstanceProfile, 
             params.bind_account_id
         },
         launch_mode: crate::models::InstanceLaunchMode::App,
-        app_speed: crate::models::codex::CodexAppSpeed::Standard,
         created_at: Utc::now().timestamp_millis(),
         last_launched_at: None,
         last_pid: None,
@@ -1228,20 +1163,6 @@ fn resolve_expected_windsurf_launch_path_for_match() -> Option<String> {
     Some(normalized)
 }
 
-fn normalize_windsurf_launch_identity(path: &str) -> Option<String> {
-    let normalized = normalize_path_for_compare(path);
-    if normalized.is_empty() {
-        return None;
-    }
-    #[cfg(target_os = "macos")]
-    {
-        if let Some(index) = normalized.find(".app") {
-            return Some(normalized[..index + 4].to_string());
-        }
-    }
-    Some(normalized)
-}
-
 fn filter_windsurf_entries_by_launch_path(
     entries: Vec<(u32, Option<String>)>,
     expected: Option<String>,
@@ -1250,26 +1171,16 @@ fn filter_windsurf_entries_by_launch_path(
         return entries;
     }
     let Some(expected) = expected else {
-        return entries;
-    };
-    let expected_identity = normalize_windsurf_launch_identity(&expected);
-    let Some(expected_identity) = expected_identity else {
-        return entries;
+        return Vec::new();
     };
     let exe_by_pid = collect_running_process_exe_by_pid();
     let mut result = Vec::new();
     let mut missing_exe = 0usize;
     let mut path_mismatch = 0usize;
-    for (pid, dir) in &entries {
-        match exe_by_pid.get(pid) {
-            Some(actual) => {
-                let actual_identity = normalize_windsurf_launch_identity(actual);
-                if actual_identity.as_deref() == Some(expected_identity.as_str()) {
-                    result.push((*pid, dir.clone()));
-                } else {
-                    path_mismatch += 1;
-                }
-            }
+    for (pid, dir) in entries {
+        match exe_by_pid.get(&pid) {
+            Some(actual) if actual == &expected => result.push((pid, dir)),
+            Some(_) => path_mismatch += 1,
             None => missing_exe += 1,
         }
     }
@@ -1278,13 +1189,15 @@ fn filter_windsurf_entries_by_launch_path(
             "[Windsurf Resolve] 启动路径硬匹配未命中：expected={}, path_mismatch={}, missing_exe={}",
             expected, path_mismatch, missing_exe
         ));
-        return entries;
     }
     result
 }
 
 pub fn collect_windsurf_process_entries() -> Vec<(u32, Option<String>)> {
     let expected_launch = resolve_expected_windsurf_launch_path_for_match();
+    if expected_launch.is_none() {
+        return Vec::new();
+    }
 
     let mut entries: HashMap<u32, Option<String>> = HashMap::new();
 
@@ -1560,15 +1473,9 @@ fn detect_windsurf_exec_path() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         // On macOS, check well-known path first to avoid sysinfo TCC dialogs
-        let candidates = [
-            "/Applications/Devin.app/Contents/MacOS/Devin",
-            "/Applications/Windsurf.app/Contents/MacOS/Electron",
-        ];
-        for candidate in candidates {
-            let path = PathBuf::from(candidate);
-            if path.exists() {
-                return Some(path);
-            }
+        let path = PathBuf::from("/Applications/Windsurf.app/Contents/MacOS/Electron");
+        if path.exists() {
+            return Some(path);
         }
         // Fallback: try to find from running processes via ps
         for (pid, _) in collect_windsurf_process_entries() {
@@ -1654,7 +1561,7 @@ fn detect_windsurf_exec_path() -> Option<PathBuf> {
 
 fn path_looks_like_windsurf(path: &Path) -> bool {
     let text = path.to_string_lossy().to_lowercase();
-    text.contains("devin") || text.contains("windsurf")
+    text.contains("windsurf")
 }
 
 fn normalize_windsurf_path_for_config(path: &Path) -> String {
@@ -1763,10 +1670,7 @@ fn spawn_windsurf_macos_open(
     let mut cmd = Command::new("open");
     sanitize_macos_gui_launch_env(&mut cmd);
     crate::modules::process::append_managed_proxy_env_to_open_args(&mut cmd);
-    if use_new_window {
-        cmd.arg("-n");
-    }
-    cmd.arg("-a").arg(&app_root);
+    cmd.arg("-n").arg("-a").arg(&app_root);
     cmd.arg("--args");
     cmd.arg("--user-data-dir").arg(target);
     if use_new_window {
@@ -1782,11 +1686,7 @@ fn spawn_windsurf_macos_open(
 
     let child =
         spawn_command_with_trace(&mut cmd).map_err(|e| format!("启动 Windsurf 失败: {}", e))?;
-    modules::logger::log_info(if use_new_window {
-        "Windsurf 启动命令已发送（open -n -a）"
-    } else {
-        "Windsurf 启动命令已发送（open -a，复用窗口）"
-    });
+    modules::logger::log_info("Windsurf 启动命令已发送（open -n -a）");
     let probe_started = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(6);
     while probe_started.elapsed() < timeout {
@@ -1872,247 +1772,55 @@ pub fn start_windsurf_default_with_args_with_new_window(
     )
 }
 
-fn resolve_windsurf_entry_user_data_dir_for_matching(
-    dir: Option<&String>,
-    default_dir: Option<&str>,
-) -> Option<String> {
-    dir.and_then(|value| normalize_non_empty_path(Some(value.as_str())))
-        .or_else(|| default_dir.and_then(|value| normalize_non_empty_path(Some(value))))
-}
-
-fn windsurf_entry_matches_target_dirs(
-    dir: Option<&String>,
-    target_dirs: &HashSet<String>,
-    default_dir: Option<&str>,
-) -> bool {
-    resolve_windsurf_entry_user_data_dir_for_matching(dir, default_dir)
-        .map(|value| target_dirs.contains(&value))
-        .unwrap_or(false)
-}
-
-fn select_windsurf_main_pids_by_target_dirs(
-    entries: &[(u32, Option<String>)],
-    target_dirs: &HashSet<String>,
-    default_dir: Option<&str>,
-) -> Vec<u32> {
-    entries
-        .iter()
-        .filter_map(|(pid, dir)| {
-            windsurf_entry_matches_target_dirs(dir.as_ref(), target_dirs, default_dir)
-                .then_some(*pid)
-        })
-        .collect()
-}
-
-fn filter_windsurf_entries_by_target_dirs(
-    entries: Vec<(u32, Option<String>)>,
-    target_dirs: &HashSet<String>,
-    default_dir: Option<&str>,
-) -> Vec<(u32, Option<String>)> {
-    entries
-        .into_iter()
-        .filter(|(_, dir)| {
-            windsurf_entry_matches_target_dirs(dir.as_ref(), target_dirs, default_dir)
-        })
-        .collect()
-}
-
-fn collect_windsurf_remaining_pids(entries: &[(u32, Option<String>)]) -> Vec<u32> {
-    let mut pids: Vec<u32> = entries.iter().map(|(pid, _)| *pid).collect();
-    pids.sort();
-    pids.dedup();
-    pids
-}
-
-fn wait_windsurf_pids_exit(pids: &[u32], timeout_secs: u64) -> bool {
-    if pids.is_empty() {
-        return true;
-    }
-    let start = std::time::Instant::now();
-    loop {
-        let any_alive = pids
-            .iter()
-            .any(|pid| *pid != 0 && modules::process::is_pid_running(*pid));
-        if !any_alive {
-            return true;
-        }
-        if start.elapsed() >= std::time::Duration::from_secs(timeout_secs) {
-            return false;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(350));
-    }
-}
-
-fn request_windsurf_graceful_close(pid: u32) {
-    if pid == 0 || !modules::process::is_pid_running(pid) {
-        return;
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        let script = format!(
-            "tell application \"System Events\" to set frontmost of (first process whose unix id is {}) to true\n\
-tell application \"System Events\" to keystroke \"q\" using command down",
-            pid
-        );
-        match Command::new("osascript").args(["-e", &script]).output() {
-            Ok(output) => {
-                if output.status.success() {
-                    modules::logger::log_info(&format!(
-                        "[Windsurf Close] 已发送优雅退出请求 pid={}",
-                        pid
-                    ));
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    modules::logger::log_warn(&format!(
-                        "[Windsurf Close] 优雅退出失败 pid={} err={}",
-                        pid,
-                        stderr.trim()
-                    ));
-                }
-            }
-            Err(err) => {
-                modules::logger::log_warn(&format!(
-                    "[Windsurf Close] 调用 osascript 失败 pid={} err={}",
-                    pid, err
-                ));
-            }
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-
-        modules::logger::log_info(&format!(
-            "[Windsurf Close] graceful taskkill start pid={}",
-            pid
-        ));
-        let output = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/T"])
-            .creation_flags(0x08000000)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .output();
-        match output {
-            Ok(value) => {
-                if value.status.success() {
-                    modules::logger::log_info(&format!(
-                        "[Windsurf Close] graceful taskkill success pid={} status={}",
-                        pid, value.status
-                    ));
-                } else {
-                    modules::logger::log_warn(&format!(
-                        "[Windsurf Close] graceful taskkill failed pid={} status={}",
-                        pid, value.status
-                    ));
-                }
-            }
-            Err(err) => {
-                modules::logger::log_warn(&format!(
-                    "[Windsurf Close] graceful taskkill error pid={} err={}",
-                    pid, err
-                ));
-            }
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let _ = Command::new("kill")
-            .args(["-15", &pid.to_string()])
-            .output();
-    }
-}
-
 pub fn close_windsurf(user_data_dirs: &[String], timeout_secs: u64) -> Result<(), String> {
-    modules::logger::log_info("正在关闭受管 Windsurf 实例...");
     let target_dirs: HashSet<String> = user_data_dirs
         .iter()
         .map(|value| normalize_path_for_compare(value))
         .filter(|value| !value.is_empty())
         .collect();
     if target_dirs.is_empty() {
-        modules::logger::log_info("未提供可关闭的 Windsurf 实例目录");
         return Ok(());
     }
     let default_dir = get_default_windsurf_user_data_dir()
         .ok()
         .map(|value| normalize_path_for_compare(&value.to_string_lossy()))
         .filter(|value| !value.is_empty());
-    modules::logger::log_info(&format!(
-        "[Windsurf Close] default_dir={}",
-        default_dir
-            .as_deref()
-            .map(|value| modules::process::summarize_text_for_process_log(value, 96))
-            .unwrap_or_else(|| "-".to_string())
-    ));
+    let allow_none_for_default = default_dir
+        .as_ref()
+        .map(|value| target_dirs.contains(value))
+        .unwrap_or(false);
+
     let entries = collect_windsurf_process_entries();
-    let mut pids =
-        select_windsurf_main_pids_by_target_dirs(&entries, &target_dirs, default_dir.as_deref());
+    let mut pids = Vec::new();
+    for (pid, dir) in entries {
+        match dir.as_ref() {
+            Some(value) => {
+                if target_dirs.contains(value) {
+                    pids.push(pid);
+                }
+            }
+            None if allow_none_for_default => pids.push(pid),
+            _ => {}
+        }
+    }
     pids.sort();
     pids.dedup();
     if pids.is_empty() {
-        modules::logger::log_info("受管 Windsurf 实例未在运行，无需关闭");
-        return Ok(());
-    }
-    modules::logger::log_info(&format!(
-        "[Windsurf Close] matched_main_pids={}",
-        modules::process::summarize_pid_list_for_log(&pids)
-    ));
-
-    for pid in &pids {
-        request_windsurf_graceful_close(*pid);
-    }
-    if wait_windsurf_pids_exit(&pids, 2) {
-        modules::logger::log_info(&format!(
-            "[Windsurf Close] graceful close finished, targets={}",
-            modules::process::summarize_pid_list_for_log(&pids)
-        ));
         return Ok(());
     }
 
     for pid in &pids {
-        if let Err(err) = modules::process::close_pid(*pid, timeout_secs) {
-            modules::logger::log_warn(&format!(
-                "[Windsurf Close] close_pid returned error pid={} err={}",
-                pid, err
-            ));
-        }
+        let _ = modules::process::close_pid(*pid, timeout_secs);
     }
 
-    let mut remaining_entries = filter_windsurf_entries_by_target_dirs(
-        collect_windsurf_process_entries(),
-        &target_dirs,
-        default_dir.as_deref(),
-    );
-    if !remaining_entries.is_empty() {
-        let remaining_pids = collect_windsurf_remaining_pids(&remaining_entries);
-        modules::logger::log_warn(&format!(
-            "[Windsurf Close] first remaining pids after close={}",
-            modules::process::summarize_pid_list_for_log(&remaining_pids)
-        ));
-        for pid in &remaining_pids {
-            if let Err(err) = modules::process::close_pid(*pid, 6) {
-                modules::logger::log_warn(&format!(
-                    "[Windsurf Close] retry close_pid returned error pid={} err={}",
-                    pid, err
-                ));
-            }
-        }
-        remaining_entries = filter_windsurf_entries_by_target_dirs(
-            collect_windsurf_process_entries(),
-            &target_dirs,
-            default_dir.as_deref(),
-        );
-    }
-
-    if !remaining_entries.is_empty() {
-        let remaining_pids = collect_windsurf_remaining_pids(&remaining_entries);
+    let still_running: Vec<u32> = pids
+        .into_iter()
+        .filter(|pid| modules::process::is_pid_running(*pid))
+        .collect();
+    if !still_running.is_empty() {
         return Err(format!(
-            "无法关闭受管 Windsurf 实例进程，请手动关闭后重试: {}",
-            modules::process::summarize_pid_list_for_log(&remaining_pids)
+            "无法关闭 Windsurf 实例进程，请手动关闭后重试: {}",
+            modules::process::summarize_pid_list_for_log(&still_running)
         ));
     }
 
@@ -2180,92 +1888,25 @@ pub fn inject_account_to_profile(profile_dir: &Path, account_id: &str) -> Result
         auth_status = serde_json::json!({});
     }
 
-    let access_token = resolve_account_session_access_token(&account)
-        .ok_or_else(|| "账号缺少 Windsurf 可用 token，无法注入本地配置".to_string())?;
-    let is_auth1_token = access_token.starts_with("devin-session-token$");
-    let api_key = if is_auth1_token {
-        access_token.clone()
-    } else {
-        resolve_account_api_key(&account)
-            .ok_or_else(|| "账号缺少 Windsurf apiKey，无法注入本地配置".to_string())?
-    };
+    let api_key = resolve_account_api_key(&account)
+        .ok_or_else(|| "账号缺少 Windsurf apiKey，无法注入本地配置".to_string())?;
     let api_server_url = resolve_account_api_server_url(&account, &auth_status);
     let account_label = resolve_account_label(&account, &auth_status);
 
     if let Some(obj) = auth_status.as_object_mut() {
         obj.insert("apiKey".to_string(), Value::String(api_key.clone()));
-        let display_name = normalize_non_empty_text(account.github_name.as_deref())
-            .unwrap_or_else(|| account_label.clone());
-        let display_email = normalize_non_empty_text(account.github_email.as_deref());
-        obj.insert("name".to_string(), Value::String(display_name.clone()));
-        if let Some(email) = display_email.clone() {
+        if let Some(name) = normalize_non_empty_text(account.github_name.as_deref()) {
+            obj.insert("name".to_string(), Value::String(name));
+        } else {
+            obj.insert("name".to_string(), Value::String(account_label.clone()));
+        }
+        if let Some(email) = normalize_non_empty_text(account.github_email.as_deref()) {
             obj.insert("email".to_string(), Value::String(email));
         }
         obj.insert(
             "apiServerUrl".to_string(),
             Value::String(api_server_url.clone()),
         );
-        // 关键: IDE 通过 status="SignedIn" 判断已登录，缺这个字段会显示未登录
-        obj.insert("status".to_string(), Value::String("SignedIn".to_string()));
-        // 关键: IDE 头像旁边显示用户名/邮箱靠这个嵌套对象
-        let mut user_obj = serde_json::Map::new();
-        user_obj.insert("name".to_string(), Value::String(display_name));
-        user_obj.insert(
-            "email".to_string(),
-            display_email
-                .as_ref()
-                .map(|e| Value::String(e.clone()))
-                .unwrap_or(Value::Null),
-        );
-        obj.insert("user".to_string(), Value::Object(user_obj));
-        // 时间戳标记本次切号
-        obj.insert(
-            "timestamp".to_string(),
-            Value::Number(serde_json::Number::from(Utc::now().timestamp_millis())),
-        );
-        if is_auth1_token {
-            obj.insert(
-                "sessionToken".to_string(),
-                Value::String(access_token.clone()),
-            );
-            obj.insert("authMethod".to_string(), Value::String("auth1".to_string()));
-            // Devin 账号: 写入 UserStatus protobuf 让 IDE 启动时 UI 显示信息完整
-            // (账号名/邮箱/计划状态等都从这个 proto 解出来)
-            if let Some(proto_b64) = account
-                .devin_user_status_proto_b64
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                obj.insert(
-                    "userStatusProtoBinaryBase64".to_string(),
-                    Value::String(proto_b64.to_string()),
-                );
-            }
-            // 同时把 account_id / org_id 也塞进去，IDE 启动时可能会读
-            if let Some(account_id) = account
-                .devin_account_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                obj.insert(
-                    "accountId".to_string(),
-                    Value::String(account_id.to_string()),
-                );
-            }
-            if let Some(org_id) = account
-                .devin_org_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                obj.insert(
-                    "primaryOrgId".to_string(),
-                    Value::String(org_id.to_string()),
-                );
-            }
-        }
     }
 
     write_windsurf_auth_data(
@@ -2273,7 +1914,7 @@ pub fn inject_account_to_profile(profile_dir: &Path, account_id: &str) -> Result
         profile_dir,
         &auth_status,
         &account_label,
-        &access_token,
+        &api_key,
         &api_server_url,
     )?;
 

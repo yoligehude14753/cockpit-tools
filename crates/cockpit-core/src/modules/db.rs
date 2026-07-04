@@ -1,6 +1,6 @@
 use crate::{models::Account, utils::protobuf};
 use base64::{engine::general_purpose, Engine as _};
-use rusqlite::{Connection, Error as SqliteError, ErrorCode, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension};
 use std::path::{Path, PathBuf};
 
 /// 获取 Antigravity IDE 数据库路径
@@ -37,20 +37,6 @@ pub fn get_db_path() -> Result<PathBuf, String> {
         }
         return Err(format!("数据库文件不存在: {:?}", path));
     }
-}
-
-pub fn is_unusable_sqlite_database_error(error: &SqliteError) -> bool {
-    matches!(
-        error.sqlite_error_code(),
-        Some(ErrorCode::NotADatabase | ErrorCode::DatabaseCorrupt)
-    ) || is_unusable_sqlite_database_message(&error.to_string())
-}
-
-pub fn is_unusable_sqlite_database_message(message: &str) -> bool {
-    let lowered = message.to_ascii_lowercase();
-    lowered.contains("file is not a database")
-        || lowered.contains("not a database")
-        || lowered.contains("database disk image is malformed")
 }
 
 /// 注入 Token 到指定数据库路径
@@ -131,11 +117,6 @@ fn inject_token_to_path_with_metadata(
     }
 
     // 注入 Onboarding 标记
-    let _ = conn.execute(
-        "DELETE FROM ItemTable WHERE key = ?",
-        ["jetskiStateSync.agentManagerInitState"],
-    );
-
     let onboarding_key = "antigravityOnboarding";
     conn.execute(
         "INSERT OR REPLACE INTO ItemTable (key, value) VALUES (?, ?)",

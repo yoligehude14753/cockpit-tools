@@ -77,7 +77,7 @@ const LOCAL_ACCESS_MEMBER_PAGE_SIZE_OPTIONS = [50, 100, 200] as const;
 
 interface CodexLocalAccessModalProps {
   isOpen: boolean;
-  mode: "panel" | "members" | "customRouting";
+  mode: "panel" | "members";
   state: CodexLocalAccessState | null;
   addressKind: CodexLocalAccessAddressKind;
   addressOptions: Array<{ value: string; label: string }>;
@@ -322,9 +322,7 @@ export function CodexLocalAccessModal({
   const [statsRange, setStatsRange] = useState<StatsRangeKey>(() =>
     readStoredStatsRange(),
   );
-  const [customRoutingOpen, setCustomRoutingOpen] = useState(
-    mode === "customRouting",
-  );
+  const [customRoutingOpen, setCustomRoutingOpen] = useState(false);
   const [customRoutingQuery, setCustomRoutingQuery] = useState("");
   const [customRoutingFilterTypes, setCustomRoutingFilterTypes] = useState<
     string[]
@@ -573,7 +571,7 @@ export function CodexLocalAccessModal({
     setCopiedField(null);
     setPortInput(collection?.port ? String(collection.port) : "");
     setUpstreamProxyDraftUrl(collection?.upstreamProxyUrl ?? "");
-    setCustomRoutingOpen(mode === "customRouting");
+    setCustomRoutingOpen(false);
     setCustomRoutingQuery("");
     setCustomRoutingFilterTypes([]);
     setCustomRoutingTagFilter([]);
@@ -887,10 +885,7 @@ export function CodexLocalAccessModal({
           account,
           restrictFreeAccounts,
         );
-        if (
-          ineligibleReason === "chat_completions_api_key" ||
-          ineligibleReason === "pending_oauth"
-        ) {
+        if (ineligibleReason === "chat_completions_api_key") {
           return true;
         }
         if (isCodexLocalAccessEligibleAccount(account, restrictFreeAccounts)) {
@@ -1008,13 +1003,6 @@ export function CodexLocalAccessModal({
         {
           value: "auto",
           label: t("codex.localAccess.routingStrategy.auto", "自动（推荐）"),
-        },
-        {
-          value: "single_account",
-          label: t(
-            "codex.localAccess.routingStrategy.singleAccount",
-            "固定首个账号",
-          ),
         },
         {
           value: "quota_high_first",
@@ -1448,9 +1436,6 @@ export function CodexLocalAccessModal({
     setCustomRoutingOpen(false);
     setCustomRoutingError("");
     setCustomRoutingSelected(new Set());
-    if (mode === "customRouting") {
-      onClose();
-    }
   };
 
   const toggleCustomRoutingSelect = (accountId: string) => {
@@ -1555,9 +1540,6 @@ export function CodexLocalAccessModal({
         };
       });
       await onUpdateCustomRouting(rules);
-      if (routingStrategy !== "custom") {
-        await onUpdateRoutingStrategy("custom");
-      }
       setNotice(
         t(
           "codex.localAccess.customRoutingSaveSuccess",
@@ -1566,9 +1548,6 @@ export function CodexLocalAccessModal({
       );
       setCustomRoutingOpen(false);
       setCustomRoutingSelected(new Set());
-      if (mode === "customRouting") {
-        onClose();
-      }
     } catch (err) {
       setCustomRoutingError(err instanceof Error ? err.message : String(err));
     }
@@ -1847,16 +1826,14 @@ export function CodexLocalAccessModal({
 
   if (!isOpen) return null;
   const isMembersMode = mode === "members";
-  const isCustomRoutingMode = mode === "customRouting";
 
   return (
     <>
-      {!isCustomRoutingMode && (
-        <div
-          className={`modal-overlay codex-local-access-modal-overlay${
-            isMembersMode ? "" : " codex-local-access-modal-overlay-panel"
-          }`}
-        >
+      <div
+        className={`modal-overlay codex-local-access-modal-overlay${
+          isMembersMode ? "" : " codex-local-access-modal-overlay-panel"
+        }`}
+      >
         <div
           className={`modal codex-local-access-modal${
             isMembersMode
@@ -2777,13 +2754,8 @@ export function CodexLocalAccessModal({
                         );
                       const isChatCompletionsApiKeyUnsupported =
                         ineligibleReason === "chat_completions_api_key";
-                      const isPendingOAuthUnsupported =
-                        ineligibleReason === "pending_oauth";
-                      const isAccountUnsupported =
-                        isChatCompletionsApiKeyUnsupported ||
-                        isPendingOAuthUnsupported;
                       const isChecked =
-                        !isAccountUnsupported &&
+                        !isChatCompletionsApiKeyUnsupported &&
                         selected.has(account.id);
                       const accountStats = allStatsByAccountId.get(
                         account.id,
@@ -2792,13 +2764,13 @@ export function CodexLocalAccessModal({
                       return (
                         <label
                           key={account.id}
-                          className={`group-account-item${isChecked ? " is-current" : ""}${isAccountUnsupported ? " is-disabled" : ""}`}
+                          className={`group-account-item${isChecked ? " is-current" : ""}${isChatCompletionsApiKeyUnsupported ? " is-disabled" : ""}`}
                         >
                           <input
                             type="checkbox"
                             checked={isChecked}
                             disabled={
-                              actionBusy || isAccountUnsupported
+                              actionBusy || isChatCompletionsApiKeyUnsupported
                             }
                             onChange={() => toggleSelect(account.id)}
                           />
@@ -2828,14 +2800,6 @@ export function CodexLocalAccessModal({
                                   {t(
                                     "codex.localAccess.modal.chatApiKeyUnsupported",
                                     "Chat Completions 协议不支持加入 API 服务",
-                                  )}
-                                </span>
-                              )}
-                              {isPendingOAuthUnsupported && (
-                                <span className="codex-local-access-member-unsupported">
-                                  {t(
-                                    "codex.localAccess.modal.pendingOAuthUnsupported",
-                                    "待授权账号需完成 OAuth 后才能加入 API 服务",
                                   )}
                                 </span>
                               )}
@@ -2873,6 +2837,7 @@ export function CodexLocalAccessModal({
                 <button
                   className="btn btn-secondary"
                   onClick={onClose}
+                  disabled={actionBusy}
                 >
                   {t("common.cancel")}
                 </button>
@@ -2890,14 +2855,14 @@ export function CodexLocalAccessModal({
               <button
                 className="btn btn-secondary"
                 onClick={onClose}
+                disabled={actionBusy}
               >
                 {t("common.close")}
               </button>
             )}
           </div>
         </div>
-        </div>
-      )}
+      </div>
 
       {customRoutingOpen && collection && (
         <div
@@ -2928,6 +2893,7 @@ export function CodexLocalAccessModal({
               <button
                 className="modal-close codex-local-access-custom-routing-close"
                 onClick={closeCustomRoutingDialog}
+                disabled={saving}
                 aria-label={t("common.close")}
               >
                 <X size={18} />
@@ -3235,6 +3201,7 @@ export function CodexLocalAccessModal({
               <button
                 className="btn btn-secondary"
                 onClick={closeCustomRoutingDialog}
+                disabled={saving}
               >
                 {t("common.cancel")}
               </button>
@@ -3281,6 +3248,7 @@ export function CodexLocalAccessModal({
               <button
                 className="modal-close codex-local-access-test-dialog-close"
                 onClick={closeTestDialog}
+                disabled={testDialogBusy}
                 aria-label={t("common.close")}
               >
                 <X size={18} />
@@ -3415,6 +3383,7 @@ export function CodexLocalAccessModal({
               <button
                 className="btn btn-secondary"
                 onClick={closeTestDialog}
+                disabled={testDialogBusy}
               >
                 {t("common.close")}
               </button>

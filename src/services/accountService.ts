@@ -27,17 +27,12 @@ export async function reorderAccounts(accountIds: string[]): Promise<void> {
     return await invoke('reorder_accounts', { accountIds });
 }
 
-export async function getCurrentAccount(
-    runtimeTarget?: AntigravityRuntimeTarget,
-): Promise<Account | null> {
-    return await invoke('get_current_account', { runtimeTarget });
+export async function getCurrentAccount(): Promise<Account | null> {
+    return await invoke('get_current_account');
 }
 
-export async function setCurrentAccount(
-    accountId: string,
-    runtimeTarget?: AntigravityRuntimeTarget,
-): Promise<void> {
-    return await invoke('set_current_account', { accountId, runtimeTarget });
+export async function setCurrentAccount(accountId: string): Promise<void> {
+    return await invoke('set_current_account', { accountId });
 }
 
 export async function fetchAccountQuota(accountId: string): Promise<Account> {

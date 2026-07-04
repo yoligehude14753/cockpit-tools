@@ -1,6 +1,0 @@
-{
-  "platformId": "claude_manager",
-  "name": "Claude platform package",
-  "description": "Remote React UI and explicit Core Shell native boundary declaration for the Cockpit Tools Claude integration.",
-  "version": "1.0.1"
-}
