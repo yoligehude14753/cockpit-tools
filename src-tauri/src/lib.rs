@@ -987,6 +987,8 @@ pub fn run() {
             commands::codex_instance::codex_move_sessions_to_trash_across_instances,
             commands::codex_instance::codex_list_trashed_sessions_across_instances,
             commands::codex_instance::codex_restore_sessions_from_trash_across_instances,
+            commands::codex_instance::codex_delete_trashed_sessions_across_instances,
+            commands::codex_instance::codex_empty_session_trash_across_instances,
             commands::codex_instance::codex_preview_session_export,
             commands::codex_instance::codex_export_sessions,
             commands::codex_instance::codex_preview_session_import,

@@ -2353,7 +2353,8 @@
         "openLocation": "Ouvrir l’emplacement",
         "selectAllSessions": "Tout sélectionner",
         "clearSelectedSessions": "Désélectionner",
-        "copyToInstance": "Copier vers instance"
+        "copyToInstance": "Copier vers instance",
+        "trash": "Corbeille"
       },
       "confirm": {
         "title": "Déplacer vers la corbeille",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (en cours d’exécution)",
       "untitled": "Session sans titre",
       "restoreModal": {
-        "title": "Restaurer les sessions",
-        "hint": "La restauration remet ensemble le fichier rollout, la ligne de thread SQLite et l'entrée session_index dans l'instance d'origine.",
+        "title": "Corbeille",
+        "hint": "Les sessions dans la corbeille peuvent être restaurées dans leur instance d’origine ou supprimées définitivement pour libérer de l’espace disque.",
         "emptyTitle": "La corbeille est vide",
         "emptyDesc": "Les sessions déplacées dans la corbeille apparaîtront ici.",
-        "restoreAction": "Restaurer les sessions sélectionnées"
+        "restoreAction": "Restaurer les sessions sélectionnées",
+        "summary": "{{count}} éléments, {{size}}",
+        "selectedSummary": "{{count}} sélectionnés, {{size}}",
+        "selectAll": "Tout sélectionner",
+        "clearSelected": "Désélectionner",
+        "emptyTrash": "Vider la corbeille",
+        "itemSize": "Taille {{size}}",
+        "deleteOne": "Supprimer définitivement",
+        "deleteSelected": "Supprimer la sélection",
+        "pickDeleteOne": "Sélectionnez au moins une session à supprimer définitivement",
+        "deleteOneConfirm": "Supprimer définitivement cette session ? Cette action est irréversible. Espace estimé libéré : {{size}}.",
+        "deleteSelectedConfirm": "Supprimer définitivement les {{count}} sessions sélectionnées ? Cette action est irréversible. Espace estimé libéré : {{size}}.",
+        "permanentDeleteTitle": "Suppression définitive",
+        "permanentDeleteAction": "Supprimer définitivement",
+        "emptyTrashConfirm": "Vider la corbeille ? {{count}} sessions seront supprimées définitivement et ne pourront pas être restaurées. Espace estimé libéré : {{size}}."
       },
       "targetModal": {
         "title": "Copier vers instance",

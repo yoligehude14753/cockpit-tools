@@ -13,6 +13,7 @@ import type {
   CodexSessionTrashSummary,
   CodexTrashedSessionRecord,
   CodexSessionRestoreSummary,
+  CodexSessionTrashDeleteSummary,
   CodexSessionExportPreview,
   CodexSessionExportSummary,
   CodexSessionImportPreview,
@@ -240,6 +241,18 @@ export async function restoreSessionsFromTrashAcrossInstances(
   return await invoke("codex_restore_sessions_from_trash_across_instances", {
     sessionIds,
   });
+}
+
+export async function deleteTrashedSessionsAcrossInstances(
+  sessionIds: string[],
+): Promise<CodexSessionTrashDeleteSummary> {
+  return await invoke("codex_delete_trashed_sessions_across_instances", {
+    sessionIds,
+  });
+}
+
+export async function emptySessionTrashAcrossInstances(): Promise<CodexSessionTrashDeleteSummary> {
+  return await invoke("codex_empty_session_trash_across_instances");
 }
 
 export async function previewSessionExport(

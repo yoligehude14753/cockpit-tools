@@ -2353,7 +2353,8 @@
         "openLocation": "Abrir local",
         "selectAllSessions": "Selecionar sessões",
         "clearSelectedSessions": "Desmarcar tudo",
-        "copyToInstance": "Copiar para instância"
+        "copyToInstance": "Copiar para instância",
+        "trash": "Lixeira"
       },
       "confirm": {
         "title": "Mover para a lixeira",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (em execução)",
       "untitled": "Sessão sem título",
       "restoreModal": {
-        "title": "Restaurar sessões",
-        "hint": "Ao restaurar, o arquivo rollout, a linha da thread no SQLite e a entrada de session_index voltam juntos para a instância original.",
+        "title": "Lixeira",
+        "hint": "As sessões na lixeira podem ser restauradas para a instância original ou excluídas permanentemente para liberar espaço em disco.",
         "emptyTitle": "A lixeira está vazia",
         "emptyDesc": "As sessões movidas para a lixeira aparecerão aqui.",
-        "restoreAction": "Restaurar sessões selecionadas"
+        "restoreAction": "Restaurar sessões selecionadas",
+        "summary": "{{count}} itens, {{size}}",
+        "selectedSummary": "{{count}} selecionados, {{size}}",
+        "selectAll": "Selecionar tudo",
+        "clearSelected": "Desmarcar",
+        "emptyTrash": "Esvaziar lixeira",
+        "itemSize": "Tamanho {{size}}",
+        "deleteOne": "Excluir permanentemente",
+        "deleteSelected": "Excluir seleção",
+        "pickDeleteOne": "Selecione ao menos uma sessão para excluir permanentemente",
+        "deleteOneConfirm": "Excluir esta sessão permanentemente? Isso não pode ser desfeito. Espaço estimado liberado: {{size}}.",
+        "deleteSelectedConfirm": "Excluir permanentemente as {{count}} sessões selecionadas? Isso não pode ser desfeito. Espaço estimado liberado: {{size}}.",
+        "permanentDeleteTitle": "Excluir permanentemente",
+        "permanentDeleteAction": "Excluir permanentemente",
+        "emptyTrashConfirm": "Esvaziar a lixeira? {{count}} sessões serão excluídas permanentemente e não poderão ser restauradas. Espaço estimado liberado: {{size}}."
       },
       "targetModal": {
         "title": "Copiar para instância",

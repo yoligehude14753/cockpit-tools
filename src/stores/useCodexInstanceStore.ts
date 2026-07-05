@@ -12,6 +12,7 @@ import type {
   CodexSessionTrashSummary,
   CodexTrashedSessionRecord,
   CodexSessionRestoreSummary,
+  CodexSessionTrashDeleteSummary,
   CodexSessionExportPreview,
   CodexSessionExportSummary,
   CodexSessionImportPreview,
@@ -36,6 +37,8 @@ type CodexInstanceStoreState = InstanceStoreState & {
   moveSessionsToTrashAcrossInstances: (sessionIds: string[]) => Promise<CodexSessionTrashSummary>;
   listTrashedSessionsAcrossInstances: () => Promise<CodexTrashedSessionRecord[]>;
   restoreSessionsFromTrashAcrossInstances: (sessionIds: string[]) => Promise<CodexSessionRestoreSummary>;
+  deleteTrashedSessionsAcrossInstances: (sessionIds: string[]) => Promise<CodexSessionTrashDeleteSummary>;
+  emptySessionTrashAcrossInstances: () => Promise<CodexSessionTrashDeleteSummary>;
   previewSessionExport: (
     sessionIds: string[],
   ) => Promise<CodexSessionExportPreview>;
@@ -131,6 +134,16 @@ const restoreSessionsFromTrashAcrossInstances = async (
   return summary;
 };
 
+const deleteTrashedSessionsAcrossInstances = async (
+  sessionIds: string[],
+): Promise<CodexSessionTrashDeleteSummary> => {
+  return await codexInstanceService.deleteTrashedSessionsAcrossInstances(sessionIds);
+};
+
+const emptySessionTrashAcrossInstances = async (): Promise<CodexSessionTrashDeleteSummary> => {
+  return await codexInstanceService.emptySessionTrashAcrossInstances();
+};
+
 const previewSessionExport = async (
   sessionIds: string[],
 ): Promise<CodexSessionExportPreview> => {
@@ -183,6 +196,8 @@ typedBaseStore.setState({
   moveSessionsToTrashAcrossInstances,
   listTrashedSessionsAcrossInstances,
   restoreSessionsFromTrashAcrossInstances,
+  deleteTrashedSessionsAcrossInstances,
+  emptySessionTrashAcrossInstances,
   previewSessionExport,
   exportSessions,
   previewSessionImport,

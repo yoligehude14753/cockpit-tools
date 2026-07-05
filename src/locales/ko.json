@@ -2353,7 +2353,8 @@
         "openLocation": "위치 열기",
         "selectAllSessions": "모든 세션 선택",
         "clearSelectedSessions": "선택 해제",
-        "copyToInstance": "인스턴스에 복사"
+        "copyToInstance": "인스턴스에 복사",
+        "trash": "휴지통"
       },
       "confirm": {
         "title": "휴지통으로 이동",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (실행 중)",
       "untitled": "제목 없는 세션",
       "restoreModal": {
-        "title": "세션 복원",
-        "hint": "복원하면 rollout 파일, SQLite 스레드 행, session_index 항목이 함께 원래 인스턴스로 돌아갑니다.",
+        "title": "휴지통",
+        "hint": "휴지통의 세션은 원래 인스턴스로 복원하거나 영구 삭제하여 디스크 공간을 확보할 수 있습니다.",
         "emptyTitle": "휴지통이 비어 있습니다",
         "emptyDesc": "휴지통으로 이동한 세션이 여기에 표시됩니다.",
-        "restoreAction": "선택한 세션 복원"
+        "restoreAction": "선택한 세션 복원",
+        "summary": "{{count}}개 항목, {{size}}",
+        "selectedSummary": "{{count}}개 선택, {{size}}",
+        "selectAll": "전체 선택",
+        "clearSelected": "선택 해제",
+        "emptyTrash": "휴지통 비우기",
+        "itemSize": "크기 {{size}}",
+        "deleteOne": "영구 삭제",
+        "deleteSelected": "선택 삭제",
+        "pickDeleteOne": "영구 삭제할 세션을 하나 이상 선택하세요",
+        "deleteOneConfirm": "이 세션을 영구 삭제할까요? 되돌릴 수 없습니다. 예상 확보 공간: {{size}}.",
+        "deleteSelectedConfirm": "선택한 {{count}}개 세션을 영구 삭제할까요? 되돌릴 수 없습니다. 예상 확보 공간: {{size}}.",
+        "permanentDeleteTitle": "영구 삭제",
+        "permanentDeleteAction": "영구 삭제",
+        "emptyTrashConfirm": "휴지통을 비울까요? {{count}}개 세션이 영구 삭제되어 복원할 수 없습니다. 예상 확보 공간: {{size}}."
       },
       "targetModal": {
         "title": "인스턴스에 복사",

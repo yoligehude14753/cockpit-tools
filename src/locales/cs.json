@@ -2353,7 +2353,8 @@
         "openLocation": "Otevřít umístění",
         "selectAllSessions": "Vybrat všechny relace",
         "clearSelectedSessions": "Zrušit výběr",
-        "copyToInstance": "Kopírovat do instance"
+        "copyToInstance": "Kopírovat do instance",
+        "trash": "Koš"
       },
       "confirm": {
         "title": "Přesunout do koše",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (spuštěno)",
       "untitled": "Nepojmenovaná relace",
       "restoreModal": {
-        "title": "Obnovit relace",
-        "hint": "Při obnovení se soubor rollout, řádek vlákna v SQLite a záznam session_index vrátí společně do původní instance.",
+        "title": "Koš",
+        "hint": "Relace v koši lze obnovit do původní instance nebo trvale odstranit a uvolnit místo na disku.",
         "emptyTitle": "Koš je prázdný",
         "emptyDesc": "Relace přesunuté do koše se zobrazí zde.",
-        "restoreAction": "Obnovit vybrané relace"
+        "restoreAction": "Obnovit vybrané relace",
+        "summary": "{{count}} položek, {{size}}",
+        "selectedSummary": "Vybráno {{count}}, {{size}}",
+        "selectAll": "Vybrat vše",
+        "clearSelected": "Zrušit výběr",
+        "emptyTrash": "Vysypat koš",
+        "itemSize": "Velikost {{size}}",
+        "deleteOne": "Trvale smazat",
+        "deleteSelected": "Smazat vybrané",
+        "pickDeleteOne": "Vyberte alespoň jednu relaci k trvalému smazání",
+        "deleteOneConfirm": "Trvale smazat tuto relaci? Akci nelze vrátit zpět. Odhad uvolněného místa: {{size}}.",
+        "deleteSelectedConfirm": "Trvale smazat vybraných {{count}} relací? Akci nelze vrátit zpět. Odhad uvolněného místa: {{size}}.",
+        "permanentDeleteTitle": "Trvalé smazání",
+        "permanentDeleteAction": "Trvale smazat",
+        "emptyTrashConfirm": "Vysypat koš? {{count}} relací bude trvale smazáno a nepůjde obnovit. Odhad uvolněného místa: {{size}}."
       },
       "targetModal": {
         "title": "Kopírovat do instance",

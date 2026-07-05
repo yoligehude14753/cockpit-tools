@@ -2516,7 +2516,8 @@
         "openLocation": "Buka lokasi",
         "selectAllSessions": "Pilih semua sesi",
         "clearSelectedSessions": "Batal pilih",
-        "copyToInstance": "Salin ke instans"
+        "copyToInstance": "Salin ke instans",
+        "trash": "Sampah"
       },
       "confirm": {
         "title": "Pindahkan ke Sampah",
@@ -2554,11 +2555,25 @@
       "locationRunning": " (berjalan)",
       "untitled": "Sesi tanpa judul",
       "restoreModal": {
-        "title": "Pulihkan sesi",
-        "hint": "Saat dipulihkan, file rollout, baris thread SQLite, dan entri session_index akan dikembalikan bersama ke instance asal.",
+        "title": "Sampah",
+        "hint": "Sesi di Sampah dapat dipulihkan ke instans asal atau dihapus permanen untuk mengosongkan ruang disk.",
         "emptyTitle": "Trash kosong",
         "emptyDesc": "Sesi yang dipindahkan ke Trash akan muncul di sini.",
-        "restoreAction": "Pulihkan sesi terpilih"
+        "restoreAction": "Pulihkan sesi terpilih",
+        "summary": "{{count}} item, {{size}}",
+        "selectedSummary": "{{count}} dipilih, {{size}}",
+        "selectAll": "Pilih semua",
+        "clearSelected": "Batal pilih",
+        "emptyTrash": "Kosongkan Sampah",
+        "itemSize": "Ukuran {{size}}",
+        "deleteOne": "Hapus permanen",
+        "deleteSelected": "Hapus pilihan",
+        "pickDeleteOne": "Pilih setidaknya satu sesi untuk dihapus permanen",
+        "deleteOneConfirm": "Hapus permanen sesi ini? Tindakan ini tidak dapat dibatalkan. Perkiraan ruang bebas: {{size}}.",
+        "deleteSelectedConfirm": "Hapus permanen {{count}} sesi yang dipilih? Tindakan ini tidak dapat dibatalkan. Perkiraan ruang bebas: {{size}}.",
+        "permanentDeleteTitle": "Hapus permanen",
+        "permanentDeleteAction": "Hapus permanen",
+        "emptyTrashConfirm": "Kosongkan Sampah? {{count}} sesi akan dihapus permanen dan tidak dapat dipulihkan. Perkiraan ruang bebas: {{size}}."
       },
       "targetModal": {
         "title": "Salin ke instans",

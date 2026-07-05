@@ -2399,7 +2399,8 @@
         "openLocation": "فتح الموقع",
         "selectAllSessions": "تحديد كل الجلسات",
         "clearSelectedSessions": "إلغاء تحديد الكل",
-        "copyToInstance": "نسخ إلى المثيل"
+        "copyToInstance": "نسخ إلى المثيل",
+        "trash": "المهملات"
       },
       "confirm": {
         "title": "نقل إلى المهملات",
@@ -2437,11 +2438,25 @@
       "locationRunning": " (قيد التشغيل)",
       "untitled": "جلسة بدون عنوان",
       "restoreModal": {
-        "title": "استعادة الجلسات",
-        "hint": "عند الاستعادة ستعود ملف rollout وسطر الخيط في SQLite ومدخل session_index معًا إلى المثيل الأصلي.",
+        "title": "المهملات",
+        "hint": "يمكن استعادة الجلسات من المهملات إلى المثيل الأصلي أو حذفها نهائيا لتحرير مساحة القرص.",
         "emptyTitle": "سلة المهملات فارغة",
         "emptyDesc": "ستظهر هنا الجلسات المنقولة إلى سلة المهملات.",
-        "restoreAction": "استعادة الجلسات المحددة"
+        "restoreAction": "استعادة الجلسات المحددة",
+        "summary": "{{count}} عنصر، {{size}}",
+        "selectedSummary": "{{count}} محددة، {{size}}",
+        "selectAll": "تحديد الكل",
+        "clearSelected": "إلغاء التحديد",
+        "emptyTrash": "إفراغ المهملات",
+        "itemSize": "الحجم {{size}}",
+        "deleteOne": "حذف نهائي",
+        "deleteSelected": "حذف المحدد",
+        "pickDeleteOne": "اختر جلسة واحدة على الأقل للحذف النهائي",
+        "deleteOneConfirm": "هل تريد حذف هذه الجلسة نهائيا؟ لا يمكن التراجع. المساحة المتوقعة: {{size}}.",
+        "deleteSelectedConfirm": "هل تريد حذف {{count}} جلسات محددة نهائيا؟ لا يمكن التراجع. المساحة المتوقعة: {{size}}.",
+        "permanentDeleteTitle": "حذف نهائي",
+        "permanentDeleteAction": "حذف نهائي",
+        "emptyTrashConfirm": "هل تريد إفراغ المهملات؟ سيتم حذف {{count}} جلسات نهائيا ولا يمكن استعادتها. المساحة المتوقعة: {{size}}."
       },
       "targetModal": {
         "title": "نسخ إلى المثيل",

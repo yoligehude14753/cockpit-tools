@@ -4772,6 +4772,36 @@
   min-width: 0;
 }
 
+.codex-account-note-readonly-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.codex-account-note-readonly-value {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  height: 38px;
+  overflow: hidden;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-secondary) 86%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-account-note-readonly-value.is-empty {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 .codex-account-note-input {
   flex: 1 1 auto;
   min-width: 0;
@@ -4843,10 +4873,10 @@
 .codex-account-note-mfa-picker {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 168px;
+  gap: 8px;
+  max-height: 220px;
   overflow: auto;
-  padding: 6px;
+  padding: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-card);
@@ -4855,11 +4885,12 @@
 
 .codex-account-note-mfa-option {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  min-height: 36px;
-  padding: 7px 9px;
+  min-height: 64px;
+  padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -4873,24 +4904,61 @@
   background: color-mix(in srgb, var(--primary) 7%, var(--bg-secondary));
 }
 
-.codex-account-note-mfa-option span,
-.codex-account-note-mfa-option em {
+.codex-account-note-mfa-option.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+  background: color-mix(in srgb, var(--primary) 11%, var(--bg-secondary));
+}
+
+.codex-account-note-mfa-option__main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.codex-account-note-mfa-option__main strong,
+.codex-account-note-mfa-option__main em,
+.codex-account-note-mfa-option__side {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.codex-account-note-mfa-option span {
+.codex-account-note-mfa-option__main strong {
+  display: block;
+  max-width: 100%;
   font-size: 13px;
   font-weight: 650;
+  line-height: 1.25;
 }
 
-.codex-account-note-mfa-option em {
+.codex-account-note-mfa-option__main em {
+  display: block;
+  max-width: 100%;
   color: var(--text-muted);
   font-size: 12px;
   font-style: normal;
   font-weight: 500;
+  line-height: 1.25;
+}
+
+.codex-account-note-mfa-option__side {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  max-width: 112px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.codex-account-note-mfa-option__side svg {
+  flex: 0 0 auto;
+  color: var(--primary);
 }
 
 .codex-account-note-otp-preview {
@@ -11060,6 +11128,34 @@
   color: var(--text-secondary);
 }
 
+.codex-session-restore-modal__summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.codex-session-restore-modal__summary span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+}
+
+.codex-session-restore-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.codex-session-restore-actions .btn {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .codex-session-target-modal {
   width: min(560px, calc(100vw - 32px));
 }
@@ -11527,6 +11623,20 @@
 .codex-session-restore-row__cwd {
   font-family: var(--font-mono);
   color: var(--text-tertiary);
+}
+
+.codex-session-restore-row__side {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.codex-session-restore-row__delete {
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
 }
 
 .codex-session-import-row {

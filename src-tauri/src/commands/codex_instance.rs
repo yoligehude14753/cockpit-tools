@@ -739,6 +739,27 @@ pub async fn codex_restore_sessions_from_trash_across_instances(
 }
 
 #[tauri::command]
+pub async fn codex_delete_trashed_sessions_across_instances(
+    session_ids: Vec<String>,
+) -> Result<modules::codex_session_manager::CodexSessionTrashDeleteSummary, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        modules::codex_session_manager::delete_trashed_sessions_across_instances(session_ids)
+    })
+    .await
+    .map_err(|error| format!("永久删除 Codex 废纸篓会话失败: {}", error))?
+}
+
+#[tauri::command]
+pub async fn codex_empty_session_trash_across_instances(
+) -> Result<modules::codex_session_manager::CodexSessionTrashDeleteSummary, String> {
+    tauri::async_runtime::spawn_blocking(
+        modules::codex_session_manager::empty_session_trash_across_instances,
+    )
+    .await
+    .map_err(|error| format!("清空 Codex 会话废纸篓失败: {}", error))?
+}
+
+#[tauri::command]
 pub async fn codex_preview_session_export(
     session_ids: Vec<String>,
 ) -> Result<modules::codex_session_manager::CodexSessionExportPreview, String> {

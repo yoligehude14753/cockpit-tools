@@ -2353,7 +2353,8 @@
         "openLocation": "Konumu aç",
         "selectAllSessions": "Tüm oturumları seç",
         "clearSelectedSessions": "Seçimi kaldır",
-        "copyToInstance": "Örneğe kopyala"
+        "copyToInstance": "Örneğe kopyala",
+        "trash": "Çöp kutusu"
       },
       "confirm": {
         "title": "Çöp kutusuna taşı",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (çalışıyor)",
       "untitled": "Adsız oturum",
       "restoreModal": {
-        "title": "Oturumları geri yükle",
-        "hint": "Geri yükleme sırasında rollout dosyası, SQLite ileti satırı ve session_index girdisi birlikte özgün örneğe geri konur.",
+        "title": "Çöp kutusu",
+        "hint": "Çöp kutusundaki oturumlar özgün örneğe geri yüklenebilir veya disk alanı açmak için kalıcı olarak silinebilir.",
         "emptyTitle": "Çöp kutusu boş",
         "emptyDesc": "Çöp kutusuna taşınan oturumlar burada görünür.",
-        "restoreAction": "Seçili oturumları geri yükle"
+        "restoreAction": "Seçili oturumları geri yükle",
+        "summary": "{{count}} öğe, {{size}}",
+        "selectedSummary": "{{count}} seçili, {{size}}",
+        "selectAll": "Tümünü seç",
+        "clearSelected": "Seçimi kaldır",
+        "emptyTrash": "Çöpü boşalt",
+        "itemSize": "Boyut {{size}}",
+        "deleteOne": "Kalıcı sil",
+        "deleteSelected": "Seçileni sil",
+        "pickDeleteOne": "Kalıcı silmek için en az bir oturum seçin",
+        "deleteOneConfirm": "Bu oturum kalıcı olarak silinsin mi? Bu işlem geri alınamaz. Tahmini boşalacak alan: {{size}}.",
+        "deleteSelectedConfirm": "Seçili {{count}} oturum kalıcı olarak silinsin mi? Bu işlem geri alınamaz. Tahmini boşalacak alan: {{size}}.",
+        "permanentDeleteTitle": "Kalıcı silme",
+        "permanentDeleteAction": "Kalıcı sil",
+        "emptyTrashConfirm": "Çöp kutusu boşaltılsın mı? {{count}} oturum kalıcı olarak silinecek ve geri yüklenemeyecek. Tahmini boşalacak alan: {{size}}."
       },
       "targetModal": {
         "title": "Örneğe kopyala",

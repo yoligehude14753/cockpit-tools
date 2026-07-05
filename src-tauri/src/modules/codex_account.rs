@@ -70,6 +70,7 @@ const CODEX_BATCH_IMPORT_SESSIONS_DIR: &str = "codex_batch_import_sessions";
 const CODEX_TOKEN_REFRESH_FILE_LOCK_TIMEOUT_SECONDS: u64 = 120;
 const CODEX_TOKEN_REFRESH_FILE_LOCK_STALE_SECONDS: u64 = 10 * 60;
 const CODEX_TOKEN_REFRESH_FILE_LOCK_POLL_MS: u64 = 100;
+const CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION: u32 = 2;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -1797,6 +1798,238 @@ pub fn extract_user_info(
     ))
 }
 
+fn account_summary_from_account(account: &CodexAccount) -> CodexAccountSummary {
+    CodexAccountSummary {
+        id: account.id.clone(),
+        email: account.email.clone(),
+        plan_type: account.plan_type.clone(),
+        subscription_active_until: account.subscription_active_until.clone(),
+        created_at: account.created_at,
+        last_used: account.last_used,
+    }
+}
+
+fn account_summary_matches_account(summary: &CodexAccountSummary, account: &CodexAccount) -> bool {
+    summary.email == account.email
+        && summary.plan_type == account.plan_type
+        && summary.subscription_active_until == account.subscription_active_until
+        && summary.created_at == account.created_at
+        && summary.last_used == account.last_used
+}
+
+fn sync_loaded_accounts_to_index_cache(
+    index: &mut CodexAccountIndex,
+    accounts: &[CodexAccount],
+) -> bool {
+    let mut changed = false;
+    if index.detail_schema_version < CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION {
+        index.detail_schema_version = CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION;
+        changed = true;
+    }
+
+    for account in accounts {
+        let next_summary = account_summary_from_account(account);
+        if let Some(summary) = index
+            .accounts
+            .iter_mut()
+            .find(|summary| summary.id == account.id)
+        {
+            if !account_summary_matches_account(summary, account) {
+                *summary = next_summary;
+                changed = true;
+            }
+        } else {
+            index.accounts.push(next_summary);
+            changed = true;
+        }
+    }
+
+    changed
+}
+
+fn apply_index_summary_to_account_detail(
+    account: &mut CodexAccount,
+    summary: &CodexAccountSummary,
+) -> bool {
+    let mut changed = false;
+
+    if account.email.trim().is_empty() && !summary.email.trim().is_empty() {
+        account.email = summary.email.clone();
+        changed = true;
+    }
+
+    if account.plan_type.is_none() && summary.plan_type.is_some() {
+        account.plan_type = summary.plan_type.clone();
+        changed = true;
+    }
+
+    if account.subscription_active_until.is_none() && summary.subscription_active_until.is_some() {
+        account.subscription_active_until = summary.subscription_active_until.clone();
+        changed = true;
+    }
+
+    if account.created_at <= 0 && summary.created_at > 0 {
+        account.created_at = summary.created_at;
+        changed = true;
+    }
+
+    if summary.last_used > account.last_used {
+        account.last_used = summary.last_used;
+        changed = true;
+    } else if account.last_used <= 0 {
+        account.last_used = account.created_at.max(summary.last_used);
+        changed = true;
+    }
+
+    changed
+}
+
+fn collect_account_detail_file_ids() -> Result<HashSet<String>, String> {
+    let accounts_dir = get_accounts_dir();
+    if !accounts_dir.exists() {
+        return Ok(HashSet::new());
+    }
+
+    let entries = fs::read_dir(&accounts_dir).map_err(|error| {
+        format!(
+            "读取 Codex 账号详情目录失败: path={}, error={}",
+            accounts_dir.display(),
+            error
+        )
+    })?;
+
+    let mut ids = HashSet::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("遍历 Codex 账号详情目录失败: {}", error))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let is_json = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("json"))
+            .unwrap_or(false);
+        if !is_json {
+            continue;
+        }
+        if let Some(stem) = path.file_stem().and_then(|name| name.to_str()) {
+            ids.insert(stem.to_string());
+        }
+    }
+
+    Ok(ids)
+}
+
+fn build_account_index_from_summaries(
+    mut summaries: Vec<CodexAccountSummary>,
+    previous_current_account_id: Option<String>,
+) -> CodexAccountIndex {
+    crate::modules::account_index_repair::sort_accounts_by_recency(
+        &mut summaries,
+        |summary| summary.last_used,
+        |summary| summary.created_at,
+        |summary| summary.id.as_str(),
+    );
+
+    let mut index = CodexAccountIndex::new();
+    index.detail_schema_version = CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION;
+    index.accounts = summaries;
+    index.current_account_id = previous_current_account_id.filter(|current_id| {
+        index
+            .accounts
+            .iter()
+            .any(|summary| summary.id.as_str() == current_id.as_str())
+    });
+    index
+}
+
+fn empty_reconciled_account_index() -> CodexAccountIndex {
+    let mut index = CodexAccountIndex::new();
+    index.detail_schema_version = CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION;
+    index
+}
+
+fn should_reconcile_account_index_with_details(
+    index: &CodexAccountIndex,
+    detail_ids: &HashSet<String>,
+) -> bool {
+    if index.detail_schema_version < CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION {
+        return true;
+    }
+
+    if index.accounts.len() != detail_ids.len() {
+        return true;
+    }
+
+    let index_ids: HashSet<String> = index
+        .accounts
+        .iter()
+        .map(|account| account.id.clone())
+        .collect();
+    if &index_ids != detail_ids {
+        return true;
+    }
+
+    if let Some(current_id) = index.current_account_id.as_deref() {
+        return !detail_ids.contains(current_id);
+    }
+
+    false
+}
+
+fn reconcile_account_index_with_details_if_needed(
+    index: CodexAccountIndex,
+    reason: &str,
+) -> CodexAccountIndex {
+    let detail_ids = match collect_account_detail_file_ids() {
+        Ok(ids) => ids,
+        Err(error) => {
+            logger::log_warn(&format!(
+                "[Codex Account][Repair] 检查账号详情目录失败，保留当前索引: reason={}, error={}",
+                reason, error
+            ));
+            return index;
+        }
+    };
+
+    if detail_ids.is_empty() {
+        if !index.accounts.is_empty()
+            || index.detail_schema_version < CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION
+            || index.current_account_id.is_some()
+        {
+            logger::log_warn(&format!(
+                "[Codex Account][Repair] 账号详情目录为空，已清空索引缓存: reason={}, indexed_accounts={}",
+                reason,
+                index.accounts.len()
+            ));
+            let empty = empty_reconciled_account_index();
+            if let Err(error) = save_account_index(&empty) {
+                logger::log_warn(&format!(
+                    "[Codex Account][Repair] 清空 Codex 索引缓存失败: reason={}, error={}",
+                    reason, error
+                ));
+            }
+            return empty;
+        }
+        return index;
+    }
+
+    if !should_reconcile_account_index_with_details(&index, &detail_ids) {
+        return index;
+    }
+
+    logger::log_warn(&format!(
+        "[Codex Account][Repair] 检测到索引缓存与详情文件不一致，准备按详情重建: reason={}, indexed_accounts={}, detail_files={}, detail_schema_version={}",
+        reason,
+        index.accounts.len(),
+        detail_ids.len(),
+        index.detail_schema_version
+    ));
+
+    repair_account_index_from_details_with_previous(reason, Some(&index)).unwrap_or(index)
+}
+
 /// 读取账号索引
 pub fn load_account_index() -> CodexAccountIndex {
     let path = get_accounts_storage_path();
@@ -1810,6 +2043,9 @@ pub fn load_account_index() -> CodexAccountIndex {
             repair_account_index_from_details("索引文件为空").unwrap_or_else(CodexAccountIndex::new)
         }
         Ok(content) => match serde_json::from_str::<CodexAccountIndex>(&content) {
+            Ok(index) if index.detail_schema_version < CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION => {
+                reconcile_account_index_with_details_if_needed(index, "初始化账号详情数据")
+            }
             Ok(index) => index,
             Err(err) => {
                 logger::log_warn(&format!(
@@ -1883,7 +2119,10 @@ fn load_account_index_checked() -> Result<CodexAccountIndex, String> {
     }
 
     match serde_json::from_str::<CodexAccountIndex>(&content) {
-        Ok(index) => Ok(index),
+        Ok(index) => Ok(reconcile_account_index_with_details_if_needed(
+            index,
+            "读取账号索引",
+        )),
         Err(err) => {
             logger::log_warn(&format!(
                 "[Codex Account][Repair] 账号索引解析失败，准备尝试自动修复: path={}, error={}",
@@ -1909,18 +2148,40 @@ fn load_account_index_checked() -> Result<CodexAccountIndex, String> {
 /// 保存账号索引
 pub fn save_account_index(index: &CodexAccountIndex) -> Result<(), String> {
     let path = get_accounts_storage_path();
-    let content = serde_json::to_string_pretty(index).map_err(|e| format!("序列化失败: {}", e))?;
+    let mut index = index.clone();
+    if index.detail_schema_version < CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION {
+        index.detail_schema_version = CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION;
+    }
+    let content = serde_json::to_string_pretty(&index).map_err(|e| format!("序列化失败: {}", e))?;
     write_string_atomic(&path, &content).map_err(|e| format!("写入账号索引失败: {}", e))?;
     Ok(())
 }
 
 fn repair_account_index_from_details(reason: &str) -> Option<CodexAccountIndex> {
     let index_path = get_accounts_storage_path();
-    let accounts_dir = get_accounts_dir();
-    let previous_current_account_id = fs::read_to_string(&index_path)
+    let previous_index = fs::read_to_string(&index_path)
         .ok()
-        .and_then(|content| serde_json::from_str::<CodexAccountIndex>(&content).ok())
-        .and_then(|index| index.current_account_id);
+        .and_then(|content| serde_json::from_str::<CodexAccountIndex>(&content).ok());
+    repair_account_index_from_details_with_previous(reason, previous_index.as_ref())
+}
+
+fn repair_account_index_from_details_with_previous(
+    reason: &str,
+    previous_index: Option<&CodexAccountIndex>,
+) -> Option<CodexAccountIndex> {
+    let index_path = get_accounts_storage_path();
+    let accounts_dir = get_accounts_dir();
+    let previous_current_account_id =
+        previous_index.and_then(|index| index.current_account_id.clone());
+    let summary_by_id: HashMap<String, CodexAccountSummary> = previous_index
+        .map(|index| {
+            index
+                .accounts
+                .iter()
+                .map(|summary| (summary.id.clone(), summary.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
     logger::log_warn(&format!(
         "[Codex Account][Repair] 检测到索引异常，开始按详情文件重建: reason={}, index_path={}, accounts_dir={}",
         reason,
@@ -1928,11 +2189,8 @@ fn repair_account_index_from_details(reason: &str) -> Option<CodexAccountIndex> 
         accounts_dir.display()
     ));
 
-    let mut accounts = match crate::modules::account_index_repair::load_accounts_from_details(
-        &accounts_dir,
-        |account_id| load_account(account_id),
-    ) {
-        Ok(accounts) => accounts,
+    let detail_ids = match collect_account_detail_file_ids() {
+        Ok(ids) => ids,
         Err(err) => {
             logger::log_warn(&format!(
                 "[Codex Account][Repair] 扫描账号详情文件失败，无法自动修复: reason={}, accounts_dir={}, error={}",
@@ -1944,7 +2202,36 @@ fn repair_account_index_from_details(reason: &str) -> Option<CodexAccountIndex> 
         }
     };
 
-    if accounts.is_empty() {
+    if detail_ids.is_empty() {
+        logger::log_warn(&format!(
+            "[Codex Account][Repair] 账号详情目录中未发现可恢复账号，放弃自动修复: reason={}, accounts_dir={}",
+            reason,
+            accounts_dir.display()
+        ));
+        return None;
+    }
+
+    let mut account_ids: Vec<String> = detail_ids.into_iter().collect();
+    account_ids.sort();
+    let mut summaries = Vec::with_capacity(account_ids.len());
+    let mut failed = Vec::new();
+    for account_id in account_ids {
+        match load_account_with_summary(&account_id, summary_by_id.get(&account_id)) {
+            Ok(Some(account)) => summaries.push(account_summary_from_account(&account)),
+            Ok(None) => failed.push(format!("{}: 详情文件不存在", account_id)),
+            Err(error) => failed.push(format!("{}: {}", account_id, error)),
+        }
+    }
+
+    if !failed.is_empty() {
+        logger::log_warn(&format!(
+            "[Codex Account][Repair] 部分详情文件无法恢复，已跳过: reason={}, failed={}",
+            reason,
+            failed.join("; ")
+        ));
+    }
+
+    if summaries.is_empty() {
         logger::log_warn(&format!(
             "[Codex Account][Repair] 账号详情目录中未发现可恢复账号，放弃自动修复: reason={}, accounts_dir={}",
             reason,
@@ -1955,33 +2242,10 @@ fn repair_account_index_from_details(reason: &str) -> Option<CodexAccountIndex> 
 
     logger::log_info(&format!(
         "[Codex Account][Repair] 已扫描到 {} 个账号详情，准备重建索引",
-        accounts.len()
+        summaries.len()
     ));
 
-    crate::modules::account_index_repair::sort_accounts_by_recency(
-        &mut accounts,
-        |account| account.last_used,
-        |account| account.created_at,
-        |account| account.id.as_str(),
-    );
-
-    let mut index = CodexAccountIndex::new();
-    index.accounts = accounts
-        .iter()
-        .map(|account| CodexAccountSummary {
-            id: account.id.clone(),
-            email: account.email.clone(),
-            plan_type: account.plan_type.clone(),
-            subscription_active_until: account.subscription_active_until.clone(),
-            created_at: account.created_at,
-            last_used: account.last_used,
-        })
-        .collect();
-    index.current_account_id = previous_current_account_id.filter(|current_id| {
-        accounts
-            .iter()
-            .any(|account| account.id.as_str() == current_id.as_str())
-    });
+    let index = build_account_index_from_summaries(summaries, previous_current_account_id);
 
     logger::log_info(&format!(
         "[Codex Account][Repair] 索引重建完成，准备写回本地文件: recovered_accounts={}, current_account_id={}",
@@ -2310,11 +2574,17 @@ fn load_account_with_summary(
         .map_err(|error| format!("读取账号详情失败 ({}): {}", path.display(), error))?;
     if let Ok(mut account) = serde_json::from_str::<CodexAccount>(&content) {
         let raw_value = serde_json::from_str::<serde_json::Value>(&content).ok();
+        let migrated_index_summary = summary
+            .map(|summary| apply_index_summary_to_account_detail(&mut account, summary))
+            .unwrap_or(false);
         let migrated_bound_oauth = raw_value
             .as_ref()
             .map(|value| migrate_bound_oauth_use_local_gateway_if_missing(&mut account, value))
             .unwrap_or(false);
-        if migrate_apikey_fun_wire_api(&mut account) || migrated_bound_oauth {
+        if migrate_apikey_fun_wire_api(&mut account)
+            || migrated_bound_oauth
+            || migrated_index_summary
+        {
             if let Err(error) = save_account(&account) {
                 logger::log_warn(&format!(
                     "[Codex Account][Migration] 账号详情迁移写回失败: account_id={}, error={}",
@@ -2362,8 +2632,8 @@ pub fn delete_account_file(account_id: &str) -> Result<(), String> {
 
 /// 列出所有账号
 pub fn list_accounts() -> Vec<CodexAccount> {
-    let index = load_account_index();
-    index
+    let mut index = load_account_index();
+    let accounts: Vec<CodexAccount> = index
         .accounts
         .iter()
         .filter_map(
@@ -2378,23 +2648,50 @@ pub fn list_accounts() -> Vec<CodexAccount> {
                 }
             },
         )
-        .collect()
+        .collect();
+    if sync_loaded_accounts_to_index_cache(&mut index, &accounts) {
+        if let Err(error) = save_account_index(&index) {
+            logger::log_warn(&format!(
+                "[Codex Account] 同步账号详情摘要到索引缓存失败: error={}",
+                error
+            ));
+        }
+    }
+    accounts
 }
 
 pub fn list_accounts_checked() -> Result<Vec<CodexAccount>, String> {
-    let index = load_account_index_checked()?;
+    let mut index = load_account_index_checked()?;
     let mut accounts = Vec::new();
     let mut failed = Vec::new();
+    let mut missing_detail_ids = Vec::new();
+    let mut has_non_missing_failure = false;
 
     for summary in &index.accounts {
         match load_account_with_summary(&summary.id, Some(summary)) {
             Ok(Some(account)) => accounts.push(account),
-            Ok(None) => failed.push(format!("{}: 详情文件不存在", summary.id)),
-            Err(error) => failed.push(format!("{}: {}", summary.id, error)),
+            Ok(None) => {
+                missing_detail_ids.push(summary.id.clone());
+                failed.push(format!("{}: 详情文件不存在", summary.id));
+            }
+            Err(error) => {
+                has_non_missing_failure = true;
+                failed.push(format!("{}: {}", summary.id, error));
+            }
         }
     }
 
     if !index.accounts.is_empty() && accounts.is_empty() {
+        if !has_non_missing_failure && missing_detail_ids.len() == index.accounts.len() {
+            logger::log_warn(&format!(
+                "[Codex Account] 账号索引仅剩缺失详情文件的孤儿记录，已清空索引: {}",
+                missing_detail_ids.join(", ")
+            ));
+            index.accounts.clear();
+            index.current_account_id = None;
+            save_account_index(&index)?;
+            return Ok(Vec::new());
+        }
         return Err(format!(
             "Codex 账号索引中有 {} 个账号，但详情文件均无法读取；已保留前端缓存，请从账号备份或本地账号文件恢复。{}",
             index.accounts.len(),
@@ -2408,6 +2705,10 @@ pub fn list_accounts_checked() -> Result<Vec<CodexAccount>, String> {
             accounts.len(),
             failed.join("; ")
         ));
+    }
+
+    if sync_loaded_accounts_to_index_cache(&mut index, &accounts) {
+        save_account_index(&index)?;
     }
 
     Ok(accounts)
@@ -2493,22 +2794,8 @@ pub fn upsert_api_key_account(
     let account_id = build_api_key_account_id(&api_key);
     let account_name = normalize_optional_value(account_name);
     let mut index = load_account_index();
-    let existing = index.accounts.iter().position(|item| item.id == account_id);
 
-    let mut account = if let Some(pos) = existing {
-        let existing_id = index.accounts[pos].id.clone();
-        let mut acc = load_account(&existing_id).unwrap_or_else(|| {
-            CodexAccount::new_api_key(
-                existing_id,
-                build_api_key_email(&api_key),
-                api_key.clone(),
-                provider_config.mode.clone(),
-                provider_config.base_url.clone(),
-                provider_config.provider_id.clone(),
-                provider_config.provider_name.clone(),
-                normalize_api_model_catalog(api_model_catalog.clone()),
-            )
-        });
+    let mut account = if let Some(mut acc) = load_account(&account_id) {
         apply_api_key_fields(
             &mut acc,
             &api_key,
@@ -2546,14 +2833,6 @@ pub fn upsert_api_key_account(
         acc.api_supports_vision = api_supports_vision;
         acc.api_model_vision_support = normalize_api_model_vision_support(api_model_vision_support);
         acc.api_vision_routing_model = normalize_optional_value(api_vision_routing_model);
-        index.accounts.push(CodexAccountSummary {
-            id: account_id.clone(),
-            email: acc.email.clone(),
-            plan_type: acc.plan_type.clone(),
-            subscription_active_until: acc.subscription_active_until.clone(),
-            created_at: acc.created_at,
-            last_used: acc.last_used,
-        });
         acc
     };
 
@@ -2661,13 +2940,9 @@ fn upsert_account_with_hints_and_reauth_target(
             )
         })
         .unwrap_or_else(|| generated_id.clone());
-    let existing = index.accounts.iter().position(|a| a.id == existing_id);
 
-    let account = if let Some(pos) = existing {
+    let account = if let Some(mut acc) = load_account(&existing_id) {
         // 更新现有账号
-        let existing_id = index.accounts[pos].id.clone();
-        let mut acc = load_account(&existing_id)
-            .unwrap_or_else(|| CodexAccount::new(existing_id, email.clone(), tokens.clone()));
         tokens = retain_existing_refresh_token_if_missing(tokens, Some(&acc));
         acc.tokens = tokens;
         mark_token_chain_updated(&mut acc);
@@ -5064,15 +5339,8 @@ fn upsert_account_from_access_token(
         organization_id.as_deref(),
     )
     .unwrap_or_else(|| generated_id.clone());
-    let existing = index
-        .accounts
-        .iter()
-        .position(|item| item.id == existing_id);
 
-    let account = if let Some(pos) = existing {
-        let existing_id = index.accounts[pos].id.clone();
-        let mut acc = load_account(&existing_id)
-            .unwrap_or_else(|| CodexAccount::new(existing_id, email.clone(), tokens.clone()));
+    let account = if let Some(mut acc) = load_account(&existing_id) {
         tokens = retain_existing_refresh_token_if_missing(tokens, Some(&acc));
         acc.tokens = tokens;
         mark_token_chain_updated(&mut acc);
@@ -6813,8 +7081,9 @@ mod tests {
         write_api_key_provider_to_config_toml, write_api_provider_to_config_toml,
         write_managed_projection_to_dir, write_quick_config_to_config_toml, ApiProviderConfig,
         CodexAccountIndex, CodexAccountSummary, CodexAuthFile, CodexAuthTokens,
-        CodexJsonImportCandidate, LocalCodexOAuthSnapshot, CODEX_AUTHORIZATION_STATUS_PENDING,
-        CODEX_AUTO_COMPACT_DEFAULT_LIMIT, CODEX_CONTEXT_WINDOW_1M_VALUE,
+        CodexJsonImportCandidate, LocalCodexOAuthSnapshot, CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION,
+        CODEX_AUTHORIZATION_STATUS_PENDING, CODEX_AUTO_COMPACT_DEFAULT_LIMIT,
+        CODEX_CONTEXT_WINDOW_1M_VALUE,
     };
     use crate::models::codex::{CodexAccount, CodexApiProviderMode, CodexTokens};
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
@@ -7762,6 +8031,116 @@ mod tests {
     }
 
     #[test]
+    fn list_accounts_prunes_orphan_index_when_all_details_are_missing() {
+        let _lock = crate::modules::test_support::env_lock()
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        let _env = TestEnvGuard::new("codex-list-prunes-orphan-index-test");
+        let missing_id = "api-legacy-bound-oauth".to_string();
+        let mut index = CodexAccountIndex::new();
+        index.accounts.push(CodexAccountSummary {
+            id: missing_id.clone(),
+            email: "missing@example.com".to_string(),
+            plan_type: Some("API_KEY".to_string()),
+            subscription_active_until: None,
+            created_at: 1,
+            last_used: 1,
+        });
+        index.current_account_id = Some(missing_id);
+        save_account_index(&index).expect("save orphan index");
+
+        let accounts = list_accounts_checked().expect("orphan index should be pruned");
+        assert!(accounts.is_empty());
+
+        let index = load_account_index();
+        assert!(index.accounts.is_empty());
+        assert!(index.current_account_id.is_none());
+    }
+
+    #[test]
+    fn list_accounts_recovers_details_missing_from_index_and_merges_summary_fields() {
+        let _lock = crate::modules::test_support::env_lock()
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        let _env = TestEnvGuard::new("codex-list-recovers-missing-index-details-test");
+        let mut indexed = build_test_oauth_account(make_codex_tokens(
+            "indexed@example.com",
+            "acc-indexed",
+            "org-indexed",
+            "indexed",
+            "rt-indexed",
+        ));
+        indexed.id = build_account_storage_id(
+            "indexed@example.com",
+            Some("acc-indexed"),
+            Some("org-indexed"),
+        );
+        indexed.email = "indexed@example.com".to_string();
+        indexed.plan_type = None;
+        indexed.subscription_active_until = None;
+        indexed.created_at = 10;
+        indexed.last_used = 10;
+        save_account(&indexed).expect("save indexed detail");
+
+        let mut hidden = build_test_oauth_account(make_codex_tokens(
+            "hidden@example.com",
+            "acc-hidden",
+            "org-hidden",
+            "hidden",
+            "rt-hidden",
+        ));
+        hidden.id =
+            build_account_storage_id("hidden@example.com", Some("acc-hidden"), Some("org-hidden"));
+        hidden.email = "hidden@example.com".to_string();
+        hidden.created_at = 20;
+        hidden.last_used = 20;
+        save_account(&hidden).expect("save hidden detail");
+
+        let old_index = serde_json::json!({
+            "version": "1.0",
+            "accounts": [{
+                "id": indexed.id,
+                "email": indexed.email,
+                "plan_type": "team",
+                "subscription_active_until": "2026-08-01T00:00:00Z",
+                "created_at": 5,
+                "last_used": 30
+            }],
+            "current_account_id": indexed.id
+        });
+        fs::write(
+            get_accounts_storage_path(),
+            serde_json::to_string_pretty(&old_index).expect("serialize old index"),
+        )
+        .expect("write old index");
+
+        let accounts = list_accounts_checked().expect("list should repair from details");
+        assert_eq!(accounts.len(), 2);
+        assert!(accounts.iter().any(|account| account.id == indexed.id));
+        assert!(accounts.iter().any(|account| account.id == hidden.id));
+
+        let repaired_index = load_account_index();
+        assert_eq!(
+            repaired_index.detail_schema_version,
+            CODEX_ACCOUNT_DETAIL_SCHEMA_VERSION
+        );
+        assert_eq!(repaired_index.accounts.len(), 2);
+        assert_eq!(
+            repaired_index.current_account_id.as_deref(),
+            Some(indexed.id.as_str())
+        );
+
+        let repaired_detail = load_account(&indexed.id).expect("indexed detail should remain");
+        assert_eq!(repaired_detail.plan_type.as_deref(), Some("team"));
+        assert_eq!(
+            repaired_detail.subscription_active_until.as_deref(),
+            Some("2026-08-01T00:00:00Z")
+        );
+        assert_eq!(repaired_detail.created_at, 10);
+        assert_eq!(repaired_detail.last_used, 30);
+    }
+
+    #[test]
     fn reauth_updates_explicit_target_account_even_when_identity_changes() {
         let _lock = crate::modules::test_support::env_lock()
             .lock()
@@ -7785,6 +8164,62 @@ mod tests {
         assert_eq!(reauthed.account_id.as_deref(), Some("acc-new"));
         assert_eq!(reauthed.organization_id.as_deref(), Some("org-new"));
         assert_eq!(reauthed.tokens.refresh_token.as_deref(), Some("rt-new"));
+        let accounts = list_accounts_checked().expect("list accounts");
+        assert_eq!(accounts.len(), 1);
+        assert_eq!(accounts[0].id, existing.id);
+    }
+
+    #[test]
+    fn reauth_preserves_note_details_when_target_is_missing_from_index() {
+        let _lock = crate::modules::test_support::env_lock()
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        let _env = TestEnvGuard::new("codex-reauth-preserve-notes-missing-index-test");
+        let email = "reauth-notes@example.com";
+        let existing = upsert_account(make_codex_tokens(
+            email, "acc-old", "org-old", "old", "rt-old",
+        ))
+        .expect("seed existing account");
+        let mut detail = load_account(&existing.id).expect("load existing account");
+        detail.account_name = Some("备注账号".to_string());
+        detail.account_structure = Some("个人".to_string());
+        detail.account_note = Some("其他备注".to_string());
+        detail.two_factor_secret = Some("JBSWY3DPEHPK3PXP".to_string());
+        detail.account_password = Some("password-1".to_string());
+        detail.phone_number = Some("13800000000".to_string());
+        save_account(&detail).expect("save noted account");
+
+        let mut broken_index = CodexAccountIndex::new();
+        broken_index.accounts.clear();
+        broken_index.current_account_id = None;
+        save_account_index(&broken_index).expect("save broken index");
+
+        let reauthed = upsert_account_for_reauth(
+            make_codex_tokens(email, "acc-new", "org-new", "new", "rt-new"),
+            &existing.id,
+        )
+        .expect("reauth should update detail-backed target");
+
+        assert_eq!(reauthed.id, existing.id);
+        assert_eq!(reauthed.account_id.as_deref(), Some("acc-new"));
+        assert_eq!(reauthed.organization_id.as_deref(), Some("org-new"));
+        assert_eq!(reauthed.account_name.as_deref(), Some("备注账号"));
+        assert_eq!(reauthed.account_structure.as_deref(), Some("个人"));
+        assert_eq!(reauthed.account_note.as_deref(), Some("其他备注"));
+        assert_eq!(
+            reauthed.two_factor_secret.as_deref(),
+            Some("JBSWY3DPEHPK3PXP")
+        );
+        assert_eq!(reauthed.account_password.as_deref(), Some("password-1"));
+        assert_eq!(reauthed.phone_number.as_deref(), Some("13800000000"));
+
+        let persisted = load_account(&existing.id).expect("load persisted account");
+        assert_eq!(persisted.account_note.as_deref(), Some("其他备注"));
+        assert_eq!(
+            persisted.two_factor_secret.as_deref(),
+            Some("JBSWY3DPEHPK3PXP")
+        );
+
         let accounts = list_accounts_checked().expect("list accounts");
         assert_eq!(accounts.len(), 1);
         assert_eq!(accounts[0].id, existing.id);
@@ -9174,36 +9609,39 @@ pub fn create_pending_oauth_account(
 
     let account_id = build_account_storage_id(&email, Some("pending_oauth"), None);
     let now = chrono::Utc::now().timestamp();
-    let mut account = CodexAccount::new(
-        account_id.clone(),
-        email.clone(),
-        CodexTokens {
-            id_token: String::new(),
-            access_token: String::new(),
-            refresh_token: None,
-        },
-    );
-    account.auth_mode = CodexAuthMode::OAuth;
-    account.authorization_status = Some(CODEX_AUTHORIZATION_STATUS_PENDING.to_string());
-    account.token_updated_at = None;
-    account.token_generation = 0;
-    account.requires_reauth = false;
-    account.reauth_reason = None;
-    account.quota = None;
-    account.quota_error = None;
-    account.created_at = now;
-    account.last_used = now;
+    let mut account = if let Some(mut account) = load_account(&account_id) {
+        if !is_pending_oauth_account(&account) {
+            return Err(format!("Codex 账号已存在: {}", email));
+        }
+        account.email = email.clone();
+        account.last_used = now;
+        account
+    } else {
+        let mut account = CodexAccount::new(
+            account_id.clone(),
+            email.clone(),
+            CodexTokens {
+                id_token: String::new(),
+                access_token: String::new(),
+                refresh_token: None,
+            },
+        );
+        account.auth_mode = CodexAuthMode::OAuth;
+        account.authorization_status = Some(CODEX_AUTHORIZATION_STATUS_PENDING.to_string());
+        account.token_updated_at = None;
+        account.token_generation = 0;
+        account.requires_reauth = false;
+        account.reauth_reason = None;
+        account.quota = None;
+        account.quota_error = None;
+        account.created_at = now;
+        account.last_used = now;
+        account
+    };
     apply_account_note_update(&mut account, update);
 
     index.accounts.retain(|item| item.id != account_id);
-    index.accounts.push(CodexAccountSummary {
-        id: account_id,
-        email: account.email.clone(),
-        plan_type: account.plan_type.clone(),
-        subscription_active_until: account.subscription_active_until.clone(),
-        created_at: account.created_at,
-        last_used: account.last_used,
-    });
+    index.accounts.push(account_summary_from_account(&account));
 
     save_account(&account)?;
     save_account_index(&index)?;

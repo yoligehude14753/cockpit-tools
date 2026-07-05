@@ -3044,7 +3044,8 @@
         "selectAllSessions": "Select All Sessions",
         "clearSelectedSessions": "Deselect All",
         "expand": "Expand",
-        "collapse": "Collapse"
+        "collapse": "Collapse",
+        "trash": "Trash"
       },
       "confirm": {
         "title": "Move to Trash",
@@ -3082,11 +3083,25 @@
       "locationRunning": " (running)",
       "untitled": "Untitled session",
       "restoreModal": {
-        "title": "Restore Sessions",
-        "hint": "Restoring puts the rollout file, session_index entry, and session file time back into the original instance, then asks official Codex to rebuild the session index.",
+        "title": "Trash",
+        "hint": "Sessions in Trash can be restored to the original instance or permanently deleted to free disk space.",
         "emptyTitle": "Trash is empty",
         "emptyDesc": "Sessions moved to Trash will appear here.",
-        "restoreAction": "Restore Selected Sessions"
+        "restoreAction": "Restore Selected Sessions",
+        "summary": "{{count}} items, {{size}}",
+        "selectedSummary": "{{count}} selected, {{size}}",
+        "selectAll": "Select All",
+        "clearSelected": "Deselect",
+        "emptyTrash": "Empty Trash",
+        "itemSize": "Size {{size}}",
+        "deleteOne": "Delete Permanently",
+        "deleteSelected": "Delete Selected",
+        "pickDeleteOne": "Select at least one session to delete",
+        "deleteOneConfirm": "Permanently delete this session? This cannot be undone. Estimated space freed: {{size}}.",
+        "deleteSelectedConfirm": "Permanently delete the selected {{count}} sessions? This cannot be undone. Estimated space freed: {{size}}.",
+        "permanentDeleteTitle": "Permanent Delete",
+        "permanentDeleteAction": "Delete Permanently",
+        "emptyTrashConfirm": "Empty Trash? {{count}} sessions will be permanently deleted and cannot be restored. Estimated space freed: {{size}}."
       },
       "targetModal": {
         "title": "Copy to Instance",

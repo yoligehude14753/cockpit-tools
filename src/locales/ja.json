@@ -2353,7 +2353,8 @@
         "openLocation": "場所を開く",
         "selectAllSessions": "全セッションを選択",
         "clearSelectedSessions": "選択解除",
-        "copyToInstance": "インスタンスへコピー"
+        "copyToInstance": "インスタンスへコピー",
+        "trash": "ゴミ箱"
       },
       "confirm": {
         "title": "ゴミ箱へ移動",
@@ -2391,11 +2392,25 @@
       "locationRunning": "（実行中）",
       "untitled": "無題のセッション",
       "restoreModal": {
-        "title": "セッションを復元",
-        "hint": "復元すると、rollout ファイル、SQLite のスレッド行、session_index の項目が元のインスタンスへまとめて戻されます。",
+        "title": "ゴミ箱",
+        "hint": "ゴミ箱内のセッションは元のインスタンスへ復元でき、完全に削除してディスク容量を空けることもできます。",
         "emptyTitle": "ゴミ箱は空です",
         "emptyDesc": "ゴミ箱へ移動したセッションはここに表示されます。",
-        "restoreAction": "選択したセッションを復元"
+        "restoreAction": "選択したセッションを復元",
+        "summary": "{{count}} 件、{{size}}",
+        "selectedSummary": "{{count}} 件選択、{{size}}",
+        "selectAll": "すべて選択",
+        "clearSelected": "選択解除",
+        "emptyTrash": "ゴミ箱を空にする",
+        "itemSize": "サイズ {{size}}",
+        "deleteOne": "完全に削除",
+        "deleteSelected": "選択を削除",
+        "pickDeleteOne": "完全に削除するセッションを少なくとも 1 件選択してください",
+        "deleteOneConfirm": "このセッションを完全に削除しますか？元に戻せません。解放予定容量: {{size}}。",
+        "deleteSelectedConfirm": "選択した {{count}} 件のセッションを完全に削除しますか？元に戻せません。解放予定容量: {{size}}。",
+        "permanentDeleteTitle": "完全に削除",
+        "permanentDeleteAction": "完全に削除",
+        "emptyTrashConfirm": "ゴミ箱を空にしますか？{{count}} 件のセッションが完全に削除され、復元できません。解放予定容量: {{size}}。"
       },
       "targetModal": {
         "title": "インスタンスへコピー",

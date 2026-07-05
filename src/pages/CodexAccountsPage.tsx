@@ -504,6 +504,13 @@ function formatMfaRecordOption(record: MfaRecord, fallback: string): string {
   return `${secret.slice(0, 6)}...${secret.slice(-4)}`;
 }
 
+function formatMfaSecretPreview(secret: string): string {
+  const trimmed = secret.trim();
+  if (!trimmed) return "";
+  if (trimmed.length <= 12) return trimmed;
+  return `${trimmed.slice(0, 5)}...${trimmed.slice(-4)}`;
+}
+
 function isPendingOAuthCodexAccount(account?: CodexAccount | null): boolean {
   return isCodexPendingOAuthAccount(account);
 }
@@ -2920,6 +2927,10 @@ export function CodexAccountsPage() {
       : editingAccountNoteAccount
       ? buildCodexAccountPresentation(editingAccountNoteAccount, t).displayName
       : "";
+  const activeAccountNoteEmail =
+    activeAccountNoteMode === "pendingOAuth"
+      ? pendingOAuthEmailInput.trim()
+      : editingAccountNoteAccount?.email?.trim() || "";
 
   const refreshSavedMfaRecords = useCallback(() => {
     setSavedMfaRecords(loadSavedMfaRecords());
@@ -15344,6 +15355,38 @@ export function CodexAccountsPage() {
                         "给 {{account}} 填写 2FA、密码、手机号和其他备注。",
                     })}
                   </p>
+                  <div className="codex-account-note-field">
+                    <span>{t("common.shared.columns.email", "邮箱")}</span>
+                    <div className="codex-account-note-readonly-row">
+                      <span
+                        className={`codex-account-note-readonly-value ${
+                          activeAccountNoteEmail ? "" : "is-empty"
+                        }`}
+                        title={activeAccountNoteEmail}
+                      >
+                        {activeAccountNoteEmail || "-"}
+                      </span>
+                      <button
+                        type="button"
+                        className="codex-account-note-icon-btn"
+                        onClick={() =>
+                          void copyAccountNoteValue(
+                            "modal:email",
+                            activeAccountNoteEmail,
+                          )
+                        }
+                        disabled={activeAccountNoteSaving || !activeAccountNoteEmail}
+                        aria-label={t("common.copy", "复制")}
+                        title={t("common.copy", "复制")}
+                      >
+                        {accountNoteCopiedKey === "modal:email" ? (
+                          <Check size={14} />
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                   <label className="codex-account-note-field">
                     <span>
                       {t("codex.accountNote.twoFactorSecretLabel", "2FA 秘钥")}
@@ -15435,29 +15478,39 @@ export function CodexAccountsPage() {
                         role="listbox"
                         aria-label={t("mfaQuick.selectLabel", "选择 2FA 秘钥")}
                       >
-                        {savedMfaRecords.map((record) => (
-                          <button
-                            key={record.id}
-                            type="button"
-                            className="codex-account-note-mfa-option"
-                            onClick={() => {
-                              updateActiveAccountNoteForm({
-                                twoFactorSecret: record.secret,
-                              });
-                              setAccountNoteMfaPickerOpen(false);
-                            }}
-                          >
-                            <span>
-                              {formatMfaRecordOption(
-                                record,
-                                t("mfaQuick.unnamedSecret", "未命名秘钥"),
-                              )}
-                            </span>
-                            {record.remark?.trim() ? (
-                              <em>{record.remark.trim()}</em>
-                            ) : null}
-                          </button>
-                        ))}
+                        {savedMfaRecords.map((record) => {
+                          const title = formatMfaRecordOption(
+                            record,
+                            t("mfaQuick.unnamedSecret", "未命名秘钥"),
+                          );
+                          const remark = record.remark?.trim();
+                          const isSelected =
+                            record.secret.trim() ===
+                            activeAccountNoteForm.twoFactorSecret.trim();
+                          const token = getMfaOtpToken(record.secret);
+                          return (
+                            <button
+                              key={record.id}
+                              type="button"
+                              className={`codex-account-note-mfa-option ${isSelected ? "is-selected" : ""}`}
+                              onClick={() => {
+                                updateActiveAccountNoteForm({
+                                  twoFactorSecret: record.secret,
+                                });
+                                setAccountNoteMfaPickerOpen(false);
+                              }}
+                            >
+                              <span className="codex-account-note-mfa-option__main">
+                                <strong title={title}>{title}</strong>
+                                {remark ? <em title={remark}>{remark}</em> : null}
+                              </span>
+                              <span className="codex-account-note-mfa-option__side">
+                                {isSelected ? <Check size={14} /> : null}
+                                {token || formatMfaSecretPreview(record.secret)}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : null}
                     {accountNoteFieldErrors.twoFactorSecret ? (

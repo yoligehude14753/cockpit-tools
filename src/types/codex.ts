@@ -348,6 +348,7 @@ export interface CodexTrashedSessionRecord {
   title: string;
   cwd: string;
   deletedAt?: number | null;
+  sizeBytes: number;
   locationCount: number;
   locations: CodexTrashedSessionLocation[];
 }
@@ -356,6 +357,14 @@ export interface CodexSessionRestoreSummary {
   requestedSessionCount: number;
   restoredSessionCount: number;
   restoredInstanceCount: number;
+  message: string;
+}
+
+export interface CodexSessionTrashDeleteSummary {
+  requestedSessionCount: number;
+  deletedSessionCount: number;
+  deletedEntryCount: number;
+  freedSizeBytes: number;
   message: string;
 }
 

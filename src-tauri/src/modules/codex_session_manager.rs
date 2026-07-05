@@ -87,6 +87,7 @@ pub struct CodexTrashedSessionRecord {
     pub title: String,
     pub cwd: String,
     pub deleted_at: Option<i64>,
+    pub size_bytes: u64,
     pub location_count: usize,
     pub locations: Vec<CodexTrashedSessionLocation>,
 }
@@ -97,6 +98,16 @@ pub struct CodexSessionRestoreSummary {
     pub requested_session_count: usize,
     pub restored_session_count: usize,
     pub restored_instance_count: usize,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexSessionTrashDeleteSummary {
+    pub requested_session_count: usize,
+    pub deleted_session_count: usize,
+    pub deleted_entry_count: usize,
+    pub freed_size_bytes: u64,
     pub message: String,
 }
 
@@ -787,6 +798,7 @@ pub fn list_trashed_sessions_across_instances() -> Result<Vec<CodexTrashedSessio
                 title: entry.manifest.title.clone(),
                 cwd: entry.manifest.cwd.clone(),
                 deleted_at,
+                size_bytes: 0,
                 location_count: 0,
                 locations: Vec::new(),
             });
@@ -806,6 +818,9 @@ pub fn list_trashed_sessions_across_instances() -> Result<Vec<CodexTrashedSessio
             instance_name: entry.manifest.instance_name.clone(),
         });
         record.location_count = record.locations.len();
+        record.size_bytes = record
+            .size_bytes
+            .saturating_add(calculate_path_size(&entry.entry_dir).unwrap_or(0));
     }
 
     let mut sessions = session_map.into_values().collect::<Vec<_>>();
@@ -818,6 +833,104 @@ pub fn list_trashed_sessions_across_instances() -> Result<Vec<CodexTrashedSessio
             .then_with(|| left.title.cmp(&right.title))
     });
     Ok(sessions)
+}
+
+pub fn delete_trashed_sessions_across_instances(
+    session_ids: Vec<String>,
+) -> Result<CodexSessionTrashDeleteSummary, String> {
+    let requested_ids = session_ids
+        .into_iter()
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+        .collect::<HashSet<_>>();
+    if requested_ids.is_empty() {
+        return Err("请至少选择一条会话".to_string());
+    }
+
+    let entries = load_trash_entries()?
+        .into_iter()
+        .filter(|entry| requested_ids.contains(&entry.manifest.session_id))
+        .collect::<Vec<_>>();
+
+    if entries.is_empty() {
+        return Ok(CodexSessionTrashDeleteSummary {
+            requested_session_count: requested_ids.len(),
+            deleted_session_count: 0,
+            deleted_entry_count: 0,
+            freed_size_bytes: 0,
+            message: "所选会话在废纸篓中不存在，无需删除".to_string(),
+        });
+    }
+
+    let (deleted_session_ids, deleted_entry_count, freed_size_bytes) =
+        delete_trash_entries(&entries)?;
+    Ok(CodexSessionTrashDeleteSummary {
+        requested_session_count: requested_ids.len(),
+        deleted_session_count: deleted_session_ids.len(),
+        deleted_entry_count,
+        freed_size_bytes,
+        message: format!(
+            "已永久删除 {} 条废纸篓会话，释放约 {}",
+            deleted_session_ids.len(),
+            format_bytes(freed_size_bytes)
+        ),
+    })
+}
+
+pub fn empty_session_trash_across_instances() -> Result<CodexSessionTrashDeleteSummary, String> {
+    let entries = match load_trash_entries() {
+        Ok(entries) => entries,
+        Err(error) => {
+            modules::logger::log_warn(&format!(
+                "清空 Codex 会话废纸篓前读取清单失败，将直接清理废纸篓目录: {}",
+                error
+            ));
+            Vec::new()
+        }
+    };
+    let requested_session_ids = entries
+        .iter()
+        .map(|entry| entry.manifest.session_id.clone())
+        .collect::<HashSet<_>>();
+
+    let mut freed_size_bytes = 0u64;
+    let mut removed_root_count = 0usize;
+    for root in get_session_trash_roots_for_read()? {
+        if !root.path.exists() {
+            continue;
+        }
+        freed_size_bytes =
+            freed_size_bytes.saturating_add(calculate_path_size(&root.path).unwrap_or(0));
+        match remove_path_recursively(&root.path) {
+            Ok(()) => {
+                removed_root_count += 1;
+            }
+            Err(error) if root.optional => {
+                modules::logger::log_warn(&format!(
+                    "清理旧 Codex 会话废纸篓失败，已跳过 ({}): {}",
+                    root.path.display(),
+                    error
+                ));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+
+    Ok(CodexSessionTrashDeleteSummary {
+        requested_session_count: requested_session_ids.len(),
+        deleted_session_count: requested_session_ids.len(),
+        deleted_entry_count: entries.len(),
+        freed_size_bytes,
+        message: if removed_root_count == 0 {
+            "废纸篓为空，无需清理".to_string()
+        } else {
+            format!(
+                "已清空 Codex 会话废纸篓，永久删除 {} 条会话，释放约 {}",
+                requested_session_ids.len(),
+                format_bytes(freed_size_bytes)
+            )
+        },
+    })
 }
 
 pub fn restore_sessions_from_trash_across_instances(
@@ -2723,6 +2836,85 @@ fn restore_session_index_content(root_dir: &Path, content: Option<&str>) -> Resu
     Ok(())
 }
 
+fn delete_trash_entries(
+    entries: &[TrashedSessionEntry],
+) -> Result<(HashSet<String>, usize, u64), String> {
+    let mut deleted_session_ids = HashSet::new();
+    let mut deleted_entry_count = 0usize;
+    let mut freed_size_bytes = 0u64;
+
+    for entry in entries {
+        freed_size_bytes =
+            freed_size_bytes.saturating_add(calculate_path_size(&entry.entry_dir).unwrap_or(0));
+        remove_path_recursively(&entry.entry_dir)?;
+        cleanup_empty_trash_ancestors(&entry.entry_dir);
+        deleted_session_ids.insert(entry.manifest.session_id.clone());
+        deleted_entry_count += 1;
+    }
+
+    Ok((deleted_session_ids, deleted_entry_count, freed_size_bytes))
+}
+
+fn calculate_path_size(path: &Path) -> Result<u64, String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("读取路径大小失败 ({}): {}", path.display(), error))?;
+    let file_type = metadata.file_type();
+    if file_type.is_file() || file_type.is_symlink() {
+        return Ok(metadata.len());
+    }
+    if !file_type.is_dir() {
+        return Ok(metadata.len());
+    }
+
+    let mut total = metadata.len();
+    for entry in fs::read_dir(path)
+        .map_err(|error| format!("读取目录大小失败 ({}): {}", path.display(), error))?
+    {
+        let entry =
+            entry.map_err(|error| format!("读取目录项大小失败 ({}): {}", path.display(), error))?;
+        total = total.saturating_add(calculate_path_size(&entry.path())?);
+    }
+    Ok(total)
+}
+
+fn remove_path_recursively(path: &Path) -> Result<(), String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(format!(
+                "读取待删除路径失败 ({}): {}",
+                path.display(),
+                error
+            ))
+        }
+    };
+    let file_type = metadata.file_type();
+    if file_type.is_dir() && !file_type.is_symlink() {
+        fs::remove_dir_all(path)
+            .map_err(|error| format!("删除目录失败 ({}): {}", path.display(), error))
+    } else {
+        fs::remove_file(path)
+            .map_err(|error| format!("删除文件失败 ({}): {}", path.display(), error))
+    }
+}
+
+fn format_bytes(value: u64) -> String {
+    const KB: f64 = 1024.0;
+    const MB: f64 = 1024.0 * KB;
+    const GB: f64 = 1024.0 * MB;
+    let value = value as f64;
+    if value >= GB {
+        format!("{:.1} GB", value / GB)
+    } else if value >= MB {
+        format!("{:.1} MB", value / MB)
+    } else if value >= KB {
+        format!("{:.1} KB", value / KB)
+    } else {
+        format!("{} B", value as u64)
+    }
+}
+
 fn cleanup_empty_trash_ancestors(entry_dir: &Path) {
     let mut current = entry_dir.parent();
     while let Some(dir) = current {
@@ -3089,6 +3281,44 @@ mod tests {
             },
             trashed_rollout_path,
         }
+    }
+
+    #[test]
+    fn delete_trash_entries_removes_only_selected_entries() {
+        let base_dir = make_temp_dir("codex-session-trash-delete-test");
+        let instance_root = base_dir.join("codex-home");
+        let first_entry = make_trash_entry(
+            &base_dir,
+            "session-1",
+            instance_root
+                .join("sessions")
+                .join("2026")
+                .join("06")
+                .join("02")
+                .join("rollout-session-1.jsonl"),
+        );
+        let second_entry = make_trash_entry(
+            &base_dir,
+            "session-2",
+            instance_root
+                .join("sessions")
+                .join("2026")
+                .join("06")
+                .join("02")
+                .join("rollout-session-2.jsonl"),
+        );
+
+        let (deleted_session_ids, deleted_entry_count, freed_size_bytes) =
+            delete_trash_entries(std::slice::from_ref(&first_entry)).expect("delete trash entry");
+
+        assert_eq!(deleted_entry_count, 1);
+        assert!(deleted_session_ids.contains("session-1"));
+        assert!(!deleted_session_ids.contains("session-2"));
+        assert!(freed_size_bytes > 0);
+        assert!(!first_entry.entry_dir.exists());
+        assert!(second_entry.entry_dir.exists());
+
+        fs::remove_dir_all(&base_dir).expect("cleanup temp dir");
     }
 
     #[test]

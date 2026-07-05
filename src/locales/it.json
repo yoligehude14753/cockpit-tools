@@ -2353,7 +2353,8 @@
         "openLocation": "Apri posizione",
         "selectAllSessions": "Seleziona sessioni",
         "clearSelectedSessions": "Deseleziona",
-        "copyToInstance": "Copia in istanza"
+        "copyToInstance": "Copia in istanza",
+        "trash": "Cestino"
       },
       "confirm": {
         "title": "Sposta nel cestino",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (in esecuzione)",
       "untitled": "Sessione senza titolo",
       "restoreModal": {
-        "title": "Ripristina sessioni",
-        "hint": "Con il ripristino, il file rollout, la riga del thread SQLite e la voce session_index tornano insieme nell'istanza originale.",
+        "title": "Cestino",
+        "hint": "Le sessioni nel cestino possono essere ripristinate nell’istanza originale o eliminate definitivamente per liberare spazio su disco.",
         "emptyTitle": "Il cestino è vuoto",
         "emptyDesc": "Le sessioni spostate nel cestino appariranno qui.",
-        "restoreAction": "Ripristina le sessioni selezionate"
+        "restoreAction": "Ripristina le sessioni selezionate",
+        "summary": "{{count}} elementi, {{size}}",
+        "selectedSummary": "{{count}} selezionati, {{size}}",
+        "selectAll": "Seleziona tutto",
+        "clearSelected": "Deseleziona",
+        "emptyTrash": "Svuota cestino",
+        "itemSize": "Dimensione {{size}}",
+        "deleteOne": "Elimina definitivamente",
+        "deleteSelected": "Elimina selezione",
+        "pickDeleteOne": "Seleziona almeno una sessione da eliminare definitivamente",
+        "deleteOneConfirm": "Eliminare definitivamente questa sessione? L’azione non può essere annullata. Spazio stimato liberato: {{size}}.",
+        "deleteSelectedConfirm": "Eliminare definitivamente le {{count}} sessioni selezionate? L’azione non può essere annullata. Spazio stimato liberato: {{size}}.",
+        "permanentDeleteTitle": "Eliminazione definitiva",
+        "permanentDeleteAction": "Elimina definitivamente",
+        "emptyTrashConfirm": "Svuotare il cestino? {{count}} sessioni saranno eliminate definitivamente e non potranno essere ripristinate. Spazio stimato liberato: {{size}}."
       },
       "targetModal": {
         "title": "Copia in istanza",

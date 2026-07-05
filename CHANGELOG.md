@@ -17,16 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Codex request logs now support estimate recalculation**: historical request estimates can be recalculated with current model prices.
 - **Codex session visibility repair now supports previews**: users can preview the affected scope before running a repair.
 - **Codex sessions now support export previews, import/export, and background progress**: users can confirm the session list, total size, and save location before export, import packages into a target instance, and track transfers with a minimizable progress dialog.
+- **Codex sessions now include Trash management**: users can review Trash size, restore sessions, or permanently delete one, selected, or all trashed sessions.
+- **Codex account notes now show a copyable email**: the note dialog shows the account email for easier sign-in and account checks.
 
 ### Changed
 
 - **Improved background performance**: large account lists create less background refresh, request, and UI pressure.
 - **Improved Codex batch import and batch deletion**: flows now support continuation, background progress, and failed-item retry.
+- **Improved the Codex account-note 2FA picker**: the dropdown shows secret names, notes, current codes, and short secret previews more clearly.
 - **Unified bulk selection across platform account pages**: Cursor, Gemini, GitHub Copilot, Kiro, Qoder, Trae, Windsurf, Zed, and CodeBuddy account pages now use a consistent bulk action flow.
 - **Improved top banner stability**: temporary remote config failures no longer make the banner state jump around.
 
 ### Fixed
 
+- **Fixed Codex account list and deletion errors caused by stale index records**.
 - **Fixed Codex saves possibly overwriting existing configuration fields**.
 - **Fixed Codex token refresh and API Service 401 retry issues**.
 - **Fixed Codex session lists sometimes using inaccurate ordering**.

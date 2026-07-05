@@ -2353,7 +2353,8 @@
         "openLocation": "Speicherort öffnen",
         "selectAllSessions": "Alle Sitzungen wählen",
         "clearSelectedSessions": "Auswahl aufheben",
-        "copyToInstance": "In Instanz kopieren"
+        "copyToInstance": "In Instanz kopieren",
+        "trash": "Papierkorb"
       },
       "confirm": {
         "title": "In den Papierkorb verschieben",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (wird ausgeführt)",
       "untitled": "Unbenannte Sitzung",
       "restoreModal": {
-        "title": "Sitzungen wiederherstellen",
-        "hint": "Bei der Wiederherstellung werden die Rollout-Datei, die SQLite-Thread-Zeile und der session_index-Eintrag gemeinsam in die ursprüngliche Instanz zurückgelegt.",
+        "title": "Papierkorb",
+        "hint": "Sitzungen im Papierkorb können in die ursprüngliche Instanz wiederhergestellt oder endgültig gelöscht werden, um Speicherplatz freizugeben.",
         "emptyTitle": "Papierkorb ist leer",
         "emptyDesc": "In den Papierkorb verschobene Sitzungen erscheinen hier.",
-        "restoreAction": "Ausgewählte Sitzungen wiederherstellen"
+        "restoreAction": "Ausgewählte Sitzungen wiederherstellen",
+        "summary": "{{count}} Einträge, {{size}}",
+        "selectedSummary": "{{count}} ausgewählt, {{size}}",
+        "selectAll": "Alle wählen",
+        "clearSelected": "Abwählen",
+        "emptyTrash": "Papierkorb leeren",
+        "itemSize": "Größe {{size}}",
+        "deleteOne": "Endgültig löschen",
+        "deleteSelected": "Auswahl löschen",
+        "pickDeleteOne": "Wählen Sie mindestens eine Sitzung zum endgültigen Löschen aus",
+        "deleteOneConfirm": "Diese Sitzung endgültig löschen? Dies kann nicht rückgängig gemacht werden. Geschätzter Speichergewinn: {{size}}.",
+        "deleteSelectedConfirm": "Die ausgewählten {{count}} Sitzungen endgültig löschen? Dies kann nicht rückgängig gemacht werden. Geschätzter Speichergewinn: {{size}}.",
+        "permanentDeleteTitle": "Endgültig löschen",
+        "permanentDeleteAction": "Endgültig löschen",
+        "emptyTrashConfirm": "Papierkorb leeren? {{count}} Sitzungen werden endgültig gelöscht und können nicht wiederhergestellt werden. Geschätzter Speichergewinn: {{size}}."
       },
       "targetModal": {
         "title": "In Instanz kopieren",

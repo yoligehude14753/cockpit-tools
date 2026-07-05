@@ -3044,7 +3044,8 @@
         "selectAllSessions": "全选全部会话",
         "clearSelectedSessions": "取消全选",
         "expand": "展开",
-        "collapse": "收起"
+        "collapse": "收起",
+        "trash": "废纸篓"
       },
       "confirm": {
         "title": "移到废纸篓",
@@ -3082,11 +3083,25 @@
       "locationRunning": "（运行中）",
       "untitled": "未命名会话",
       "restoreModal": {
-        "title": "恢复会话",
-        "hint": "恢复会把 rollout 文件、session_index 条目和会话文件时间放回原实例，并触发官方 Codex 重建会话索引。",
+        "title": "废纸篓",
+        "hint": "废纸篓中的会话可以恢复到原实例，也可以永久删除以释放磁盘空间。",
         "emptyTitle": "废纸篓里还没有会话",
         "emptyDesc": "已移到废纸篓的会话会显示在这里。",
-        "restoreAction": "恢复选中会话"
+        "restoreAction": "恢复选中会话",
+        "summary": "共 {{count}} 条，{{size}}",
+        "selectedSummary": "已选 {{count}} 条，{{size}}",
+        "selectAll": "全选",
+        "clearSelected": "取消选择",
+        "emptyTrash": "清空废纸篓",
+        "itemSize": "大小 {{size}}",
+        "deleteOne": "永久删除",
+        "deleteSelected": "永久删除选中",
+        "pickDeleteOne": "请至少选择一条要永久删除的会话",
+        "deleteOneConfirm": "确定要永久删除这个会话吗？删除后无法恢复，预计释放 {{size}}。",
+        "deleteSelectedConfirm": "确定要永久删除选中的 {{count}} 条会话吗？删除后无法恢复，预计释放 {{size}}。",
+        "permanentDeleteTitle": "永久删除",
+        "permanentDeleteAction": "永久删除",
+        "emptyTrashConfirm": "确定要清空废纸篓吗？其中 {{count}} 条会话将被永久删除且无法恢复，预计释放 {{size}}。"
       },
       "targetModal": {
         "title": "复制到实例",

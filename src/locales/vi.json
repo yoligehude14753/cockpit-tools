@@ -2353,7 +2353,8 @@
         "openLocation": "Mở vị trí",
         "selectAllSessions": "Chọn mọi phiên",
         "clearSelectedSessions": "Bỏ chọn",
-        "copyToInstance": "Sao chép sang phiên bản"
+        "copyToInstance": "Sao chép sang phiên bản",
+        "trash": "Thùng rác"
       },
       "confirm": {
         "title": "Chuyển vào thùng rác",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (đang chạy)",
       "untitled": "Phiên chưa đặt tên",
       "restoreModal": {
-        "title": "Khôi phục phiên",
-        "hint": "Khi khôi phục, tệp rollout, dòng thread trong SQLite và mục session_index sẽ được trả lại cùng nhau về instance gốc.",
+        "title": "Thùng rác",
+        "hint": "Phiên trong Thùng rác có thể khôi phục về instance gốc hoặc xóa vĩnh viễn để giải phóng dung lượng đĩa.",
         "emptyTitle": "Thùng rác trống",
         "emptyDesc": "Các phiên đã chuyển vào thùng rác sẽ xuất hiện ở đây.",
-        "restoreAction": "Khôi phục các phiên đã chọn"
+        "restoreAction": "Khôi phục các phiên đã chọn",
+        "summary": "{{count}} mục, {{size}}",
+        "selectedSummary": "Đã chọn {{count}}, {{size}}",
+        "selectAll": "Chọn tất cả",
+        "clearSelected": "Bỏ chọn",
+        "emptyTrash": "Dọn thùng rác",
+        "itemSize": "Dung lượng {{size}}",
+        "deleteOne": "Xóa vĩnh viễn",
+        "deleteSelected": "Xóa đã chọn",
+        "pickDeleteOne": "Chọn ít nhất một phiên để xóa vĩnh viễn",
+        "deleteOneConfirm": "Xóa vĩnh viễn phiên này? Không thể hoàn tác. Dung lượng dự kiến giải phóng: {{size}}.",
+        "deleteSelectedConfirm": "Xóa vĩnh viễn {{count}} phiên đã chọn? Không thể hoàn tác. Dung lượng dự kiến giải phóng: {{size}}.",
+        "permanentDeleteTitle": "Xóa vĩnh viễn",
+        "permanentDeleteAction": "Xóa vĩnh viễn",
+        "emptyTrashConfirm": "Dọn thùng rác? {{count}} phiên sẽ bị xóa vĩnh viễn và không thể khôi phục. Dung lượng dự kiến giải phóng: {{size}}."
       },
       "targetModal": {
         "title": "Sao chép sang phiên bản",

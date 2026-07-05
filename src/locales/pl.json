@@ -2353,7 +2353,8 @@
         "openLocation": "Otwórz lokalizację",
         "selectAllSessions": "Zaznacz sesje",
         "clearSelectedSessions": "Odznacz wszystko",
-        "copyToInstance": "Kopiuj do instancji"
+        "copyToInstance": "Kopiuj do instancji",
+        "trash": "Kosz"
       },
       "confirm": {
         "title": "Przenieś do kosza",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (uruchomiona)",
       "untitled": "Sesja bez tytułu",
       "restoreModal": {
-        "title": "Przywróć sesje",
-        "hint": "Przywrócenie umieszcza plik rollout, wiersz wątku SQLite i wpis session_index z powrotem razem w oryginalnej instancji.",
+        "title": "Kosz",
+        "hint": "Sesje w koszu można przywrócić do pierwotnej instancji albo usunąć trwale, aby zwolnić miejsce na dysku.",
         "emptyTitle": "Kosz jest pusty",
         "emptyDesc": "Sesje przeniesione do kosza pojawią się tutaj.",
-        "restoreAction": "Przywróć wybrane sesje"
+        "restoreAction": "Przywróć wybrane sesje",
+        "summary": "{{count}} elementów, {{size}}",
+        "selectedSummary": "Wybrano {{count}}, {{size}}",
+        "selectAll": "Zaznacz wszystko",
+        "clearSelected": "Odznacz",
+        "emptyTrash": "Opróżnij kosz",
+        "itemSize": "Rozmiar {{size}}",
+        "deleteOne": "Usuń trwale",
+        "deleteSelected": "Usuń wybrane",
+        "pickDeleteOne": "Wybierz co najmniej jedną sesję do trwałego usunięcia",
+        "deleteOneConfirm": "Trwale usunąć tę sesję? Tej operacji nie można cofnąć. Szacowane zwolnione miejsce: {{size}}.",
+        "deleteSelectedConfirm": "Trwale usunąć wybrane sesje: {{count}}? Tej operacji nie można cofnąć. Szacowane zwolnione miejsce: {{size}}.",
+        "permanentDeleteTitle": "Trwałe usunięcie",
+        "permanentDeleteAction": "Usuń trwale",
+        "emptyTrashConfirm": "Opróżnić kosz? {{count}} sesji zostanie trwale usuniętych i nie będzie można ich przywrócić. Szacowane zwolnione miejsce: {{size}}."
       },
       "targetModal": {
         "title": "Kopiuj do instancji",

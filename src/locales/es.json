@@ -2353,7 +2353,8 @@
         "openLocation": "Abrir ubicación",
         "selectAllSessions": "Seleccionar sesiones",
         "clearSelectedSessions": "Deseleccionar",
-        "copyToInstance": "Copiar a instancia"
+        "copyToInstance": "Copiar a instancia",
+        "trash": "Papelera"
       },
       "confirm": {
         "title": "Mover a la papelera",
@@ -2391,11 +2392,25 @@
       "locationRunning": " (en ejecución)",
       "untitled": "Sesión sin título",
       "restoreModal": {
-        "title": "Restaurar sesiones",
-        "hint": "Al restaurar, el archivo rollout, la fila del hilo en SQLite y la entrada de session_index vuelven juntos a la instancia original.",
+        "title": "Papelera",
+        "hint": "Las sesiones de la papelera se pueden restaurar a la instancia original o eliminar definitivamente para liberar espacio.",
         "emptyTitle": "La papelera está vacía",
         "emptyDesc": "Las sesiones movidas a la papelera aparecerán aquí.",
-        "restoreAction": "Restaurar sesiones seleccionadas"
+        "restoreAction": "Restaurar sesiones seleccionadas",
+        "summary": "{{count}} elementos, {{size}}",
+        "selectedSummary": "{{count}} seleccionados, {{size}}",
+        "selectAll": "Seleccionar todo",
+        "clearSelected": "Deseleccionar",
+        "emptyTrash": "Vaciar papelera",
+        "itemSize": "Tamaño {{size}}",
+        "deleteOne": "Eliminar definitivo",
+        "deleteSelected": "Eliminar selección",
+        "pickDeleteOne": "Selecciona al menos una sesión para eliminar definitivamente",
+        "deleteOneConfirm": "¿Eliminar definitivamente esta sesión? No se puede deshacer. Espacio estimado liberado: {{size}}.",
+        "deleteSelectedConfirm": "¿Eliminar definitivamente las {{count}} sesiones seleccionadas? No se puede deshacer. Espacio estimado liberado: {{size}}.",
+        "permanentDeleteTitle": "Eliminar definitivamente",
+        "permanentDeleteAction": "Eliminar definitivo",
+        "emptyTrashConfirm": "¿Vaciar la papelera? {{count}} sesiones se eliminarán definitivamente y no se podrán restaurar. Espacio estimado liberado: {{size}}."
       },
       "targetModal": {
         "title": "Copiar a instancia",

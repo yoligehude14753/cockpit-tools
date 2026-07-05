@@ -2470,7 +2470,8 @@
         "openLocation": "開啟位置",
         "selectAllSessions": "全選全部會話",
         "clearSelectedSessions": "取消全選",
-        "copyToInstance": "複製到實例"
+        "copyToInstance": "複製到實例",
+        "trash": "垃圾桶"
       },
       "confirm": {
         "title": "移到垃圾桶",
@@ -2508,11 +2509,25 @@
       "locationRunning": "（執行中）",
       "untitled": "未命名會話",
       "restoreModal": {
-        "title": "還原工作階段",
-        "hint": "還原時會將 rollout 檔、SQLite 執行緒列與 session_index 項目一起放回原始實例。",
+        "title": "垃圾桶",
+        "hint": "垃圾桶中的工作階段可還原到原實例，也可永久刪除以釋放磁碟空間。",
         "emptyTitle": "回收桶是空的",
         "emptyDesc": "移到回收桶的工作階段會顯示在這裡。",
-        "restoreAction": "還原所選工作階段"
+        "restoreAction": "還原所選工作階段",
+        "summary": "共 {{count}} 筆，{{size}}",
+        "selectedSummary": "已選 {{count}} 筆，{{size}}",
+        "selectAll": "全選",
+        "clearSelected": "取消選取",
+        "emptyTrash": "清空垃圾桶",
+        "itemSize": "大小 {{size}}",
+        "deleteOne": "永久刪除",
+        "deleteSelected": "永久刪除所選",
+        "pickDeleteOne": "請至少選擇一筆要永久刪除的工作階段",
+        "deleteOneConfirm": "確定要永久刪除此工作階段嗎？刪除後無法還原，預計釋放 {{size}}。",
+        "deleteSelectedConfirm": "確定要永久刪除所選 {{count}} 筆工作階段嗎？刪除後無法還原，預計釋放 {{size}}。",
+        "permanentDeleteTitle": "永久刪除",
+        "permanentDeleteAction": "永久刪除",
+        "emptyTrashConfirm": "確定要清空垃圾桶嗎？其中 {{count}} 筆工作階段會被永久刪除且無法還原，預計釋放 {{size}}。"
       },
       "targetModal": {
         "title": "複製到實例",
