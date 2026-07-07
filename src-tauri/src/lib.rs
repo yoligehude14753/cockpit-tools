@@ -956,6 +956,7 @@ pub fn run() {
             commands::trae::export_trae_accounts,
             commands::trae::refresh_trae_token,
             commands::trae::refresh_all_trae_tokens,
+            commands::trae::refresh_trae_tokens_for_platform,
             commands::trae::add_trae_account_with_token,
             commands::trae::update_trae_account_tags,
             commands::trae::get_trae_accounts_index_path,

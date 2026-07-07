@@ -134,6 +134,18 @@ fn build_service_refresh_policies(cfg: &super::config::UserConfig) -> Vec<Servic
             interval_minutes: cfg.trae_auto_refresh_minutes,
         },
         ServiceRefreshPolicy {
+            key: "trae_solo",
+            interval_minutes: cfg.trae_solo_auto_refresh_minutes,
+        },
+        ServiceRefreshPolicy {
+            key: "trae_cn",
+            interval_minutes: cfg.trae_cn_auto_refresh_minutes,
+        },
+        ServiceRefreshPolicy {
+            key: "trae_solo_cn",
+            interval_minutes: cfg.trae_solo_cn_auto_refresh_minutes,
+        },
+        ServiceRefreshPolicy {
             key: "zed",
             interval_minutes: cfg.zed_auto_refresh_minutes,
         },
@@ -182,7 +194,26 @@ async fn run_refresh_for_service(policy: ServiceRefreshPolicy) -> Result<(), Str
         "qoder" => super::qoder_oauth::refresh_all_accounts_from_openapi()
             .await
             .map(|_| ()),
-        "trae" => super::trae_account::refresh_all_tokens().await.map(|_| ()),
+        "trae" => super::trae_account::refresh_tokens_for_platform(
+            super::trae_account::TraePlatformKind::Trae,
+        )
+        .await
+        .map(|_| ()),
+        "trae_solo" => super::trae_account::refresh_tokens_for_platform(
+            super::trae_account::TraePlatformKind::TraeSolo,
+        )
+        .await
+        .map(|_| ()),
+        "trae_cn" => super::trae_account::refresh_tokens_for_platform(
+            super::trae_account::TraePlatformKind::TraeCn,
+        )
+        .await
+        .map(|_| ()),
+        "trae_solo_cn" => super::trae_account::refresh_tokens_for_platform(
+            super::trae_account::TraePlatformKind::TraeSoloCn,
+        )
+        .await
+        .map(|_| ()),
         "zed" => super::zed_account::refresh_all_accounts().await.map(|_| ()),
         _ => Err(format!("未知服务: {}", policy.key)),
     }

@@ -255,6 +255,42 @@ pub async fn refresh_all_trae_tokens(app: AppHandle) -> Result<i32, String> {
 }
 
 #[tauri::command]
+pub async fn refresh_trae_tokens_for_platform(
+    app: AppHandle,
+    platform_id: Option<String>,
+) -> Result<i32, String> {
+    let started_at = Instant::now();
+    let platform = trae_account::TraePlatformKind::parse(platform_id.as_deref())?;
+    logger::log_info(&format!(
+        "[Trae Command] platform batch refresh start: platform={}",
+        platform.provider_key()
+    ));
+
+    let results = trae_account::refresh_tokens_for_platform(platform).await?;
+    let success_count = results.iter().filter(|(_, result)| result.is_ok()).count();
+    for (account_id, result) in results {
+        if let Err(err) = result {
+            logger::log_warn(&format!(
+                "[Trae Command] platform batch refresh failed: platform={}, account_id={}, error={}",
+                platform.provider_key(),
+                account_id,
+                err
+            ));
+        }
+    }
+
+    let _ = crate::modules::tray::update_tray_menu(&app);
+
+    logger::log_info(&format!(
+        "[Trae Command] platform batch refresh done: platform={}, success={}, elapsed={}ms",
+        platform.provider_key(),
+        success_count,
+        started_at.elapsed().as_millis()
+    ));
+    Ok(success_count as i32)
+}
+
+#[tauri::command]
 pub fn add_trae_account_with_token(
     app: AppHandle,
     access_token: String,

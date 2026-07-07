@@ -69,6 +69,9 @@ interface GeneralConfig {
   codebuddy_cn_auto_refresh_minutes: number;
   qoder_auto_refresh_minutes: number;
   trae_auto_refresh_minutes: number;
+  trae_solo_auto_refresh_minutes: number;
+  trae_cn_auto_refresh_minutes: number;
+  trae_solo_cn_auto_refresh_minutes: number;
   workbuddy_auto_refresh_minutes: number;
   zed_auto_refresh_minutes: number;
   close_behavior: string;
@@ -148,6 +151,12 @@ interface GeneralConfig {
   qoder_quota_alert_threshold: number;
   trae_quota_alert_enabled: boolean;
   trae_quota_alert_threshold: number;
+  trae_solo_quota_alert_enabled: boolean;
+  trae_solo_quota_alert_threshold: number;
+  trae_cn_quota_alert_enabled: boolean;
+  trae_cn_quota_alert_threshold: number;
+  trae_solo_cn_quota_alert_enabled: boolean;
+  trae_solo_cn_quota_alert_threshold: number;
   workbuddy_quota_alert_enabled: boolean;
   workbuddy_quota_alert_threshold: number;
   zed_quota_alert_enabled: boolean;
@@ -205,6 +214,9 @@ type QuotaAlertEnabledKey =
   | 'codebuddy_cn_quota_alert_enabled'
   | 'qoder_quota_alert_enabled'
   | 'trae_quota_alert_enabled'
+  | 'trae_solo_quota_alert_enabled'
+  | 'trae_cn_quota_alert_enabled'
+  | 'trae_solo_cn_quota_alert_enabled'
   | 'workbuddy_quota_alert_enabled'
   | 'zed_quota_alert_enabled';
 type QuotaAlertThresholdKey =
@@ -220,6 +232,9 @@ type QuotaAlertThresholdKey =
   | 'codebuddy_cn_quota_alert_threshold'
   | 'qoder_quota_alert_threshold'
   | 'trae_quota_alert_threshold'
+  | 'trae_solo_quota_alert_threshold'
+  | 'trae_cn_quota_alert_threshold'
+  | 'trae_solo_cn_quota_alert_threshold'
   | 'workbuddy_quota_alert_threshold'
   | 'zed_quota_alert_threshold';
 type CodexWindowThresholdKey =
@@ -386,10 +401,13 @@ const getCurrentAccountRefreshPlatformForType = (
     case 'qoder':
       return 'qoder';
     case 'trae':
-    case 'trae_solo':
-    case 'trae_cn':
-    case 'trae_solo_cn':
       return 'trae';
+    case 'trae_solo':
+      return 'trae_solo';
+    case 'trae_cn':
+      return 'trae_cn';
+    case 'trae_solo_cn':
+      return 'trae_solo_cn';
     case 'workbuddy':
       return 'workbuddy';
     case 'zed':
@@ -911,11 +929,10 @@ export function QuickSettingsPopover({ type }: QuickSettingsPopoverProps) {
       case 'codebuddy': return 'codebuddy_auto_refresh_minutes';
       case 'codebuddy_cn': return 'codebuddy_cn_auto_refresh_minutes';
       case 'qoder': return 'qoder_auto_refresh_minutes';
-      case 'trae':
-      case 'trae_solo':
-      case 'trae_cn':
-      case 'trae_solo_cn':
-        return 'trae_auto_refresh_minutes';
+      case 'trae': return 'trae_auto_refresh_minutes';
+      case 'trae_solo': return 'trae_solo_auto_refresh_minutes';
+      case 'trae_cn': return 'trae_cn_auto_refresh_minutes';
+      case 'trae_solo_cn': return 'trae_solo_cn_auto_refresh_minutes';
       case 'workbuddy': return 'workbuddy_auto_refresh_minutes';
       case 'zed': return 'zed_auto_refresh_minutes';
       default: return 'auto_refresh_minutes';
@@ -949,6 +966,9 @@ export function QuickSettingsPopover({ type }: QuickSettingsPopoverProps) {
           workbuddyAutoRefreshMinutes: merged.workbuddy_auto_refresh_minutes,
           qoderAutoRefreshMinutes: merged.qoder_auto_refresh_minutes,
           traeAutoRefreshMinutes: merged.trae_auto_refresh_minutes,
+          traeSoloAutoRefreshMinutes: merged.trae_solo_auto_refresh_minutes,
+          traeCnAutoRefreshMinutes: merged.trae_cn_auto_refresh_minutes,
+          traeSoloCnAutoRefreshMinutes: merged.trae_solo_cn_auto_refresh_minutes,
           zedAutoRefreshMinutes: merged.zed_auto_refresh_minutes,
           closeBehavior: merged.close_behavior,
           minimizeBehavior: merged.minimize_behavior,
@@ -1027,6 +1047,12 @@ export function QuickSettingsPopover({ type }: QuickSettingsPopoverProps) {
           qoderQuotaAlertThreshold: merged.qoder_quota_alert_threshold,
           traeQuotaAlertEnabled: merged.trae_quota_alert_enabled,
           traeQuotaAlertThreshold: merged.trae_quota_alert_threshold,
+          traeSoloQuotaAlertEnabled: merged.trae_solo_quota_alert_enabled,
+          traeSoloQuotaAlertThreshold: merged.trae_solo_quota_alert_threshold,
+          traeCnQuotaAlertEnabled: merged.trae_cn_quota_alert_enabled,
+          traeCnQuotaAlertThreshold: merged.trae_cn_quota_alert_threshold,
+          traeSoloCnQuotaAlertEnabled: merged.trae_solo_cn_quota_alert_enabled,
+          traeSoloCnQuotaAlertThreshold: merged.trae_solo_cn_quota_alert_threshold,
           workbuddyQuotaAlertEnabled: merged.workbuddy_quota_alert_enabled,
           workbuddyQuotaAlertThreshold: merged.workbuddy_quota_alert_threshold,
           zedQuotaAlertEnabled: merged.zed_quota_alert_enabled,
@@ -1248,10 +1274,13 @@ export function QuickSettingsPopover({ type }: QuickSettingsPopoverProps) {
       case 'qoder':
         return 'qoder_quota_alert_enabled';
       case 'trae':
-      case 'trae_solo':
-      case 'trae_cn':
-      case 'trae_solo_cn':
         return 'trae_quota_alert_enabled';
+      case 'trae_solo':
+        return 'trae_solo_quota_alert_enabled';
+      case 'trae_cn':
+        return 'trae_cn_quota_alert_enabled';
+      case 'trae_solo_cn':
+        return 'trae_solo_cn_quota_alert_enabled';
       case 'workbuddy':
         return 'workbuddy_quota_alert_enabled';
       case 'zed':
@@ -1284,10 +1313,13 @@ export function QuickSettingsPopover({ type }: QuickSettingsPopoverProps) {
       case 'qoder':
         return 'qoder_quota_alert_threshold';
       case 'trae':
-      case 'trae_solo':
-      case 'trae_cn':
-      case 'trae_solo_cn':
         return 'trae_quota_alert_threshold';
+      case 'trae_solo':
+        return 'trae_solo_quota_alert_threshold';
+      case 'trae_cn':
+        return 'trae_cn_quota_alert_threshold';
+      case 'trae_solo_cn':
+        return 'trae_solo_cn_quota_alert_threshold';
       case 'workbuddy':
         return 'workbuddy_quota_alert_threshold';
       case 'zed':

@@ -4642,8 +4642,9 @@ pub async fn refresh_account_usage_only_async(
     result
 }
 
-pub async fn refresh_all_tokens() -> Result<Vec<(String, Result<TraeAccount, String>)>, String> {
-    let accounts = list_accounts_checked()?;
+async fn refresh_accounts(
+    accounts: Vec<TraeAccount>,
+) -> Result<Vec<(String, Result<TraeAccount, String>)>, String> {
     let protection_map = resolve_running_account_refresh_protection_map(&accounts);
     let mut results = Vec::with_capacity(accounts.len());
     for account in accounts {
@@ -4667,6 +4668,20 @@ pub async fn refresh_all_tokens() -> Result<Vec<(String, Result<TraeAccount, Str
         results.push((account_id, result));
     }
     Ok(results)
+}
+
+pub async fn refresh_all_tokens() -> Result<Vec<(String, Result<TraeAccount, String>)>, String> {
+    refresh_accounts(list_accounts_checked()?).await
+}
+
+pub async fn refresh_tokens_for_platform(
+    platform: TraePlatformKind,
+) -> Result<Vec<(String, Result<TraeAccount, String>)>, String> {
+    let accounts = list_accounts_checked()?
+        .into_iter()
+        .filter(|account| resolve_account_platform_kind(account) == platform)
+        .collect();
+    refresh_accounts(accounts).await
 }
 
 #[cfg(test)]

@@ -70,7 +70,10 @@ import { getClaudeAccountDisplayEmail } from '../types/claude';
 import { getCodebuddyAccountDisplayEmail } from '../types/codebuddy';
 import { getWorkbuddyAccountDisplayEmail } from '../types/workbuddy';
 import { getQoderAccountDisplayEmail } from '../types/qoder';
-import { getTraeAccountDisplayEmail } from '../types/trae';
+import {
+  getTraeAccountDisplayEmail,
+  getTraeAccountPlatformId,
+} from '../types/trae';
 import { getZedAccountDisplayEmail } from '../types/zed';
 import { ALL_PLATFORM_IDS, PlatformId } from '../types/platform';
 import { SettingsAccountTransferSection } from '../components/SettingsAccountTransferSection';
@@ -160,6 +163,9 @@ interface GeneralConfig {
   workbuddy_auto_refresh_minutes: number;
   qoder_auto_refresh_minutes: number;
   trae_auto_refresh_minutes: number;
+  trae_solo_auto_refresh_minutes: number;
+  trae_cn_auto_refresh_minutes: number;
+  trae_solo_cn_auto_refresh_minutes: number;
   zed_auto_refresh_minutes: number;
   codebuddy_quota_alert_enabled: boolean;
   codebuddy_quota_alert_threshold: number;
@@ -169,6 +175,12 @@ interface GeneralConfig {
   qoder_quota_alert_threshold: number;
   trae_quota_alert_enabled: boolean;
   trae_quota_alert_threshold: number;
+  trae_solo_quota_alert_enabled: boolean;
+  trae_solo_quota_alert_threshold: number;
+  trae_cn_quota_alert_enabled: boolean;
+  trae_cn_quota_alert_threshold: number;
+  trae_solo_cn_quota_alert_enabled: boolean;
+  trae_solo_cn_quota_alert_threshold: number;
   zed_quota_alert_enabled: boolean;
   zed_quota_alert_threshold: number;
   workbuddy_quota_alert_enabled: boolean;
@@ -451,6 +463,9 @@ export function SettingsPage() {
   const [workbuddyAutoRefresh, setWorkbuddyAutoRefresh] = useState('10');
   const [qoderAutoRefresh, setQoderAutoRefresh] = useState('10');
   const [traeAutoRefresh, setTraeAutoRefresh] = useState('10');
+  const [traeSoloAutoRefresh, setTraeSoloAutoRefresh] = useState('10');
+  const [traeCnAutoRefresh, setTraeCnAutoRefresh] = useState('10');
+  const [traeSoloCnAutoRefresh, setTraeSoloCnAutoRefresh] = useState('10');
   const [zedAutoRefresh, setZedAutoRefresh] = useState('10');
   const [currentAccountRefreshMinutes, setCurrentAccountRefreshMinutes] = useState<
     Record<CurrentAccountRefreshPlatform, string>
@@ -474,6 +489,12 @@ export function SettingsPage() {
   const [qoderQuotaAlertThreshold, setQoderQuotaAlertThreshold] = useState('20');
   const [traeQuotaAlertEnabled, setTraeQuotaAlertEnabled] = useState(false);
   const [traeQuotaAlertThreshold, setTraeQuotaAlertThreshold] = useState('20');
+  const [traeSoloQuotaAlertEnabled, setTraeSoloQuotaAlertEnabled] = useState(false);
+  const [traeSoloQuotaAlertThreshold, setTraeSoloQuotaAlertThreshold] = useState('20');
+  const [traeCnQuotaAlertEnabled, setTraeCnQuotaAlertEnabled] = useState(false);
+  const [traeCnQuotaAlertThreshold, setTraeCnQuotaAlertThreshold] = useState('20');
+  const [traeSoloCnQuotaAlertEnabled, setTraeSoloCnQuotaAlertEnabled] = useState(false);
+  const [traeSoloCnQuotaAlertThreshold, setTraeSoloCnQuotaAlertThreshold] = useState('20');
   const [zedQuotaAlertEnabled, setZedQuotaAlertEnabled] = useState(false);
   const [zedQuotaAlertThreshold, setZedQuotaAlertThreshold] = useState('20');
   const [workbuddyQuotaAlertEnabled, setWorkbuddyQuotaAlertEnabled] = useState(false);
@@ -486,6 +507,12 @@ export function SettingsPage() {
   const [qoderQuotaAlertThresholdCustomMode, setQoderQuotaAlertThresholdCustomMode] = useState(false);
   const [traeAutoRefreshCustomMode, setTraeAutoRefreshCustomMode] = useState(false);
   const [traeQuotaAlertThresholdCustomMode, setTraeQuotaAlertThresholdCustomMode] = useState(false);
+  const [traeSoloAutoRefreshCustomMode, setTraeSoloAutoRefreshCustomMode] = useState(false);
+  const [traeSoloQuotaAlertThresholdCustomMode, setTraeSoloQuotaAlertThresholdCustomMode] = useState(false);
+  const [traeCnAutoRefreshCustomMode, setTraeCnAutoRefreshCustomMode] = useState(false);
+  const [traeCnQuotaAlertThresholdCustomMode, setTraeCnQuotaAlertThresholdCustomMode] = useState(false);
+  const [traeSoloCnAutoRefreshCustomMode, setTraeSoloCnAutoRefreshCustomMode] = useState(false);
+  const [traeSoloCnQuotaAlertThresholdCustomMode, setTraeSoloCnQuotaAlertThresholdCustomMode] = useState(false);
   const [zedAutoRefreshCustomMode, setZedAutoRefreshCustomMode] = useState(false);
   const [zedQuotaAlertThresholdCustomMode, setZedQuotaAlertThresholdCustomMode] = useState(false);
   const [codebuddyCnQuotaAlertThresholdCustomMode, setCodebuddyCnQuotaAlertThresholdCustomMode] = useState(false);
@@ -818,6 +845,9 @@ export function SettingsPage() {
       !workbuddyAutoRefresh.trim() ||
       !qoderAutoRefresh.trim() ||
       !traeAutoRefresh.trim() ||
+      !traeSoloAutoRefresh.trim() ||
+      !traeCnAutoRefresh.trim() ||
+      !traeSoloCnAutoRefresh.trim() ||
       !zedAutoRefresh.trim() ||
       !cursorAutoRefresh.trim() ||
       !geminiAutoRefresh.trim()
@@ -836,6 +866,9 @@ export function SettingsPage() {
     const workbuddyAutoRefreshNum = parseInt(workbuddyAutoRefresh, 10) || -1;
     const qoderAutoRefreshNum = parseInt(qoderAutoRefresh, 10) || -1;
     const traeAutoRefreshNum = parseInt(traeAutoRefresh, 10) || -1;
+    const traeSoloAutoRefreshNum = parseInt(traeSoloAutoRefresh, 10) || -1;
+    const traeCnAutoRefreshNum = parseInt(traeCnAutoRefresh, 10) || -1;
+    const traeSoloCnAutoRefreshNum = parseInt(traeSoloCnAutoRefresh, 10) || -1;
     const zedAutoRefreshNum = parseInt(zedAutoRefresh, 10) || -1;
     const cursorAutoRefreshNum = parseInt(cursorAutoRefresh, 10) || -1;
     const geminiAutoRefreshNum = parseInt(geminiAutoRefresh, 10) || -1;
@@ -856,6 +889,9 @@ export function SettingsPage() {
     const parsedWorkbuddyQuotaAlertThreshold = Number.parseInt(workbuddyQuotaAlertThreshold, 10);
     const parsedQoderQuotaAlertThreshold = Number.parseInt(qoderQuotaAlertThreshold, 10);
     const parsedTraeQuotaAlertThreshold = Number.parseInt(traeQuotaAlertThreshold, 10);
+    const parsedTraeSoloQuotaAlertThreshold = Number.parseInt(traeSoloQuotaAlertThreshold, 10);
+    const parsedTraeCnQuotaAlertThreshold = Number.parseInt(traeCnQuotaAlertThreshold, 10);
+    const parsedTraeSoloCnQuotaAlertThreshold = Number.parseInt(traeSoloCnQuotaAlertThreshold, 10);
     const parsedZedQuotaAlertThreshold = Number.parseInt(zedQuotaAlertThreshold, 10);
     const parsedCursorQuotaAlertThreshold = Number.parseInt(cursorQuotaAlertThreshold, 10);
     const parsedGeminiQuotaAlertThreshold = Number.parseInt(geminiQuotaAlertThreshold, 10);
@@ -884,6 +920,9 @@ export function SettingsPage() {
           workbuddyAutoRefreshMinutes: workbuddyAutoRefreshNum,
           qoderAutoRefreshMinutes: qoderAutoRefreshNum,
           traeAutoRefreshMinutes: traeAutoRefreshNum,
+          traeSoloAutoRefreshMinutes: traeSoloAutoRefreshNum,
+          traeCnAutoRefreshMinutes: traeCnAutoRefreshNum,
+          traeSoloCnAutoRefreshMinutes: traeSoloCnAutoRefreshNum,
           zedAutoRefreshMinutes: zedAutoRefreshNum,
           cursorAutoRefreshMinutes: cursorAutoRefreshNum,
           geminiAutoRefreshMinutes: geminiAutoRefreshNum,
@@ -981,6 +1020,18 @@ export function SettingsPage() {
           traeQuotaAlertThreshold: Number.isNaN(parsedTraeQuotaAlertThreshold)
             ? 20
             : parsedTraeQuotaAlertThreshold,
+          traeSoloQuotaAlertEnabled,
+          traeSoloQuotaAlertThreshold: Number.isNaN(parsedTraeSoloQuotaAlertThreshold)
+            ? 20
+            : parsedTraeSoloQuotaAlertThreshold,
+          traeCnQuotaAlertEnabled,
+          traeCnQuotaAlertThreshold: Number.isNaN(parsedTraeCnQuotaAlertThreshold)
+            ? 20
+            : parsedTraeCnQuotaAlertThreshold,
+          traeSoloCnQuotaAlertEnabled,
+          traeSoloCnQuotaAlertThreshold: Number.isNaN(parsedTraeSoloCnQuotaAlertThreshold)
+            ? 20
+            : parsedTraeSoloCnQuotaAlertThreshold,
           zedQuotaAlertEnabled,
           zedQuotaAlertThreshold: Number.isNaN(parsedZedQuotaAlertThreshold)
             ? 20
@@ -1016,6 +1067,9 @@ export function SettingsPage() {
     windsurfAutoRefresh,
     kiroAutoRefresh,
     traeAutoRefresh,
+    traeSoloAutoRefresh,
+    traeCnAutoRefresh,
+    traeSoloCnAutoRefresh,
     zedAutoRefresh,
     workbuddyAutoRefresh,
     qoderAutoRefresh,
@@ -1100,6 +1154,12 @@ export function SettingsPage() {
     qoderQuotaAlertThreshold,
     traeQuotaAlertEnabled,
     traeQuotaAlertThreshold,
+    traeSoloQuotaAlertEnabled,
+    traeSoloQuotaAlertThreshold,
+    traeCnQuotaAlertEnabled,
+    traeCnQuotaAlertThreshold,
+    traeSoloCnQuotaAlertEnabled,
+    traeSoloCnQuotaAlertThreshold,
     zedQuotaAlertEnabled,
     zedQuotaAlertThreshold,
     cursorQuotaAlertEnabled,
@@ -1370,6 +1430,9 @@ export function SettingsPage() {
       setWorkbuddyAutoRefresh(String(config.workbuddy_auto_refresh_minutes ?? 10));
       setQoderAutoRefresh(String(config.qoder_auto_refresh_minutes ?? 10));
       setTraeAutoRefresh(String(config.trae_auto_refresh_minutes ?? 10));
+      setTraeSoloAutoRefresh(String(config.trae_solo_auto_refresh_minutes ?? 10));
+      setTraeCnAutoRefresh(String(config.trae_cn_auto_refresh_minutes ?? 10));
+      setTraeSoloCnAutoRefresh(String(config.trae_solo_cn_auto_refresh_minutes ?? 10));
       setZedAutoRefresh(String(config.zed_auto_refresh_minutes ?? 10));
       setCurrentAccountRefreshMinutes(
         toCurrentAccountRefreshMinutesStringMap(loadCurrentAccountRefreshMinutesMap()),
@@ -1384,6 +1447,12 @@ export function SettingsPage() {
       setQoderQuotaAlertThreshold(String(config.qoder_quota_alert_threshold ?? 20));
       setTraeQuotaAlertEnabled(config.trae_quota_alert_enabled ?? false);
       setTraeQuotaAlertThreshold(String(config.trae_quota_alert_threshold ?? 20));
+      setTraeSoloQuotaAlertEnabled(config.trae_solo_quota_alert_enabled ?? false);
+      setTraeSoloQuotaAlertThreshold(String(config.trae_solo_quota_alert_threshold ?? 20));
+      setTraeCnQuotaAlertEnabled(config.trae_cn_quota_alert_enabled ?? false);
+      setTraeCnQuotaAlertThreshold(String(config.trae_cn_quota_alert_threshold ?? 20));
+      setTraeSoloCnQuotaAlertEnabled(config.trae_solo_cn_quota_alert_enabled ?? false);
+      setTraeSoloCnQuotaAlertThreshold(String(config.trae_solo_cn_quota_alert_threshold ?? 20));
       setZedQuotaAlertEnabled(config.zed_quota_alert_enabled ?? false);
       setZedQuotaAlertThreshold(String(config.zed_quota_alert_threshold ?? 20));
       setOpencodeSyncOnSwitch(config.opencode_sync_on_switch ?? false);
@@ -1439,6 +1508,9 @@ export function SettingsPage() {
       setWorkbuddyAutoRefreshCustomMode(false);
       setQoderAutoRefreshCustomMode(false);
       setTraeAutoRefreshCustomMode(false);
+      setTraeSoloAutoRefreshCustomMode(false);
+      setTraeCnAutoRefreshCustomMode(false);
+      setTraeSoloCnAutoRefreshCustomMode(false);
       setZedAutoRefreshCustomMode(false);
       setCursorAutoRefreshCustomMode(false);
       setGeminiAutoRefreshCustomMode(false);
@@ -1455,6 +1527,9 @@ export function SettingsPage() {
       setWorkbuddyQuotaAlertThresholdCustomMode(false);
       setQoderQuotaAlertThresholdCustomMode(false);
       setTraeQuotaAlertThresholdCustomMode(false);
+      setTraeSoloQuotaAlertThresholdCustomMode(false);
+      setTraeCnQuotaAlertThresholdCustomMode(false);
+      setTraeSoloCnQuotaAlertThresholdCustomMode(false);
       setZedQuotaAlertThresholdCustomMode(false);
       setCursorQuotaAlertThresholdCustomMode(false);
       setGeminiQuotaAlertThresholdCustomMode(false);
@@ -2020,6 +2095,12 @@ export function SettingsPage() {
         return parseRefresh(qoderAutoRefresh) > 0;
       case 'trae':
         return parseRefresh(traeAutoRefresh) > 0;
+      case 'trae_solo':
+        return parseRefresh(traeSoloAutoRefresh) > 0;
+      case 'trae_cn':
+        return parseRefresh(traeCnAutoRefresh) > 0;
+      case 'trae_solo_cn':
+        return parseRefresh(traeSoloCnAutoRefresh) > 0;
       case 'zed':
         return parseRefresh(zedAutoRefresh) > 0;
     }
@@ -2132,6 +2213,14 @@ export function SettingsPage() {
         id: a.id,
         email: a.email ?? getDisplayEmail(a),
       }));
+    const getTraeAccounts = (target: TraeAppPathTarget) =>
+      useTraeAccountStore
+        .getState()
+        .accounts.filter((account) => getTraeAccountPlatformId(account) === target)
+        .map((account) => ({
+          id: account.id,
+          email: account.email || getTraeAccountDisplayEmail(account),
+        }));
 
     switch (platform) {
       case 'antigravity':
@@ -2159,7 +2248,13 @@ export function SettingsPage() {
       case 'qoder':
         return getProviderAccounts(useQoderAccountStore, getQoderAccountDisplayEmail);
       case 'trae':
-        return getProviderAccounts(useTraeAccountStore, getTraeAccountDisplayEmail);
+        return getTraeAccounts('trae');
+      case 'trae_solo':
+        return getTraeAccounts('trae_solo');
+      case 'trae_cn':
+        return getTraeAccounts('trae_cn');
+      case 'trae_solo_cn':
+        return getTraeAccounts('trae_solo_cn');
       case 'zed':
         return getProviderAccounts(useZedAccountStore, getZedAccountDisplayEmail);
       default:
@@ -2522,6 +2617,80 @@ export function SettingsPage() {
     </>
   );
 
+  const renderTraeVariantSettingsGroup = ({
+    target,
+    order,
+    titleKey,
+    titleDefault,
+    appPathTitleKey,
+    appPathTitleDefault,
+    autoRefresh,
+    setAutoRefresh,
+    autoRefreshCustomMode,
+    setAutoRefreshCustomMode,
+    autoRefreshIsPreset,
+    quotaAlertEnabled,
+    setQuotaAlertEnabled,
+    quotaAlertThreshold,
+    setQuotaAlertThreshold,
+    quotaAlertThresholdCustomMode,
+    setQuotaAlertThresholdCustomMode,
+    quotaAlertThresholdIsPreset,
+  }: {
+    target: TraeAppPathTarget;
+    order: number;
+    titleKey: string;
+    titleDefault: string;
+    appPathTitleKey: string;
+    appPathTitleDefault: string;
+    autoRefresh: string;
+    setAutoRefresh: (value: string) => void;
+    autoRefreshCustomMode: boolean;
+    setAutoRefreshCustomMode: (enabled: boolean) => void;
+    autoRefreshIsPreset: boolean;
+    quotaAlertEnabled: boolean;
+    setQuotaAlertEnabled: (enabled: boolean) => void;
+    quotaAlertThreshold: string;
+    setQuotaAlertThreshold: (value: string) => void;
+    quotaAlertThresholdCustomMode: boolean;
+    setQuotaAlertThresholdCustomMode: (enabled: boolean) => void;
+    quotaAlertThresholdIsPreset: boolean;
+  }) => {
+    const displayName = getTraeAppDisplayName(target);
+
+    return (
+      <div style={{ order }}>
+        <div className="group-title">{t(titleKey, titleDefault)}</div>
+        <div className="settings-group">
+          {renderPlatformAutoRefreshRow({
+            title: t('settings.general.platformAutoRefresh', {
+              defaultValue: '{{platform}} Auto Refresh Quota',
+              platform: displayName,
+            }),
+            description: t('settings.general.traeAutoRefreshDesc', 'Background auto-refresh interval'),
+            value: autoRefresh,
+            setValue: setAutoRefresh,
+            customMode: autoRefreshCustomMode,
+            setCustomMode: setAutoRefreshCustomMode,
+            isPreset: autoRefreshIsPreset,
+          })}
+          {renderCurrentAccountRefreshRow(target)}
+          {renderAccountLevelRefreshConfig(target)}
+          {renderTraeAppPathRow(target, appPathTitleKey, appPathTitleDefault)}
+          {renderPlatformQuotaAlertRows({
+            enabled: quotaAlertEnabled,
+            setEnabled: setQuotaAlertEnabled,
+            threshold: quotaAlertThreshold,
+            setThreshold: setQuotaAlertThreshold,
+            customMode: quotaAlertThresholdCustomMode,
+            setCustomMode: setQuotaAlertThresholdCustomMode,
+            isPreset: quotaAlertThresholdIsPreset,
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const autoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(autoRefresh);
   const codexAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(codexAutoRefresh);
   const claudeAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(claudeAutoRefresh);
@@ -2533,6 +2702,9 @@ export function SettingsPage() {
   const workbuddyAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(workbuddyAutoRefresh);
   const qoderAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(qoderAutoRefresh);
   const traeAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(traeAutoRefresh);
+  const traeSoloAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(traeSoloAutoRefresh);
+  const traeCnAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(traeCnAutoRefresh);
+  const traeSoloCnAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(traeSoloCnAutoRefresh);
   const zedAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(zedAutoRefresh);
   const cursorAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(cursorAutoRefresh);
   const geminiAutoRefreshIsPreset = REFRESH_PRESET_VALUES.includes(geminiAutoRefresh);
@@ -2551,6 +2723,9 @@ export function SettingsPage() {
   const workbuddyQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(workbuddyQuotaAlertThreshold);
   const qoderQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(qoderQuotaAlertThreshold);
   const traeQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(traeQuotaAlertThreshold);
+  const traeSoloQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(traeSoloQuotaAlertThreshold);
+  const traeCnQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(traeCnQuotaAlertThreshold);
+  const traeSoloCnQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(traeSoloCnQuotaAlertThreshold);
   const zedQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(zedQuotaAlertThreshold);
   const cursorQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(cursorQuotaAlertThreshold);
   const geminiQuotaAlertThresholdIsPreset = THRESHOLD_PRESET_VALUES.includes(geminiQuotaAlertThreshold);
@@ -5451,22 +5626,6 @@ export function SettingsPage() {
                       </label>
                     </div>
                   </div>
-                  {renderTraeAppPathRow(
-                    'trae_solo',
-                    'settings.general.traeSoloAppPath',
-                    'TRAE SOLO 启动路径',
-                  )}
-                  {renderTraeAppPathRow(
-                    'trae_cn',
-                    'settings.general.traeCnAppPath',
-                    'Trae CN 启动路径',
-                  )}
-                  {renderTraeAppPathRow(
-                    'trae_solo_cn',
-                    'settings.general.traeSoloCnAppPath',
-                    'TRAE SOLO CN 启动路径',
-                  )}
-
                   {traeQuotaAlertEnabled && (
                     <div className="settings-row" style={{ animation: 'fadeUp 0.3s ease both' }}>
                       <div className="row-label">
@@ -5532,6 +5691,69 @@ export function SettingsPage() {
                   )}
                 </div>
               </div>
+
+              {renderTraeVariantSettingsGroup({
+                target: 'trae_solo',
+                order: platformSettingsOrder.trae_solo,
+                titleKey: 'quickSettings.traeSolo.title',
+                titleDefault: 'TRAE SOLO 设置',
+                appPathTitleKey: 'settings.general.traeSoloAppPath',
+                appPathTitleDefault: 'TRAE SOLO 启动路径',
+                autoRefresh: traeSoloAutoRefresh,
+                setAutoRefresh: setTraeSoloAutoRefresh,
+                autoRefreshCustomMode: traeSoloAutoRefreshCustomMode,
+                setAutoRefreshCustomMode: setTraeSoloAutoRefreshCustomMode,
+                autoRefreshIsPreset: traeSoloAutoRefreshIsPreset,
+                quotaAlertEnabled: traeSoloQuotaAlertEnabled,
+                setQuotaAlertEnabled: setTraeSoloQuotaAlertEnabled,
+                quotaAlertThreshold: traeSoloQuotaAlertThreshold,
+                setQuotaAlertThreshold: setTraeSoloQuotaAlertThreshold,
+                quotaAlertThresholdCustomMode: traeSoloQuotaAlertThresholdCustomMode,
+                setQuotaAlertThresholdCustomMode: setTraeSoloQuotaAlertThresholdCustomMode,
+                quotaAlertThresholdIsPreset: traeSoloQuotaAlertThresholdIsPreset,
+              })}
+
+              {renderTraeVariantSettingsGroup({
+                target: 'trae_cn',
+                order: platformSettingsOrder.trae_cn,
+                titleKey: 'quickSettings.traeCn.title',
+                titleDefault: 'Trae CN 设置',
+                appPathTitleKey: 'settings.general.traeCnAppPath',
+                appPathTitleDefault: 'Trae CN 启动路径',
+                autoRefresh: traeCnAutoRefresh,
+                setAutoRefresh: setTraeCnAutoRefresh,
+                autoRefreshCustomMode: traeCnAutoRefreshCustomMode,
+                setAutoRefreshCustomMode: setTraeCnAutoRefreshCustomMode,
+                autoRefreshIsPreset: traeCnAutoRefreshIsPreset,
+                quotaAlertEnabled: traeCnQuotaAlertEnabled,
+                setQuotaAlertEnabled: setTraeCnQuotaAlertEnabled,
+                quotaAlertThreshold: traeCnQuotaAlertThreshold,
+                setQuotaAlertThreshold: setTraeCnQuotaAlertThreshold,
+                quotaAlertThresholdCustomMode: traeCnQuotaAlertThresholdCustomMode,
+                setQuotaAlertThresholdCustomMode: setTraeCnQuotaAlertThresholdCustomMode,
+                quotaAlertThresholdIsPreset: traeCnQuotaAlertThresholdIsPreset,
+              })}
+
+              {renderTraeVariantSettingsGroup({
+                target: 'trae_solo_cn',
+                order: platformSettingsOrder.trae_solo_cn,
+                titleKey: 'quickSettings.traeSoloCn.title',
+                titleDefault: 'TRAE SOLO CN 设置',
+                appPathTitleKey: 'settings.general.traeSoloCnAppPath',
+                appPathTitleDefault: 'TRAE SOLO CN 启动路径',
+                autoRefresh: traeSoloCnAutoRefresh,
+                setAutoRefresh: setTraeSoloCnAutoRefresh,
+                autoRefreshCustomMode: traeSoloCnAutoRefreshCustomMode,
+                setAutoRefreshCustomMode: setTraeSoloCnAutoRefreshCustomMode,
+                autoRefreshIsPreset: traeSoloCnAutoRefreshIsPreset,
+                quotaAlertEnabled: traeSoloCnQuotaAlertEnabled,
+                setQuotaAlertEnabled: setTraeSoloCnQuotaAlertEnabled,
+                quotaAlertThreshold: traeSoloCnQuotaAlertThreshold,
+                setQuotaAlertThreshold: setTraeSoloCnQuotaAlertThreshold,
+                quotaAlertThresholdCustomMode: traeSoloCnQuotaAlertThresholdCustomMode,
+                setQuotaAlertThresholdCustomMode: setTraeSoloCnQuotaAlertThresholdCustomMode,
+                quotaAlertThresholdIsPreset: traeSoloCnQuotaAlertThresholdIsPreset,
+              })}
 
               <div style={{ order: platformSettingsOrder.workbuddy }}>
                 <div className="group-title">{t('quickSettings.workbuddy.title', 'WorkBuddy 设置')}</div>

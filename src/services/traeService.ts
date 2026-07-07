@@ -99,7 +99,10 @@ export async function refreshTraeToken(accountId: string): Promise<TraeAccount> 
   return await invoke('refresh_trae_token', { accountId });
 }
 
-export async function refreshAllTraeTokens(): Promise<number> {
+export async function refreshAllTraeTokens(platformId?: TraePlatformId): Promise<number> {
+  if (platformId) {
+    return await invoke('refresh_trae_tokens_for_platform', { platformId });
+  }
   return await invoke('refresh_all_trae_tokens');
 }
 

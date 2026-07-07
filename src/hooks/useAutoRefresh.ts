@@ -23,8 +23,12 @@ import { getClaudeAccountDisplayEmail } from '../types/claude';
 import { getCodebuddyAccountDisplayEmail } from '../types/codebuddy';
 import { getWorkbuddyAccountDisplayEmail } from '../types/workbuddy';
 import { getQoderAccountDisplayEmail } from '../types/qoder';
-import { getTraeAccountDisplayEmail } from '../types/trae';
+import {
+  getTraeAccountDisplayEmail,
+  getTraeAccountPlatformId,
+} from '../types/trae';
 import { getZedAccountDisplayEmail } from '../types/zed';
+import * as traeService from '../services/traeService';
 import {
   loadCurrentAccountRefreshMinutesMap,
   getAccountRefreshMinutes,
@@ -55,6 +59,9 @@ interface GeneralConfig {
   workbuddy_auto_refresh_minutes: number;
   qoder_auto_refresh_minutes: number;
   trae_auto_refresh_minutes: number;
+  trae_solo_auto_refresh_minutes: number;
+  trae_cn_auto_refresh_minutes: number;
+  trae_solo_cn_auto_refresh_minutes: number;
   zed_auto_refresh_minutes: number;
   auto_switch_enabled: boolean;
   codex_auto_switch_enabled?: boolean;
@@ -95,6 +102,12 @@ interface PlatformRefreshDescriptor {
 const STARTUP_AUTO_REFRESH_SETUP_DELAY_MS = 2500;
 const AUTO_REFRESH_TICK_MS = 5_000;
 const AUTO_REFRESH_MAX_CONCURRENT = 1;
+const TRAE_CURRENT_ACCOUNT_ID_KEYS = {
+  trae: 'agtools.trae.current_account_id',
+  trae_solo: 'agtools.trae_solo.current_account_id',
+  trae_cn: 'agtools.trae_cn.current_account_id',
+  trae_solo_cn: 'agtools.trae_solo_cn.current_account_id',
+} as const;
 
 function minutesToMs(minutes: number): number {
   return minutes * 60 * 1000;
@@ -137,6 +150,27 @@ function getCurrentAccountEmails(): Record<CurrentAccountRefreshPlatform, string
     if (!account) return null;
     return account.email ?? getDisplayEmail(account);
   };
+  const getTraeProviderEmail = (
+    platform: keyof typeof TRAE_CURRENT_ACCOUNT_ID_KEYS,
+  ): string | null => {
+    let currentAccountId: string | null = null;
+    try {
+      currentAccountId = localStorage.getItem(TRAE_CURRENT_ACCOUNT_ID_KEYS[platform]);
+    } catch {
+      currentAccountId = null;
+    }
+    const normalizedCurrentAccountId = currentAccountId?.trim();
+    if (!normalizedCurrentAccountId) return null;
+    const account = useTraeAccountStore
+      .getState()
+      .accounts.find(
+        (item) =>
+          item.id === normalizedCurrentAccountId &&
+          getTraeAccountPlatformId(item) === platform,
+      );
+    if (!account) return null;
+    return account.email ?? getTraeAccountDisplayEmail(account);
+  };
 
   return {
     antigravity: useAccountStore.getState().currentAccount?.email ?? null,
@@ -151,7 +185,10 @@ function getCurrentAccountEmails(): Record<CurrentAccountRefreshPlatform, string
     codebuddy_cn: getProviderEmail(useCodebuddyCnAccountStore, getCodebuddyAccountDisplayEmail),
     workbuddy: getProviderEmail(useWorkbuddyAccountStore, getWorkbuddyAccountDisplayEmail),
     qoder: getProviderEmail(useQoderAccountStore, getQoderAccountDisplayEmail),
-    trae: getProviderEmail(useTraeAccountStore, getTraeAccountDisplayEmail),
+    trae: getTraeProviderEmail('trae'),
+    trae_solo: getTraeProviderEmail('trae_solo'),
+    trae_cn: getTraeProviderEmail('trae_cn'),
+    trae_solo_cn: getTraeProviderEmail('trae_solo_cn'),
     zed: getProviderEmail(useZedAccountStore, getZedAccountDisplayEmail),
   };
 }
@@ -194,8 +231,7 @@ export function useAutoRefresh() {
   const refreshAllQoderTokens = useQoderAccountStore((state) => state.refreshAllTokens);
   const fetchCurrentQoderAccountId = useQoderAccountStore((state) => state.fetchCurrentAccountId);
   const refreshQoderToken = useQoderAccountStore((state) => state.refreshToken);
-  const refreshAllTraeTokens = useTraeAccountStore((state) => state.refreshAllTokens);
-  const fetchCurrentTraeAccountId = useTraeAccountStore((state) => state.fetchCurrentAccountId);
+  const fetchTraeAccounts = useTraeAccountStore((state) => state.fetchAccounts);
   const refreshTraeToken = useTraeAccountStore((state) => state.refreshToken);
   const refreshAllZedTokens = useZedAccountStore((state) => state.refreshAllTokens);
   const fetchCurrentZedAccountId = useZedAccountStore((state) => state.fetchCurrentAccountId);
@@ -227,6 +263,12 @@ export function useAutoRefresh() {
   const qoderCurrentRefreshingRef = useRef(false);
   const traeRefreshingRef = useRef(false);
   const traeCurrentRefreshingRef = useRef(false);
+  const traeSoloRefreshingRef = useRef(false);
+  const traeSoloCurrentRefreshingRef = useRef(false);
+  const traeCnRefreshingRef = useRef(false);
+  const traeCnCurrentRefreshingRef = useRef(false);
+  const traeSoloCnRefreshingRef = useRef(false);
+  const traeSoloCnCurrentRefreshingRef = useRef(false);
   const zedRefreshingRef = useRef(false);
   const zedCurrentRefreshingRef = useRef(false);
 
@@ -600,10 +642,68 @@ export function useAutoRefresh() {
               fullRefreshingRef: traeRefreshingRef,
               currentRefreshingRef: traeCurrentRefreshingRef,
               runFullRefresh: async () => {
-                await refreshAllTraeTokens();
+                await traeService.refreshAllTraeTokens('trae');
+                await fetchTraeAccounts();
               },
               runCurrentRefresh: async () => {
-                await runProviderCurrentRefresh(fetchCurrentTraeAccountId, refreshTraeToken);
+                await runProviderCurrentRefresh(
+                  () => traeService.getTraeCurrentAccountId('trae'),
+                  refreshTraeToken,
+                );
+              },
+            },
+            {
+              key: 'trae_solo',
+              label: 'TRAE SOLO',
+              intervalMinutes: config.trae_solo_auto_refresh_minutes,
+              currentMinutes: resolveCurrentMinutes('trae_solo', currentAccountEmails.trae_solo, currentRefreshMinutesMap),
+              fullRefreshingRef: traeSoloRefreshingRef,
+              currentRefreshingRef: traeSoloCurrentRefreshingRef,
+              runFullRefresh: async () => {
+                await traeService.refreshAllTraeTokens('trae_solo');
+                await fetchTraeAccounts();
+              },
+              runCurrentRefresh: async () => {
+                await runProviderCurrentRefresh(
+                  () => traeService.getTraeCurrentAccountId('trae_solo'),
+                  refreshTraeToken,
+                );
+              },
+            },
+            {
+              key: 'trae_cn',
+              label: 'Trae CN',
+              intervalMinutes: config.trae_cn_auto_refresh_minutes,
+              currentMinutes: resolveCurrentMinutes('trae_cn', currentAccountEmails.trae_cn, currentRefreshMinutesMap),
+              fullRefreshingRef: traeCnRefreshingRef,
+              currentRefreshingRef: traeCnCurrentRefreshingRef,
+              runFullRefresh: async () => {
+                await traeService.refreshAllTraeTokens('trae_cn');
+                await fetchTraeAccounts();
+              },
+              runCurrentRefresh: async () => {
+                await runProviderCurrentRefresh(
+                  () => traeService.getTraeCurrentAccountId('trae_cn'),
+                  refreshTraeToken,
+                );
+              },
+            },
+            {
+              key: 'trae_solo_cn',
+              label: 'TRAE SOLO CN',
+              intervalMinutes: config.trae_solo_cn_auto_refresh_minutes,
+              currentMinutes: resolveCurrentMinutes('trae_solo_cn', currentAccountEmails.trae_solo_cn, currentRefreshMinutesMap),
+              fullRefreshingRef: traeSoloCnRefreshingRef,
+              currentRefreshingRef: traeSoloCnCurrentRefreshingRef,
+              runFullRefresh: async () => {
+                await traeService.refreshAllTraeTokens('trae_solo_cn');
+                await fetchTraeAccounts();
+              },
+              runCurrentRefresh: async () => {
+                await runProviderCurrentRefresh(
+                  () => traeService.getTraeCurrentAccountId('trae_solo_cn'),
+                  refreshTraeToken,
+                );
               },
             },
             {
@@ -702,7 +802,7 @@ export function useAutoRefresh() {
     fetchCurrentGhcpAccountId,
     fetchCurrentKiroAccountId,
     fetchCurrentQoderAccountId,
-    fetchCurrentTraeAccountId,
+    fetchTraeAccounts,
     fetchCurrentWindsurfAccountId,
     fetchCurrentWorkbuddyAccountId,
     fetchCurrentZedAccountId,
@@ -717,7 +817,6 @@ export function useAutoRefresh() {
     refreshAllKiroTokens,
     refreshAllQuotas,
     refreshAllQoderTokens,
-    refreshAllTraeTokens,
     refreshAllWindsurfTokens,
     refreshAllWorkbuddyTokens,
     refreshAllZedTokens,

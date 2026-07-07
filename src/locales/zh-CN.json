@@ -1100,6 +1100,7 @@
       "zedPathSelect": "选择",
       "zedPathReset": "重置默认",
       "traeAutoRefresh": "Trae 自动刷新配额",
+      "platformAutoRefresh": "{{platform}} 自动刷新配额",
       "traeAutoRefreshDesc": "后台自动更新频率",
       "traeAppPath": "Trae 启动路径",
       "traeSoloAppPath": "TRAE SOLO 启动路径",
@@ -3887,12 +3888,15 @@
       "appTargetPlaceholder": "Claude.exe 路径或 shell:AppsFolder\\..."
     },
     "traeSolo": {
+      "title": "TRAE SOLO 设置",
       "appPath": "TRAE SOLO 路径"
     },
     "traeCn": {
+      "title": "Trae CN 设置",
       "appPath": "Trae CN 路径"
     },
     "traeSoloCn": {
+      "title": "TRAE SOLO CN 设置",
       "appPath": "TRAE SOLO CN 路径"
     }
   },

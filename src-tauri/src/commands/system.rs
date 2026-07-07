@@ -95,6 +95,9 @@ pub struct GeneralConfig {
     pub qoder_auto_refresh_minutes: i32,
     /// Trae 自动刷新间隔（分钟），-1 表示禁用
     pub trae_auto_refresh_minutes: i32,
+    pub trae_solo_auto_refresh_minutes: i32,
+    pub trae_cn_auto_refresh_minutes: i32,
+    pub trae_solo_cn_auto_refresh_minutes: i32,
     /// 窗口关闭行为: "ask", "minimize", "quit"
     pub close_behavior: String,
     /// 窗口最小化行为（macOS）: "dock_and_tray", "tray_only"
@@ -269,6 +272,12 @@ pub struct GeneralConfig {
     pub trae_quota_alert_enabled: bool,
     /// Trae 配额预警阈值（百分比）
     pub trae_quota_alert_threshold: i32,
+    pub trae_solo_quota_alert_enabled: bool,
+    pub trae_solo_quota_alert_threshold: i32,
+    pub trae_cn_quota_alert_enabled: bool,
+    pub trae_cn_quota_alert_threshold: i32,
+    pub trae_solo_cn_quota_alert_enabled: bool,
+    pub trae_solo_cn_quota_alert_threshold: i32,
     /// 是否启用 WorkBuddy 配额预警通知
     pub workbuddy_quota_alert_enabled: bool,
     /// WorkBuddy 配额预警阈值（百分比）
@@ -1963,6 +1972,9 @@ pub fn save_network_config(
         workbuddy_auto_refresh_minutes: current.workbuddy_auto_refresh_minutes,
         qoder_auto_refresh_minutes: current.qoder_auto_refresh_minutes,
         trae_auto_refresh_minutes: current.trae_auto_refresh_minutes,
+        trae_solo_auto_refresh_minutes: current.trae_solo_auto_refresh_minutes,
+        trae_cn_auto_refresh_minutes: current.trae_cn_auto_refresh_minutes,
+        trae_solo_cn_auto_refresh_minutes: current.trae_solo_cn_auto_refresh_minutes,
         close_behavior: current.close_behavior,
         minimize_behavior: current.minimize_behavior,
         hide_dock_icon: current.hide_dock_icon,
@@ -2072,6 +2084,12 @@ pub fn save_network_config(
         qoder_quota_alert_threshold: current.qoder_quota_alert_threshold,
         trae_quota_alert_enabled: current.trae_quota_alert_enabled,
         trae_quota_alert_threshold: current.trae_quota_alert_threshold,
+        trae_solo_quota_alert_enabled: current.trae_solo_quota_alert_enabled,
+        trae_solo_quota_alert_threshold: current.trae_solo_quota_alert_threshold,
+        trae_cn_quota_alert_enabled: current.trae_cn_quota_alert_enabled,
+        trae_cn_quota_alert_threshold: current.trae_cn_quota_alert_threshold,
+        trae_solo_cn_quota_alert_enabled: current.trae_solo_cn_quota_alert_enabled,
+        trae_solo_cn_quota_alert_threshold: current.trae_solo_cn_quota_alert_threshold,
         workbuddy_quota_alert_enabled: current.workbuddy_quota_alert_enabled,
         workbuddy_quota_alert_threshold: current.workbuddy_quota_alert_threshold,
     };
@@ -2290,6 +2308,9 @@ pub fn get_general_config(app: tauri::AppHandle) -> Result<GeneralConfig, String
         workbuddy_auto_refresh_minutes: user_config.workbuddy_auto_refresh_minutes,
         qoder_auto_refresh_minutes: user_config.qoder_auto_refresh_minutes,
         trae_auto_refresh_minutes: user_config.trae_auto_refresh_minutes,
+        trae_solo_auto_refresh_minutes: user_config.trae_solo_auto_refresh_minutes,
+        trae_cn_auto_refresh_minutes: user_config.trae_cn_auto_refresh_minutes,
+        trae_solo_cn_auto_refresh_minutes: user_config.trae_solo_cn_auto_refresh_minutes,
         close_behavior: close_behavior_str.to_string(),
         minimize_behavior: minimize_behavior_str.to_string(),
         hide_dock_icon: user_config.hide_dock_icon,
@@ -2385,6 +2406,12 @@ pub fn get_general_config(app: tauri::AppHandle) -> Result<GeneralConfig, String
         qoder_quota_alert_threshold: user_config.qoder_quota_alert_threshold,
         trae_quota_alert_enabled: user_config.trae_quota_alert_enabled,
         trae_quota_alert_threshold: user_config.trae_quota_alert_threshold,
+        trae_solo_quota_alert_enabled: user_config.trae_solo_quota_alert_enabled,
+        trae_solo_quota_alert_threshold: user_config.trae_solo_quota_alert_threshold,
+        trae_cn_quota_alert_enabled: user_config.trae_cn_quota_alert_enabled,
+        trae_cn_quota_alert_threshold: user_config.trae_cn_quota_alert_threshold,
+        trae_solo_cn_quota_alert_enabled: user_config.trae_solo_cn_quota_alert_enabled,
+        trae_solo_cn_quota_alert_threshold: user_config.trae_solo_cn_quota_alert_threshold,
         workbuddy_quota_alert_enabled: user_config.workbuddy_quota_alert_enabled,
         workbuddy_quota_alert_threshold: user_config.workbuddy_quota_alert_threshold,
     };
@@ -2436,6 +2463,9 @@ pub fn save_general_config(
     workbuddy_auto_refresh_minutes: Option<i32>,
     qoder_auto_refresh_minutes: Option<i32>,
     trae_auto_refresh_minutes: Option<i32>,
+    trae_solo_auto_refresh_minutes: Option<i32>,
+    trae_cn_auto_refresh_minutes: Option<i32>,
+    trae_solo_cn_auto_refresh_minutes: Option<i32>,
     close_behavior: String,
     minimize_behavior: Option<String>,
     hide_dock_icon: Option<bool>,
@@ -2526,6 +2556,12 @@ pub fn save_general_config(
     qoder_quota_alert_threshold: Option<i32>,
     trae_quota_alert_enabled: Option<bool>,
     trae_quota_alert_threshold: Option<i32>,
+    trae_solo_quota_alert_enabled: Option<bool>,
+    trae_solo_quota_alert_threshold: Option<i32>,
+    trae_cn_quota_alert_enabled: Option<bool>,
+    trae_cn_quota_alert_threshold: Option<i32>,
+    trae_solo_cn_quota_alert_enabled: Option<bool>,
+    trae_solo_cn_quota_alert_threshold: Option<i32>,
     workbuddy_quota_alert_enabled: Option<bool>,
     workbuddy_quota_alert_threshold: Option<i32>,
 ) -> Result<(), String> {
@@ -2706,6 +2742,12 @@ pub fn save_general_config(
             .unwrap_or(current.qoder_auto_refresh_minutes),
         trae_auto_refresh_minutes: trae_auto_refresh_minutes
             .unwrap_or(current.trae_auto_refresh_minutes),
+        trae_solo_auto_refresh_minutes: trae_solo_auto_refresh_minutes
+            .unwrap_or(current.trae_solo_auto_refresh_minutes),
+        trae_cn_auto_refresh_minutes: trae_cn_auto_refresh_minutes
+            .unwrap_or(current.trae_cn_auto_refresh_minutes),
+        trae_solo_cn_auto_refresh_minutes: trae_solo_cn_auto_refresh_minutes
+            .unwrap_or(current.trae_solo_cn_auto_refresh_minutes),
         close_behavior: close_behavior_enum,
         minimize_behavior: minimize_behavior_enum,
         hide_dock_icon: hide_dock_icon_value,
@@ -2852,6 +2894,18 @@ pub fn save_general_config(
             .unwrap_or(current.trae_quota_alert_enabled),
         trae_quota_alert_threshold: trae_quota_alert_threshold
             .unwrap_or(current.trae_quota_alert_threshold),
+        trae_solo_quota_alert_enabled: trae_solo_quota_alert_enabled
+            .unwrap_or(current.trae_solo_quota_alert_enabled),
+        trae_solo_quota_alert_threshold: trae_solo_quota_alert_threshold
+            .unwrap_or(current.trae_solo_quota_alert_threshold),
+        trae_cn_quota_alert_enabled: trae_cn_quota_alert_enabled
+            .unwrap_or(current.trae_cn_quota_alert_enabled),
+        trae_cn_quota_alert_threshold: trae_cn_quota_alert_threshold
+            .unwrap_or(current.trae_cn_quota_alert_threshold),
+        trae_solo_cn_quota_alert_enabled: trae_solo_cn_quota_alert_enabled
+            .unwrap_or(current.trae_solo_cn_quota_alert_enabled),
+        trae_solo_cn_quota_alert_threshold: trae_solo_cn_quota_alert_threshold
+            .unwrap_or(current.trae_solo_cn_quota_alert_threshold),
         workbuddy_quota_alert_enabled: workbuddy_quota_alert_enabled
             .unwrap_or(current.workbuddy_quota_alert_enabled),
         workbuddy_quota_alert_threshold: workbuddy_quota_alert_threshold
