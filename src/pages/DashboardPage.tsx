@@ -43,6 +43,7 @@ import {
 } from '../types/qoder';
 import {
   TraeAccount,
+  getTraeAccountPlatformId,
   getTraeUsage,
 } from '../types/trae';
 import {
@@ -652,6 +653,19 @@ export function DashboardPage({
     void fetchAgCurrent(antigravityRuntimeTarget);
   }, [antigravityRuntimeTarget, fetchAgCurrent]);
 
+  const traeAccountsByPlatform = useMemo<Record<TraePlatformId, TraeAccount[]>>(() => {
+    const result: Record<TraePlatformId, TraeAccount[]> = {
+      trae: [],
+      trae_solo: [],
+      trae_cn: [],
+      trae_solo_cn: [],
+    };
+    for (const account of traeAccounts) {
+      result[getTraeAccountPlatformId(account)].push(account);
+    }
+    return result;
+  }, [traeAccounts]);
+
   // Statistics
   const stats = useMemo(() => {
     return {
@@ -682,10 +696,13 @@ export function DashboardPage({
       codebuddy: codebuddyAccounts.length,
       codebuddy_cn: codebuddyCnAccounts.length,
       qoder: qoderAccounts.length,
-      trae: traeAccounts.length,
+      trae: traeAccountsByPlatform.trae.length,
+      trae_solo: traeAccountsByPlatform.trae_solo.length,
+      trae_cn: traeAccountsByPlatform.trae_cn.length,
+      trae_solo_cn: traeAccountsByPlatform.trae_solo_cn.length,
       workbuddy: workbuddyAccounts.length,
     };
-  }, [agAccounts, codexAccounts, claudeAccounts, zedAccounts, githubCopilotAccounts, windsurfAccounts, kiroAccounts, cursorAccounts, geminiAccounts, codebuddyAccounts, codebuddyCnAccounts, qoderAccounts, traeAccounts, workbuddyAccounts]);
+  }, [agAccounts, codexAccounts, claudeAccounts, zedAccounts, githubCopilotAccounts, windsurfAccounts, kiroAccounts, cursorAccounts, geminiAccounts, codebuddyAccounts, codebuddyCnAccounts, qoderAccounts, traeAccounts, traeAccountsByPlatform, workbuddyAccounts]);
 
   const dashboardAvailableTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -1848,11 +1865,11 @@ export function DashboardPage({
 
   const getTraeCurrentForPlatform = (platformId: TraePlatformId): TraeAccount | null => {
     const currentId = traeCurrentIdsByPlatform[platformId] ?? (platformId === 'trae' ? traeCurrentId : null);
-    return resolveDashboardCurrentAccount(traeAccounts, currentId);
+    return resolveDashboardCurrentAccount(traeAccountsByPlatform[platformId], currentId);
   };
 
   const getTraeRecommendedForPlatform = (platformId: TraePlatformId): TraeAccount | null => {
-    return pickRecommendedTraeAccount(traeAccounts, getTraeCurrentForPlatform(platformId)?.id);
+    return pickRecommendedTraeAccount(traeAccountsByPlatform[platformId], getTraeCurrentForPlatform(platformId)?.id);
   };
 
   const workbuddyRecommended = useMemo(() => {
@@ -2486,9 +2503,9 @@ export function DashboardPage({
     codebuddy_cn: stats.codebuddy_cn,
     qoder: stats.qoder,
     trae: stats.trae,
-    trae_solo: stats.trae,
-    trae_cn: stats.trae,
-    trae_solo_cn: stats.trae,
+    trae_solo: stats.trae_solo,
+    trae_cn: stats.trae_cn,
+    trae_solo_cn: stats.trae_solo_cn,
     workbuddy: stats.workbuddy,
   };
 
