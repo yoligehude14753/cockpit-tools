@@ -264,14 +264,14 @@ const translations = {
     error_fileCorrupted_openFolder: "Mở thư mục"
   },
   "zh-tw": {
-    nav_instances: "多開實例",
+    nav_instances: "應用多開",
     wakeup_subtitle: "管理喚醒任務，支援獨立啟停與統一開關。",
     codex_subtitle: "即時監控所有Codex帳號的模型配額狀態。",
     codex_instances_subtitle: "多實例獨立配置，多帳號並行運行。",
-    codex_instances_comingSoon: "多開實例功能即將上線",
+    codex_instances_comingSoon: "應用多開功能即將上線",
     codex_instances_comingSoonDesc: "支援以不同帳號同時運行多個 Codex.app 實例，敬請期待。",
     codex_instances_unsupported_title: "暫不支援目前系統",
-    codex_instances_unsupported_desc: "Codex 多開實例僅支援 macOS，請在 macOS 上使用。",
+    codex_instances_unsupported_desc: "Codex 應用多開僅支援 macOS，請在 macOS 上使用。",
     codex_instances_quota_hourly: "5小時",
     codex_instances_quota_weekly: "週",
     error_fileCorrupted_title: "檔案讀取失敗",

@@ -35,7 +35,6 @@ import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 import { CodexIcon } from "../components/icons/CodexIcon";
 import { ManualHelpIconButton } from "../components/ManualHelpIconButton";
-import { TopCenterPromoBanner } from "../components/TopCenterPromoBanner";
 import { PlatformGroupSwitcher } from "../components/platform/PlatformGroupSwitcher";
 import {
   findGroupByPlatform,
@@ -2512,7 +2511,6 @@ export function CodexApiServicePage() {
           </span>
           <ManualHelpIconButton className="platform-header-help" />
         </div>
-        <TopCenterPromoBanner />
         <div className="page-top-strip-right-placeholder" aria-hidden="true" />
       </div>
 

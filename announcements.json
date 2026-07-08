@@ -16,6 +16,12 @@
       "badge": "推广",
       "ctaLabel": "选购",
       "ctaUrl": "https://xiangzili.xyz/user/index/shop",
+      "displayMode": "dashboardAndPlatforms",
+      "displayPlatforms": [
+        "antigravity",
+        "antigravity_ide",
+        "codex"
+      ],
       "targetVersions": "*",
       "targetLanguages": [
         "zh"
@@ -154,7 +160,7 @@
       "priority": 300,
       "title": "👋 欢迎使用 Cockpit Tools",
       "summary": "账号管理、配额监控与多开能力已就绪。",
-      "content": "感谢你选择 Cockpit Tools。\n\n这个桌面端目前可以帮助你：\n• 统一管理 Antigravity、Codex、GitHub Copilot、Windsurf、Kiro 账号\n• 实时查看模型配额与重置时间\n• 快速切换当前账号并支持批量刷新\n• 管理设备指纹与多开实例\n• 使用唤醒任务与账号验证能力\n\n如果你有建议或问题，欢迎随时反馈。",
+      "content": "感谢你选择 Cockpit Tools。\n\n这个桌面端目前可以帮助你：\n• 统一管理 Antigravity、Codex、GitHub Copilot、Windsurf、Kiro 账号\n• 实时查看模型配额与重置时间\n• 快速切换当前账号并支持批量刷新\n• 管理设备指纹与应用多开\n• 使用唤醒任务与账号验证能力\n\n如果你有建议或问题，欢迎随时反馈。",
       "action": {
         "type": "url",
         "target": "https://github.com/jlcodes99/cockpit-tools/issues",
@@ -172,13 +178,13 @@
         "zh-CN": {
           "title": "👋 欢迎使用 Cockpit Tools",
           "summary": "账号管理、配额监控与多开能力已就绪。",
-          "content": "感谢你选择 Cockpit Tools。\n\n这个桌面端目前可以帮助你：\n• 统一管理 Antigravity、Codex、GitHub Copilot、Windsurf、Kiro 账号\n• 实时查看模型配额与重置时间\n• 快速切换当前账号并支持批量刷新\n• 管理设备指纹与多开实例\n• 使用唤醒任务与账号验证能力\n\n如果你有建议或问题，欢迎随时反馈。",
+          "content": "感谢你选择 Cockpit Tools。\n\n这个桌面端目前可以帮助你：\n• 统一管理 Antigravity、Codex、GitHub Copilot、Windsurf、Kiro 账号\n• 实时查看模型配额与重置时间\n• 快速切换当前账号并支持批量刷新\n• 管理设备指纹与应用多开\n• 使用唤醒任务与账号验证能力\n\n如果你有建议或问题，欢迎随时反馈。",
           "actionLabel": "反馈建议"
         },
         "zh-tw": {
           "title": "👋 歡迎使用 Cockpit Tools",
           "summary": "帳號管理、配額監控與多開能力已就緒。",
-          "content": "感謝你選擇 Cockpit Tools。\n\n這個桌面端目前可以幫助你：\n• 統一管理 Antigravity、Codex、GitHub Copilot、Windsurf、Kiro 帳號\n• 即時查看模型配額與重置時間\n• 快速切換當前帳號並支援批量刷新\n• 管理裝置指紋與多開實例\n• 使用喚醒任務與帳號驗證能力\n\n如果你有建議或問題，歡迎隨時回饋。",
+          "content": "感謝你選擇 Cockpit Tools。\n\n這個桌面端目前可以幫助你：\n• 統一管理 Antigravity、Codex、GitHub Copilot、Windsurf、Kiro 帳號\n• 即時查看模型配額與重置時間\n• 快速切換當前帳號並支援批量刷新\n• 管理裝置指紋與應用多開\n• 使用喚醒任務與帳號驗證能力\n\n如果你有建議或問題，歡迎隨時回饋。",
           "actionLabel": "回饋建議"
         },
         "en": {

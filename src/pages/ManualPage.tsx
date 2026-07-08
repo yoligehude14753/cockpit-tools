@@ -58,13 +58,13 @@ export function ManualPage({ onNavigate, onOpenPlatformLayout }: ManualPageProps
         outcomes: [
           t('manual.quickStart.outcomes.0', '先在仪表盘看全局状态，再进入具体平台页操作。'),
           t('manual.quickStart.outcomes.1', '先完成一个平台的完整闭环，再扩展到其他平台。'),
-          t('manual.quickStart.outcomes.2', '理解“账号管理”和“多开实例”是两条不同工作流。'),
+          t('manual.quickStart.outcomes.2', '理解“账号管理”和“应用多开”是两条不同工作流。'),
         ],
         steps: [
           t('manual.quickStart.steps.0', '打开“仪表盘”，确认你需要管理的平台已经可见。'),
           t('manual.quickStart.steps.1', '进入目标平台页（如 Codex / GitHub Copilot），先添加 1 个账号。'),
           t('manual.quickStart.steps.2', '使用“切换/注入”按钮验证切号生效。'),
-          t('manual.quickStart.steps.3', '再进入“多开实例”创建 1 个实例，验证隔离和并行运行。'),
+          t('manual.quickStart.steps.3', '再进入“应用多开”创建 1 个实例，验证隔离和并行运行。'),
         ],
         cautions: [
           t('manual.quickStart.cautions.0', '第一次上手建议只操作一个平台，先跑通流程再批量导入。'),
@@ -149,7 +149,7 @@ export function ManualPage({ onNavigate, onOpenPlatformLayout }: ManualPageProps
         title: t('manual.providers.title', 'Codex / GitHub Copilot / Windsurf / Kiro'),
         summary: t(
           'manual.providers.summary',
-          '四个平台页结构一致：账号总览 + 多开实例，支持 OAuth、Token/JSON 导入与切换。',
+          '四个平台页结构一致：账号总览 + 应用多开，支持 OAuth、Token/JSON 导入与切换。',
         ),
         outcomes: [
           t('manual.providers.outcomes.0', 'Codex：账号切换 + 配额刷新。'),
@@ -183,7 +183,7 @@ export function ManualPage({ onNavigate, onOpenPlatformLayout }: ManualPageProps
       {
         id: 'instances',
         icon: <LayoutGrid size={18} />,
-        title: t('manual.instances.title', '多开实例（重点）'),
+        title: t('manual.instances.title', '应用多开（重点）'),
         summary: t(
           'manual.instances.summary',
           '用于账号隔离和并行运行。每个实例有独立目录、独立状态，可避免互相污染。',
@@ -210,7 +210,7 @@ export function ManualPage({ onNavigate, onOpenPlatformLayout }: ManualPageProps
           t('manual.instances.keywords.4', '初始化'),
         ],
         actions: [
-          { id: 'go-instances', kind: 'navigate', page: 'instances', label: t('manual.actions.goInstances', '前往多开实例'), primary: true },
+          { id: 'go-instances', kind: 'navigate', page: 'instances', label: t('manual.actions.goInstances', '前往应用多开'), primary: true },
         ],
       },
       {

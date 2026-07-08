@@ -3,6 +3,7 @@ import {
   lazy,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
@@ -21,6 +22,7 @@ import { GlobalModal } from './components/GlobalModal';
 import { TopCenterPromoBanner } from './components/TopCenterPromoBanner';
 import type { QuickSettingsType } from './components/QuickSettingsPopover';
 import type { Page } from './types/navigation';
+import type { TopRightAd } from './types/topRightAd';
 import { useAutoRefresh } from './hooks/useAutoRefresh';
 import { useEasterEggTrigger } from './hooks/useEasterEggTrigger';
 import { useGlobalModal } from './hooks/useGlobalModal';
@@ -192,6 +194,102 @@ const RENDERABLE_PAGE_VALUES: readonly Page[] = [
   'settings',
 ];
 const RENDERABLE_PAGE_SET = new Set<string>(RENDERABLE_PAGE_VALUES);
+
+const TOP_PROMO_DEFAULT_EXCLUDED_PAGES: readonly Page[] = ['api-relay'];
+const TOP_PROMO_PAGE_PLATFORM_TARGETS: Partial<Record<Page, readonly string[]>> = {
+  overview: ['antigravity', 'antigravity-ide'],
+  instances: ['antigravity', 'antigravity-ide'],
+  wakeup: ['antigravity', 'antigravity-ide'],
+  verification: ['antigravity', 'antigravity-ide'],
+  codex: ['codex'],
+  'codex-api-service': ['codex'],
+  'codex-instances': ['codex'],
+  claude: ['claude', 'claude-manager'],
+  'claude-cli': ['claude', 'claude-manager'],
+  zed: ['zed'],
+  'github-copilot': ['github-copilot'],
+  windsurf: ['windsurf'],
+  kiro: ['kiro'],
+  cursor: ['cursor'],
+  gemini: ['gemini'],
+  codebuddy: ['codebuddy'],
+  'codebuddy-cn': ['codebuddy-cn'],
+  qoder: ['qoder'],
+  trae: ['trae', 'trae-suite'],
+  'trae-solo': ['trae-solo', 'trae-suite'],
+  'trae-cn': ['trae-cn', 'trae-suite'],
+  'trae-solo-cn': ['trae-solo-cn', 'trae-suite'],
+  workbuddy: ['workbuddy'],
+};
+
+function normalizePromoTarget(value: string): string {
+  return value.trim().toLowerCase().replace(/_/g, '-');
+}
+
+function normalizePromoTargets(values?: string[] | null): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return values
+    .map((value) => normalizePromoTarget(value))
+    .filter(Boolean);
+}
+
+function promoTargetsMatch(configuredTargets: string[], activeTargets: Set<string>): boolean {
+  return configuredTargets.some((target) => target === '*' || activeTargets.has(target));
+}
+
+function resolveTopPromoDisplayMode(ad: TopRightAd): string {
+  const mode = ad.displayMode ? normalizePromoTarget(ad.displayMode).replace(/[^a-z0-9]/g, '') : '';
+  if (!mode) {
+    return ad.displayPages?.length || ad.displayPlatforms?.length ? 'targets' : 'all';
+  }
+  return mode;
+}
+
+function isTopPromoAdVisibleOnPage(ad: TopRightAd, page: Page): boolean {
+  const pageTargets = new Set([normalizePromoTarget(page)]);
+  const platformTargets = new Set(
+    (TOP_PROMO_PAGE_PLATFORM_TARGETS[page] ?? []).map((value) => normalizePromoTarget(value)),
+  );
+  const displayPages = normalizePromoTargets(ad.displayPages);
+  const displayPlatforms = normalizePromoTargets(ad.displayPlatforms);
+  const pageMatches = promoTargetsMatch(displayPages, pageTargets);
+  const platformMatches = promoTargetsMatch(displayPlatforms, platformTargets);
+
+  if (
+    TOP_PROMO_DEFAULT_EXCLUDED_PAGES.includes(page)
+    && !pageMatches
+    && !displayPages.includes('*')
+  ) {
+    return false;
+  }
+
+  if (promoTargetsMatch(normalizePromoTargets(ad.excludePages), pageTargets)) {
+    return false;
+  }
+  if (promoTargetsMatch(normalizePromoTargets(ad.excludePlatforms), platformTargets)) {
+    return false;
+  }
+
+  switch (resolveTopPromoDisplayMode(ad)) {
+    case 'dashboard':
+      return page === 'dashboard';
+    case 'platforms':
+      return platformMatches;
+    case 'dashboardandplatforms':
+      return page === 'dashboard' || platformMatches;
+    case 'pages':
+      return pageMatches;
+    case 'dashboardandpages':
+      return page === 'dashboard' || pageMatches;
+    case 'targets':
+      return pageMatches || platformMatches;
+    case 'all':
+    default:
+      return true;
+  }
+}
 
 function normalizeStoredActivePage(value: string | null): Page | null {
   const normalized = value?.trim();
@@ -691,12 +789,18 @@ function MainApp() {
   const { showModal, closeModal } = useGlobalModal();
   const topRightAdState = useTopRightAdStore((state) => state.state);
   const fetchTopRightAdState = useTopRightAdStore((state) => state.fetchState);
+  const forceRefreshTopRightAdState = useTopRightAdStore((state) => state.forceRefreshState);
   const sponsorModuleState = useSponsorStore((state) => state.state);
   const fetchSponsorModuleState = useSponsorStore((state) => state.fetchState);
   const sponsorModuleInitialized = useSponsorStore((state) => state.initialized);
   const fetchRemoteConfigState = useRemoteConfigStore((state) => state.fetchState);
   const sponsorEntryVisible = Boolean(sponsorModuleState.sponsorModule);
   const [topRightAdVisible, setTopRightAdVisible] = useState(true);
+  const topRightAdVisibleRef = useRef<boolean | null>(null);
+  const visibleTopCenterPromoAds = useMemo(
+    () => topRightAdState.ads.filter((ad) => isTopPromoAdVisibleOnPage(ad, page)),
+    [page, topRightAdState.ads],
+  );
   const trayRefreshInFlightRef = useRef(false);
   const openPlatformLayoutModal = useCallback(() => {
     setPlatformLayoutRequestedGroupId(null);
@@ -887,12 +991,27 @@ function MainApp() {
   }, [fetchTopRightAdState]);
 
   useEffect(() => {
+    let disposed = false;
+
     const loadTopRightAdVisible = async () => {
       try {
         const config = await invoke<GeneralConfig>('get_general_config');
-        setTopRightAdVisible(config.top_right_ad_visible ?? true);
+        if (disposed) {
+          return;
+        }
+        const nextVisible = config.top_right_ad_visible ?? true;
+        const previousVisible = topRightAdVisibleRef.current;
+        topRightAdVisibleRef.current = nextVisible;
+        setTopRightAdVisible(nextVisible);
+        if (previousVisible === false && nextVisible) {
+          void forceRefreshTopRightAdState();
+        }
       } catch (error) {
+        if (disposed) {
+          return;
+        }
         console.error('Failed to load top-right ad visibility config:', error);
+        topRightAdVisibleRef.current = true;
         setTopRightAdVisible(true);
       }
     };
@@ -900,9 +1019,10 @@ function MainApp() {
     void loadTopRightAdVisible();
     window.addEventListener('config-updated', loadTopRightAdVisible);
     return () => {
+      disposed = true;
       window.removeEventListener('config-updated', loadTopRightAdVisible);
     };
-  }, []);
+  }, [forceRefreshTopRightAdState]);
 
   useEffect(() => {
     void fetchSponsorModuleState();
@@ -2983,7 +3103,7 @@ function MainApp() {
       setAppPathActionError(
         t(
           'appPath.missing.claudeMultiInstanceRequiresExe',
-          'Claude 多开实例需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。',
+          'Claude 应用多开需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。',
         ),
       );
       return;
@@ -3116,7 +3236,7 @@ function MainApp() {
             setAppPathActionError(
               t(
                 'appPath.missing.claudeMultiInstanceRequiresExe',
-                'Claude 多开实例需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。',
+                'Claude 应用多开需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。',
               ),
             );
           }
@@ -3471,7 +3591,7 @@ function MainApp() {
                   <p className="app-path-missing-hint">
                     {t(
                       'appPath.missing.claudeMultiInstanceRequiresExe',
-                      'Claude 多开实例需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。',
+                      'Claude 应用多开需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。',
                     )}
                   </p>
                 ) : null}
@@ -3635,7 +3755,7 @@ function MainApp() {
                               <div className="app-path-candidate-note">
                                 {t(
                                   'appPath.missing.defaultOnly',
-                                  '仅适用于默认桌面端；多开实例请选择真实 Claude.exe',
+                                  '仅适用于默认桌面端；应用多开请选择真实 Claude.exe',
                                 )}
                               </div>
                             ) : null}
@@ -3723,6 +3843,11 @@ function MainApp() {
       </Suspense>
 
       <div className="main-wrapper">
+        {topRightAdVisible && visibleTopCenterPromoAds.length > 0 ? (
+          <div className="app-global-promo-layer" aria-hidden={false}>
+            <TopCenterPromoBanner ads={visibleTopCenterPromoAds} reserveWhenEmpty={false} />
+          </div>
+        ) : null}
         {/* overview 现在是合并后的账号总览页面 */}
         <Suspense fallback={suspenseFallback}>
           {page === 'dashboard' && (
@@ -3730,11 +3855,6 @@ function MainApp() {
               onNavigate={setPage}
               onOpenPlatformLayout={openPlatformLayoutModal}
               onEasterEggTriggerClick={handleBreakoutEntryTriggerClick}
-              topCenterBanner={
-                topRightAdVisible && topRightAdState.ads.length > 0 ? (
-                  <TopCenterPromoBanner reserveWhenEmpty={false} />
-                ) : null
-              }
             />
           )}
           {page === 'api-relay' && <ApiKeyFunPage />}

@@ -1012,11 +1012,8 @@ fn cleanup_managed_model_catalog_for_dir(base_dir: &Path) -> Result<(), String> 
         .map_err(|e| format!("解析 config.toml 失败: {}", e))?;
     if remove_managed_model_catalog_from_doc(&mut doc) {
         let content = crate::modules::codex_config_format::codex_config_doc_to_string(&mut doc);
-        crate::modules::codex_config_format::write_codex_config_toml_atomic(
-            &config_path,
-            &content,
-        )
-        .map_err(|e| format!("写入 config.toml 失败: {}", e))?;
+        crate::modules::codex_config_format::write_codex_config_toml_atomic(&config_path, &content)
+            .map_err(|e| format!("写入 config.toml 失败: {}", e))?;
     }
     Ok(())
 }
@@ -5085,13 +5082,17 @@ struct CodexAccessTokenImportHints {
     account_name: Option<String>,
     account_structure: Option<String>,
     account_note: Option<String>,
+    two_factor_secret: Option<String>,
+    account_password: Option<String>,
+    phone_number: Option<String>,
+    mail_url: Option<String>,
 }
 
 enum CodexJsonImportCandidate {
     FullToken {
         tokens: CodexTokens,
         account_id_hint: Option<String>,
-        account_note: Option<String>,
+        note_update: CodexAccountNoteUpdate,
     },
     AccessToken {
         access_token: String,
@@ -5099,7 +5100,7 @@ enum CodexJsonImportCandidate {
     },
     RefreshToken {
         refresh_token: String,
-        account_note: Option<String>,
+        note_update: CodexAccountNoteUpdate,
     },
 }
 
@@ -5141,6 +5142,61 @@ fn has_codex_account_note_update(update: &CodexAccountNoteUpdate) -> bool {
         || update.account_password.is_some()
         || update.phone_number.is_some()
         || update.mail_url.is_some()
+}
+
+fn merge_codex_account_note_update(
+    mut primary: CodexAccountNoteUpdate,
+    fallback: CodexAccountNoteUpdate,
+) -> CodexAccountNoteUpdate {
+    if primary.note.is_none() {
+        primary.note = fallback.note;
+    }
+    if primary.two_factor_secret.is_none() {
+        primary.two_factor_secret = fallback.two_factor_secret;
+    }
+    if primary.account_password.is_none() {
+        primary.account_password = fallback.account_password;
+    }
+    if primary.phone_number.is_none() {
+        primary.phone_number = fallback.phone_number;
+    }
+    if primary.mail_url.is_none() {
+        primary.mail_url = fallback.mail_url;
+    }
+    primary
+}
+
+fn codex_account_note_update_from_hints(
+    hints: &CodexAccessTokenImportHints,
+) -> CodexAccountNoteUpdate {
+    CodexAccountNoteUpdate {
+        note: hints.account_note.clone(),
+        two_factor_secret: hints.two_factor_secret.clone(),
+        account_password: hints.account_password.clone(),
+        phone_number: hints.phone_number.clone(),
+        mail_url: hints.mail_url.clone(),
+    }
+}
+
+fn apply_account_note_update_if_present(
+    account: &mut CodexAccount,
+    update: CodexAccountNoteUpdate,
+) -> bool {
+    if !has_codex_account_note_update(&update) {
+        return false;
+    }
+    apply_account_note_update(account, update);
+    true
+}
+
+fn save_account_note_update_if_present(
+    account: &mut CodexAccount,
+    update: CodexAccountNoteUpdate,
+) -> Result<(), String> {
+    if apply_account_note_update_if_present(account, update) {
+        save_account(account)?;
+    }
+    Ok(())
 }
 
 fn is_blank_codex_token_fields(value: &serde_json::Value) -> bool {
@@ -5269,24 +5325,6 @@ fn codex_account_note_update_from_account(account: &CodexAccount) -> CodexAccoun
     }
 }
 
-fn extract_account_note_from_value(value: &serde_json::Value) -> Option<String> {
-    let obj = value.as_object()?;
-    [
-        "account_note",
-        "accountInfo",
-        "account_info",
-        "note",
-        "notes",
-        "remark",
-    ]
-    .iter()
-    .find_map(|key| {
-        obj.get(*key)
-            .and_then(|value| value.as_str())
-            .and_then(|value| normalize_optional_ref(Some(value)))
-    })
-}
-
 fn is_opaque_access_token(token: &str) -> bool {
     normalize_optional_ref(Some(token))
         .map(|token| token.starts_with("at-"))
@@ -5338,12 +5376,25 @@ fn merge_access_token_import_hints(
     if primary.account_note.is_none() {
         primary.account_note = fallback.account_note;
     }
+    if primary.two_factor_secret.is_none() {
+        primary.two_factor_secret = fallback.two_factor_secret;
+    }
+    if primary.account_password.is_none() {
+        primary.account_password = fallback.account_password;
+    }
+    if primary.phone_number.is_none() {
+        primary.phone_number = fallback.phone_number;
+    }
+    if primary.mail_url.is_none() {
+        primary.mail_url = fallback.mail_url;
+    }
     primary
 }
 
 fn extract_access_token_import_hints_from_value(
     value: &serde_json::Value,
 ) -> CodexAccessTokenImportHints {
+    let note_update = codex_account_note_update_from_value(value);
     CodexAccessTokenImportHints {
         email: first_json_scalar_string(
             value,
@@ -5440,7 +5491,11 @@ fn extract_access_token_import_hints_from_value(
                 &["account", "type"],
             ],
         ),
-        account_note: extract_account_note_from_value(value),
+        account_note: note_update.note,
+        two_factor_secret: note_update.two_factor_secret,
+        account_password: note_update.account_password,
+        phone_number: note_update.phone_number,
+        mail_url: note_update.mail_url,
     }
 }
 
@@ -5512,8 +5567,10 @@ fn extract_codex_session_candidate_from_value(
     let access_token = first_json_string(&session, &[&["accessToken"], &["access_token"]])
         .filter(|token| is_importable_access_token(token))?;
     let account_id_hint = first_json_string(&session, &[&["account", "id"], &["account_id"]]);
-    let account_note = extract_account_note_from_value(value)
-        .or_else(|| extract_account_note_from_value(&session));
+    let note_update = merge_codex_account_note_update(
+        codex_account_note_update_from_value(value),
+        codex_account_note_update_from_value(&session),
+    );
     let mut session_hints = merge_access_token_import_hints(
         extract_access_token_import_hints_from_value(&session),
         extract_access_token_import_hints_from_value(value),
@@ -5521,9 +5578,14 @@ fn extract_codex_session_candidate_from_value(
     if session_hints.account_id.is_none() {
         session_hints.account_id = account_id_hint.clone();
     }
-    if session_hints.account_note.is_none() {
-        session_hints.account_note = account_note.clone();
-    }
+    let session_hints_note_update = codex_account_note_update_from_hints(&session_hints);
+    let session_hints_note_update =
+        merge_codex_account_note_update(session_hints_note_update, note_update.clone());
+    session_hints.account_note = session_hints_note_update.note;
+    session_hints.two_factor_secret = session_hints_note_update.two_factor_secret;
+    session_hints.account_password = session_hints_note_update.account_password;
+    session_hints.phone_number = session_hints_note_update.phone_number;
+    session_hints.mail_url = session_hints_note_update.mail_url;
 
     if let Some(id_token) = first_json_string(&session, &[&["idToken"], &["id_token"]]) {
         let refresh_token = first_json_string(&session, &[&["refreshToken"], &["refresh_token"]]);
@@ -5534,7 +5596,7 @@ fn extract_codex_session_candidate_from_value(
                 refresh_token,
             },
             account_id_hint,
-            account_note,
+            note_update,
         });
     }
 
@@ -5547,7 +5609,7 @@ fn extract_codex_session_candidate_from_value(
                 refresh_token,
             },
             account_id_hint,
-            account_note,
+            note_update,
         });
     }
 
@@ -5611,21 +5673,28 @@ fn extract_codex_import_candidate_from_value(
         return Some(CodexJsonImportCandidate::FullToken {
             tokens,
             account_id_hint,
-            account_note: extract_account_note_from_value(value),
+            note_update: codex_account_note_update_from_value(value),
         });
     }
 
     if let Some(refresh_token) = extract_refresh_token_only_from_value(value) {
         return Some(CodexJsonImportCandidate::RefreshToken {
             refresh_token,
-            account_note: extract_account_note_from_value(value),
+            note_update: codex_account_note_update_from_value(value),
         });
     }
 
     extract_access_token_only_from_value(value).map(|(access_token, mut hints)| {
-        if hints.account_note.is_none() {
-            hints.account_note = extract_account_note_from_value(value);
-        }
+        let hints_note_update = codex_account_note_update_from_hints(&hints);
+        let hints_note_update = merge_codex_account_note_update(
+            hints_note_update,
+            codex_account_note_update_from_value(value),
+        );
+        hints.account_note = hints_note_update.note;
+        hints.two_factor_secret = hints_note_update.two_factor_secret;
+        hints.account_password = hints_note_update.account_password;
+        hints.phone_number = hints_note_update.phone_number;
+        hints.mail_url = hints_note_update.mail_url;
         CodexJsonImportCandidate::AccessToken {
             access_token,
             hints,
@@ -5635,14 +5704,11 @@ fn extract_codex_import_candidate_from_value(
 
 async fn upsert_account_from_refresh_token(
     refresh_token: String,
-    account_note: Option<String>,
+    note_update: CodexAccountNoteUpdate,
 ) -> Result<CodexAccount, String> {
     let tokens = codex_oauth::refresh_access_token(&refresh_token).await?;
     let mut account = upsert_account(tokens)?;
-    if account_note.is_some() {
-        account.account_note = account_note;
-        save_account(&account)?;
-    }
+    save_account_note_update_if_present(&mut account, note_update)?;
     Ok(account)
 }
 
@@ -5663,6 +5729,7 @@ fn upsert_account_from_access_token_with_hints(
     access_token: String,
     hints: CodexAccessTokenImportHints,
 ) -> Result<CodexAccount, String> {
+    let note_update = codex_account_note_update_from_hints(&hints);
     let access_token =
         normalize_optional_value(Some(access_token)).ok_or("accessToken 不能为空")?;
     let (
@@ -5711,7 +5778,7 @@ fn upsert_account_from_access_token_with_hints(
     )
     .unwrap_or_else(|| generated_id.clone());
 
-    let account = if let Some(mut acc) = load_account(&existing_id) {
+    let mut account = if let Some(mut acc) = load_account(&existing_id) {
         tokens = retain_existing_refresh_token_if_missing(tokens, Some(&acc));
         acc.tokens = tokens;
         mark_token_chain_updated(&mut acc);
@@ -5735,9 +5802,6 @@ fn upsert_account_from_access_token_with_hints(
         if hints.account_structure.is_some() {
             acc.account_structure = hints.account_structure.clone();
         }
-        if hints.account_note.is_some() {
-            acc.account_note = hints.account_note.clone();
-        }
         acc.update_last_used();
         acc
     } else {
@@ -5760,7 +5824,6 @@ fn upsert_account_from_access_token_with_hints(
         acc.organization_id = organization_id.clone();
         acc.account_name = hints.account_name.clone();
         acc.account_structure = hints.account_structure.clone();
-        acc.account_note = hints.account_note.clone();
 
         index.accounts.retain(|item| item.id != existing_id);
         index.accounts.push(CodexAccountSummary {
@@ -5773,6 +5836,7 @@ fn upsert_account_from_access_token_with_hints(
         });
         acc
     };
+    apply_account_note_update_if_present(&mut account, note_update);
 
     save_account(&account)?;
 
@@ -5809,13 +5873,10 @@ async fn import_codex_candidate(
         CodexJsonImportCandidate::FullToken {
             tokens,
             account_id_hint,
-            account_note,
+            note_update,
         } => {
             let mut account = upsert_account_with_hints(tokens, account_id_hint, None)?;
-            if account_note.is_some() {
-                account.account_note = account_note;
-                save_account(&account)?;
-            }
+            save_account_note_update_if_present(&mut account, note_update)?;
             Ok(account)
         }
         CodexJsonImportCandidate::AccessToken {
@@ -5824,8 +5885,8 @@ async fn import_codex_candidate(
         } => upsert_account_from_access_token_with_hints(access_token, hints),
         CodexJsonImportCandidate::RefreshToken {
             refresh_token,
-            account_note,
-        } => upsert_account_from_refresh_token(refresh_token, account_note).await,
+            note_update,
+        } => upsert_account_from_refresh_token(refresh_token, note_update).await,
     }
 }
 
@@ -6066,7 +6127,13 @@ pub async fn import_from_json(json_content: &str) -> Result<Vec<CodexAccount>, S
         }
 
         if let Some(tokens) = auth_file.tokens {
-            let account = upsert_account_from_auth_tokens(tokens)?;
+            let mut account = upsert_account_from_auth_tokens(tokens)?;
+            if let Some(value) = raw_value.as_ref() {
+                save_account_note_update_if_present(
+                    &mut account,
+                    codex_account_note_update_from_value(value),
+                )?;
+            }
             return Ok(vec![account]);
         }
 
@@ -6258,7 +6325,8 @@ enum CodexBatchImportDraft {
     FullToken {
         tokens: CodexTokens,
         account_id_hint: Option<String>,
-        account_note: Option<String>,
+        #[serde(default)]
+        note_update: CodexAccountNoteUpdate,
     },
     AccessToken {
         access_token: String,
@@ -6504,7 +6572,7 @@ fn codex_batch_import_progress_from_items(
 fn preview_account_from_full_tokens(
     mut tokens: CodexTokens,
     account_id_hint: Option<String>,
-    account_note: Option<String>,
+    note_update: CodexAccountNoteUpdate,
 ) -> Result<CodexAccount, String> {
     let (
         email,
@@ -6533,7 +6601,7 @@ fn preview_account_from_full_tokens(
     account.subscription_active_until = subscription_active_until;
     account.account_id = account_id;
     account.organization_id = organization_id;
-    account.account_note = account_note;
+    apply_account_note_update_if_present(&mut account, note_update);
     Ok(account)
 }
 
@@ -6588,6 +6656,10 @@ fn preview_account_from_access_token(
     account.account_name = hints.account_name;
     account.account_structure = hints.account_structure;
     account.account_note = hints.account_note;
+    account.two_factor_secret = hints.two_factor_secret;
+    account.account_password = hints.account_password;
+    account.phone_number = hints.phone_number;
+    account.mail_url = hints.mail_url;
     Ok(account)
 }
 
@@ -6597,11 +6669,11 @@ fn preview_account_for_draft(draft: &CodexBatchImportDraft) -> Result<CodexAccou
         CodexBatchImportDraft::FullToken {
             tokens,
             account_id_hint,
-            account_note,
+            note_update,
         } => preview_account_from_full_tokens(
             tokens.clone(),
             account_id_hint.clone(),
-            account_note.clone(),
+            note_update.clone(),
         ),
         CodexBatchImportDraft::AccessToken {
             access_token,
@@ -6617,11 +6689,11 @@ fn codex_batch_import_draft_from_candidate(
         CodexJsonImportCandidate::FullToken {
             tokens,
             account_id_hint,
-            account_note,
+            note_update,
         } => CodexBatchImportDraft::FullToken {
             tokens,
             account_id_hint,
-            account_note,
+            note_update,
         },
         CodexJsonImportCandidate::AccessToken {
             access_token,
@@ -6726,10 +6798,16 @@ async fn codex_batch_import_draft_from_value(
             if normalize_optional_ref(Some(&tokens.id_token)).is_none()
                 && is_importable_access_token(&tokens.access_token)
             {
+                let note_update = codex_account_note_update_from_value(&value);
                 return Ok(Some(CodexBatchImportDraft::AccessToken {
                     access_token: tokens.access_token,
                     hints: CodexAccessTokenImportHints {
                         account_id: account_id_hint,
+                        account_note: note_update.note,
+                        two_factor_secret: note_update.two_factor_secret,
+                        account_password: note_update.account_password,
+                        phone_number: note_update.phone_number,
+                        mail_url: note_update.mail_url,
                         ..Default::default()
                     },
                 }));
@@ -6737,7 +6815,7 @@ async fn codex_batch_import_draft_from_value(
             return Ok(Some(CodexBatchImportDraft::FullToken {
                 tokens,
                 account_id_hint,
-                account_note: None,
+                note_update: codex_account_note_update_from_value(&value),
             }));
         }
         if let Some(api_key) = fallback_api_key {
@@ -6764,13 +6842,13 @@ async fn codex_batch_import_draft_from_value(
         return match candidate {
             CodexJsonImportCandidate::RefreshToken {
                 refresh_token,
-                account_note,
+                note_update,
             } => {
                 let tokens = codex_oauth::refresh_access_token(&refresh_token).await?;
                 Ok(Some(CodexBatchImportDraft::FullToken {
                     tokens,
                     account_id_hint: None,
-                    account_note,
+                    note_update,
                 }))
             }
             other => Ok(Some(codex_batch_import_draft_from_candidate(other))),
@@ -7306,13 +7384,10 @@ pub fn confirm_codex_batch_import(
             CodexBatchImportDraft::FullToken {
                 tokens,
                 account_id_hint,
-                account_note,
+                note_update,
             } => {
                 let mut account = upsert_account_with_hints(tokens, account_id_hint, None)?;
-                if account_note.is_some() {
-                    account.account_note = account_note;
-                    save_account(&account)?;
-                }
+                save_account_note_update_if_present(&mut account, note_update)?;
                 Ok(account)
             }
             CodexBatchImportDraft::AccessToken {
@@ -8097,12 +8172,12 @@ mod tests {
             CodexJsonImportCandidate::FullToken {
                 tokens,
                 account_id_hint,
-                account_note,
+                note_update,
             } => {
                 assert_eq!(tokens.id_token, tokens.access_token);
                 assert_eq!(tokens.refresh_token, None);
                 assert_eq!(account_id_hint.as_deref(), Some("acc-session"));
-                assert_eq!(account_note, None);
+                assert!(!super::has_codex_account_note_update(&note_update));
                 assert!(decode_jwt_payload_value(&tokens.access_token).is_some());
             }
             _ => panic!("expected session JSON to be normalized to full CPA-style tokens"),
@@ -8257,6 +8332,7 @@ mod tests {
                 account_name: Some("Team Workspace".to_string()),
                 account_structure: Some("team".to_string()),
                 account_note: Some("confirmed import".to_string()),
+                ..Default::default()
             },
         )
         .expect("upsert opaque access token account");
@@ -8422,6 +8498,65 @@ mod tests {
         assert_eq!(
             persisted.mail_url.as_deref(),
             Some("https://mail.example.test/inbox?mail=dddd")
+        );
+    }
+
+    #[test]
+    fn import_auth_file_tokens_preserves_sensitive_note_metadata() {
+        let _lock = crate::modules::test_support::env_lock()
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        let _env = TestEnvGuard::new("codex-auth-file-sensitive-note-import-test");
+        let tokens = make_codex_tokens(
+            "sensitive@example.com",
+            "acc-sensitive",
+            "org-sensitive",
+            "sensitive",
+            "rt-sensitive",
+        );
+        let content = serde_json::json!({
+            "tokens": {
+                "id_token": tokens.id_token,
+                "access_token": tokens.access_token,
+                "refresh_token": tokens.refresh_token,
+                "account_id": "acc-sensitive"
+            },
+            "email": "sensitive@example.com",
+            "type": "codex",
+            "account_note": "note-1",
+            "two_factor_secret": "SECRET-2FA",
+            "account_password": "password-1",
+            "phone_number": "15500000000",
+            "mail_url": "https://mail.example.test/inbox"
+        });
+        let runtime = tokio::runtime::Runtime::new().expect("create runtime");
+
+        let accounts = runtime
+            .block_on(import_from_json(
+                &serde_json::to_string(&content).expect("serialize import JSON"),
+            ))
+            .expect("auth file JSON should import");
+
+        assert_eq!(accounts.len(), 1);
+        let account = &accounts[0];
+        assert_eq!(account.email, "sensitive@example.com");
+        assert_eq!(account.account_note.as_deref(), Some("note-1"));
+        assert_eq!(account.two_factor_secret.as_deref(), Some("SECRET-2FA"));
+        assert_eq!(account.account_password.as_deref(), Some("password-1"));
+        assert_eq!(account.phone_number.as_deref(), Some("15500000000"));
+        assert_eq!(
+            account.mail_url.as_deref(),
+            Some("https://mail.example.test/inbox")
+        );
+
+        let persisted = load_account(&account.id).expect("sensitive account persisted");
+        assert_eq!(persisted.account_note.as_deref(), Some("note-1"));
+        assert_eq!(persisted.two_factor_secret.as_deref(), Some("SECRET-2FA"));
+        assert_eq!(persisted.account_password.as_deref(), Some("password-1"));
+        assert_eq!(persisted.phone_number.as_deref(), Some("15500000000"));
+        assert_eq!(
+            persisted.mail_url.as_deref(),
+            Some("https://mail.example.test/inbox")
         );
     }
 
@@ -9720,7 +9855,9 @@ multi_agent = true
 
         let config = fs::read_to_string(base_dir.join("config.toml")).expect("read config");
         assert!(!config.contains("model_catalog_json"));
-        assert!(!base_dir.join(super::CODEX_MANAGED_MODEL_CATALOG_FILE).exists());
+        assert!(!base_dir
+            .join(super::CODEX_MANAGED_MODEL_CATALOG_FILE)
+            .exists());
 
         fs::remove_dir_all(&base_dir).expect("cleanup temp dir");
     }
@@ -9750,7 +9887,9 @@ multi_agent = true
 
         let config = fs::read_to_string(base_dir.join("config.toml")).expect("read config");
         assert!(config.contains("model_catalog_json = \"user-model-catalog.json\""));
-        assert!(!base_dir.join(super::CODEX_MANAGED_MODEL_CATALOG_FILE).exists());
+        assert!(!base_dir
+            .join(super::CODEX_MANAGED_MODEL_CATALOG_FILE)
+            .exists());
 
         fs::remove_dir_all(&base_dir).expect("cleanup temp dir");
     }
@@ -10258,7 +10397,7 @@ pub fn update_account_tags(account_id: &str, tags: Vec<String>) -> Result<CodexA
     Ok(account)
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct CodexAccountNoteUpdate {
     pub note: Option<String>,
     pub two_factor_secret: Option<String>,

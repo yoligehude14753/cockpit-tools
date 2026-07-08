@@ -29,6 +29,11 @@ pub async fn announcement_get_top_right_ad() -> Result<TopRightAdState, String> 
 }
 
 #[tauri::command]
+pub async fn announcement_force_refresh_top_right_ad() -> Result<TopRightAdState, String> {
+    announcement::force_refresh_top_right_ad().await
+}
+
+#[tauri::command]
 pub async fn announcement_get_sponsor_module() -> Result<SponsorModuleState, String> {
     announcement::get_sponsor_module_state().await
 }

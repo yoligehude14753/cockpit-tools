@@ -7,6 +7,25 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [1.1.1] - 2026-07-08
+
+### Changed
+
+- **Chinese app multi-open terminology is unified**: Chinese UI, docs, announcements, and runtime messages consistently use `应用多开`.
+- **Codex wakeup and API Service model lists now prefer current GPT-5.4+ models**: legacy GPT-5.1 through GPT-5.3 Codex presets are pruned from defaults and migrated out of existing wakeup presets, while the official wakeup fallback uses `gpt-5.4`.
+- **Antigravity suite navigation is more consistent**: Antigravity instances, wakeup tasks, and wakeup verification stay in the Antigravity suite context and are available from the overview tab header.
+
+### Fixed
+
+- **Fixed Codex token refresh authority conflicts between Cockpit and API Service**: the API Service sidecar no longer performs its own OAuth auto-refresh when launched by Cockpit, and refreshed Cockpit tokens are written through to sidecar auth files to reduce `refresh_token_reused` failures. Thanks @wuuconix for #1442.
+- **Improved Codex API Service performance with large account pools**: starting, stopping, and rebuilding the local sidecar configuration now avoids unnecessary auth-file rewrites, removes only stale auth files, and does not start the gateway just to disable it.
+- **Reduced app-exit stalls caused by Codex API Service shutdown**: app exit now schedules local gateway cleanup asynchronously instead of blocking the main Tauri event loop.
+- **Fixed Codex sensitive note metadata being dropped during import**: JSON, auth-file, batch, access-token, refresh-token, and full-token imports now preserve password, 2FA secret, phone number, mail query URL, and notes when present.
+- **Fixed dropdown and instance account-picker jitter**: dropdown panels no longer recalculate position from their own internal scrolling, selected items scroll into view without smooth-scroll loops, and repeated identical placement updates are skipped.
+- **Fixed tag editing state when switching Codex accounts**: opening the tag editor for another account resets the modal to that account's tags and notes.
+- **Improved dark-mode tag filter visibility**: single tag filter controls have clearer contrast and active styling in dark mode.
+
+---
 ## [1.1.0] - 2026-07-07
 
 ### Added

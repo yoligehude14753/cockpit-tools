@@ -163,7 +163,7 @@ pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
     }
 
     #[allow(unreachable_code)]
-    Err("Claude 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+    Err("Claude 应用多开仅支持 macOS、Windows 和 Linux".to_string())
 }
 
 pub fn get_instance_defaults() -> Result<InstanceDefaults, String> {
@@ -1882,7 +1882,7 @@ pub fn start_claude_with_args_with_new_window(
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         let _ = (target, extra_args, use_new_window);
-        Err("Claude 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Claude 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -1908,7 +1908,7 @@ pub fn start_claude_default_with_args_with_new_window(
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         let _ = (extra_args, use_new_window);
-        Err("Claude 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Claude 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 

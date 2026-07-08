@@ -633,6 +633,7 @@ pub fn run() {
             commands::announcement::announcement_mark_all_as_read,
             commands::announcement::announcement_force_refresh,
             commands::announcement::announcement_get_top_right_ad,
+            commands::announcement::announcement_force_refresh_top_right_ad,
             commands::announcement::announcement_get_sponsor_module,
             commands::announcement::announcement_force_refresh_sponsor_module,
             commands::remote_config::remote_config_get_state,
@@ -1105,7 +1106,7 @@ pub fn run() {
     app.run(|app_handle, event| {
         match &event {
             RunEvent::ExitRequested { .. } | RunEvent::Exit => {
-                tauri::async_runtime::block_on(async {
+                tauri::async_runtime::spawn(async {
                     modules::codex_local_access::shutdown_local_access_gateway_for_app_exit().await;
                 });
             }

@@ -642,7 +642,7 @@ export function CodexSessionVisibilityRepairModal({
                   <small>
                     {t(
                       "codex.sessionManager.repairModal.instanceScopeAllDesc",
-                      "修复所有 Codex 实例，适合多开实例一起恢复。",
+                      "修复所有 Codex 实例，适合应用多开一起恢复。",
                     )}
                   </small>
                 </button>

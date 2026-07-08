@@ -585,7 +585,7 @@ pub fn get_default_windsurf_user_data_dir() -> Result<PathBuf, String> {
     }
 
     #[allow(unreachable_code)]
-    Err("Windsurf 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+    Err("Windsurf 应用多开仅支持 macOS、Windows 和 Linux".to_string())
 }
 
 pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
@@ -609,7 +609,7 @@ pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
     }
 
     #[allow(unreachable_code)]
-    Err("Windsurf 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+    Err("Windsurf 应用多开仅支持 macOS、Windows 和 Linux".to_string())
 }
 
 pub fn get_instance_defaults() -> Result<InstanceDefaults, String> {
@@ -1756,7 +1756,7 @@ pub fn start_windsurf_with_args_with_new_window(
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         let _ = (target, extra_args, use_new_window);
-        Err("Windsurf 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Windsurf 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 

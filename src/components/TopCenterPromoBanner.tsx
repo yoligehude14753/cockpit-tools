@@ -2,17 +2,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useTopRightAdStore } from '../stores/useTopRightAdStore';
+import type { TopRightAd } from '../types/topRightAd';
 import { normalizeApiKeyFunOfficialUrl } from '../utils/apikeyFunLinks';
 
 interface TopCenterPromoBannerProps {
   reserveWhenEmpty?: boolean;
+  ads?: TopRightAd[];
 }
 
 const PROMO_ROTATION_INTERVAL_MS = 6000;
 
-export function TopCenterPromoBanner({ reserveWhenEmpty = true }: TopCenterPromoBannerProps) {
+export function TopCenterPromoBanner({ reserveWhenEmpty = true, ads: adsOverride }: TopCenterPromoBannerProps) {
   const { t } = useTranslation();
-  const ads = useTopRightAdStore((state) => state.state.ads);
+  const storeAds = useTopRightAdStore((state) => state.state.ads);
+  const ads = adsOverride ?? storeAds;
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 

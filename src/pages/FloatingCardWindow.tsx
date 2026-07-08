@@ -409,7 +409,7 @@ export function FloatingCardWindow() {
             t('settings.general.floatingCardShowNowAction', '显示悬浮卡片'),
           ].join(' > ')
         : [
-            t('instances.title', '多开实例'),
+            t('instances.title', '应用多开'),
             instanceContext?.instanceName || t('instances.defaultName', '默认实例'),
           ].join(' > '),
     [instanceContext?.instanceName, isInstanceFloatingCardWindow, isPrimaryFloatingCardWindow, t],

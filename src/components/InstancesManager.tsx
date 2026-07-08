@@ -262,6 +262,16 @@ const resolveAccountSelectPortalPosition = (
   };
 };
 
+const isSameAccountSelectPortalPosition = (
+  left: AccountSelectPortalPosition | null,
+  right: AccountSelectPortalPosition | null,
+) =>
+  left?.top === right?.top &&
+  left?.left === right?.left &&
+  left?.width === right?.width &&
+  left?.maxHeight === right?.maxHeight &&
+  left?.placement === right?.placement;
+
 const resolveInstanceSortStorageKeys = (
   appType: InstancesManagerProps<AccountLike>["appType"],
 ) => ({
@@ -1790,6 +1800,7 @@ export function InstancesManager<TAccount extends AccountLike>({
     const menuRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const portalMenuRef = useRef<HTMLDivElement | null>(null);
+    const activeItemScrolledRef = useRef(false);
     const isOpen = instanceId ? currentOpenId === instanceId : false;
     const [portalPos, setPortalPos] =
       useState<AccountSelectPortalPosition | null>(null);
@@ -1847,12 +1858,24 @@ export function InstancesManager<TAccount extends AccountLike>({
       );
     }, []);
 
-    const updatePortalPos = useCallback(() => {
-      setPortalPos(resolveAccountSelectPortalPosition(triggerRef.current));
+    const updatePortalPos = useCallback((event?: Event) => {
+      const eventTarget = event?.target;
+      if (
+        event?.type === "scroll" &&
+        eventTarget instanceof Node &&
+        portalMenuRef.current?.contains(eventTarget)
+      ) {
+        return;
+      }
+      setPortalPos((prev) => {
+        const next = resolveAccountSelectPortalPosition(triggerRef.current);
+        return isSameAccountSelectPortalPosition(prev, next) ? prev : next;
+      });
     }, []);
 
     useEffect(() => {
       if (isOpen) return;
+      activeItemScrolledRef.current = false;
       setSearchValue("");
       setTagFilter([]);
     }, [isOpen]);
@@ -1889,6 +1912,8 @@ export function InstancesManager<TAccount extends AccountLike>({
 
     useEffect(() => {
       if (!isOpen || !portalPos || !portalMenuRef.current) return;
+      if (activeItemScrolledRef.current) return;
+      activeItemScrolledRef.current = true;
 
       const frameId = window.requestAnimationFrame(() => {
         const activeItem = portalMenuRef.current?.querySelector<HTMLElement>(
@@ -1896,7 +1921,7 @@ export function InstancesManager<TAccount extends AccountLike>({
         );
         activeItem?.scrollIntoView({
           block: "nearest",
-          behavior: "smooth",
+          behavior: "auto",
         });
       });
 
@@ -1904,11 +1929,8 @@ export function InstancesManager<TAccount extends AccountLike>({
         window.cancelAnimationFrame(frameId);
       };
     }, [
-      visibleAccounts.length,
-      isFollowingCurrent,
       isOpen,
       portalPos?.placement,
-      value,
     ]);
 
     useEffect(() => {
@@ -2026,6 +2048,7 @@ export function InstancesManager<TAccount extends AccountLike>({
     const menuRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const portalMenuRef = useRef<HTMLDivElement | null>(null);
+    const activeItemScrolledRef = useRef(false);
     const [open, setOpen] = useState(false);
     const [portalPos, setPortalPos] =
       useState<AccountSelectPortalPosition | null>(null);
@@ -2077,8 +2100,19 @@ export function InstancesManager<TAccount extends AccountLike>({
       );
     }, []);
 
-    const updatePortalPos = useCallback(() => {
-      setPortalPos(resolveAccountSelectPortalPosition(triggerRef.current));
+    const updatePortalPos = useCallback((event?: Event) => {
+      const eventTarget = event?.target;
+      if (
+        event?.type === "scroll" &&
+        eventTarget instanceof Node &&
+        portalMenuRef.current?.contains(eventTarget)
+      ) {
+        return;
+      }
+      setPortalPos((prev) => {
+        const next = resolveAccountSelectPortalPosition(triggerRef.current);
+        return isSameAccountSelectPortalPosition(prev, next) ? prev : next;
+      });
     }, []);
 
     useEffect(() => {
@@ -2111,6 +2145,8 @@ export function InstancesManager<TAccount extends AccountLike>({
 
     useEffect(() => {
       if (!open || !portalPos || !portalMenuRef.current) return;
+      if (activeItemScrolledRef.current) return;
+      activeItemScrolledRef.current = true;
 
       const frameId = window.requestAnimationFrame(() => {
         const activeItem = portalMenuRef.current?.querySelector<HTMLElement>(
@@ -2118,14 +2154,14 @@ export function InstancesManager<TAccount extends AccountLike>({
         );
         activeItem?.scrollIntoView({
           block: "nearest",
-          behavior: "smooth",
+          behavior: "auto",
         });
       });
 
       return () => {
         window.cancelAnimationFrame(frameId);
       };
-    }, [isFollowingCurrent, open, portalPos?.placement, value, visibleAccounts.length]);
+    }, [open, portalPos?.placement]);
 
     useEffect(() => {
       if (disabled && open) {
@@ -2135,6 +2171,7 @@ export function InstancesManager<TAccount extends AccountLike>({
 
     useEffect(() => {
       if (open) return;
+      activeItemScrolledRef.current = false;
       setSearchValue("");
       setTagFilter([]);
     }, [open]);

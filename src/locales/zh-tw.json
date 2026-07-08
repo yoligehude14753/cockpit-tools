@@ -114,7 +114,7 @@
           "inline": "內嵌建議"
         },
         "subtitle": "多實例獨立配置，多帳號並行運行。",
-        "title": "多開實例"
+        "title": "應用多開"
       },
       "noMatch": {
         "desc": "請嘗試調整搜尋或篩選條件",
@@ -197,7 +197,7 @@
         "planEndsInHours": "在 {{hours}}h 中重置"
       },
       "flowNotice": {
-        "alternative": "多開實例隔離：使用獨立受管 profile；每個實例登入一次，之後即可按實例快速切換帳號環境。"
+        "alternative": "應用多開隔離：使用獨立受管 profile；每個實例登入一次，之後即可按實例快速切換帳號環境。"
       },
       "injecting": "注入中...",
       "usage": {
@@ -237,7 +237,7 @@
     "windsurf": "Windsurf",
     "dashboard": "儀表板",
     "morePlatforms": "更多平台",
-    "instances": "多開實例",
+    "instances": "應用多開",
     "manual": "使用手冊",
     "quickUpdate": {
       "update": "更新",
@@ -789,7 +789,7 @@
       "claudeAutoRefresh": "Claude 自動重新整理額度",
       "claudeAutoRefreshDesc": "在背景自動更新 Claude 帳號額度快取",
       "claudeAppPath": "Claude Desktop 啟動目標",
-      "claudeAppPathDesc": "預設實例可使用 Microsoft Store 應用目標；多開實例請選擇真實 Claude.exe。",
+      "claudeAppPathDesc": "預設實例可使用 Microsoft Store 應用目標；應用多開請選擇真實 Claude.exe。",
       "antigravityLaunchOnSwitch": "切換時啟動 Antigravity IDE",
       "antigravityLaunchOnSwitchDesc": "關閉後切號只寫入 Antigravity IDE 預設帳號資料，不會關閉、啟動或重啟應用程式。",
       "tokenKeeper": "背景授權保活",
@@ -1034,12 +1034,12 @@
       "desc": "找不到 {{app}} 的應用程式路徑。請立即設定以繼續。",
       "codexLaunchHint": "關閉後僅執行切號與登入覆蓋，不再嘗試啟動 Codex App，也不會再次要求設定啟動路徑。",
       "action": "立即設定",
-      "claudeMultiInstanceRequiresExe": "Claude 多開實例需要真實 Claude.exe 路徑；Microsoft Store 啟動目標僅適用於預設桌面端。",
+      "claudeMultiInstanceRequiresExe": "Claude 應用多開需要真實 Claude.exe 路徑；Microsoft Store 啟動目標僅適用於預設桌面端。",
       "scanApps": "掃描應用",
       "scanRoots": "掃描範圍",
       "scanRootsPlaceholder": "選填，選擇一個目錄或磁碟根目錄；留空時按磁碟掃描 WindowsApps 並補充開始功能表應用。",
       "windowsApp": "微軟商店",
-      "defaultOnly": "僅適用於預設桌面端；多開實例請選擇真實 Claude.exe。",
+      "defaultOnly": "僅適用於預設桌面端；應用多開請選擇真實 Claude.exe。",
       "claudeScanEmpty": "未掃描到 Claude Desktop，請手動選擇 Claude.exe 或調整掃描範圍。",
       "claudeTargetPlaceholder": "Claude.exe 路徑或 shell:AppsFolder\\..."
     },
@@ -1659,10 +1659,10 @@
     "subtitle": "管理您的 OpenAI Codex 帳號",
     "instances": {
       "subtitle": "多實例獨立配置，多帳號並行運行。",
-      "comingSoon": "多開實例功能即將上線",
+      "comingSoon": "應用多開功能即將上線",
       "comingSoonDesc": "支援以不同帳號同時運行多個 Codex.app 實例，敬請期待。",
       "unsupported": {
-        "desc": "Codex 多開實例僅支援 macOS，請在 macOS 上使用。",
+        "desc": "Codex 應用多開僅支援 macOS，請在 macOS 上使用。",
         "title": "暫不支援目前系統"
       },
       "quota": {
@@ -2595,7 +2595,7 @@
         "instanceScopeTarget": "僅目標實例",
         "instanceScopeTargetDesc": "只修復上方選取的實例，通常更快。",
         "instanceScopeAll": "全部實例",
-        "instanceScopeAllDesc": "修復所有 Codex 實例，適合多開實例一起復原。",
+        "instanceScopeAllDesc": "修復所有 Codex 實例，適合應用多開一起復原。",
         "progressTitle": "修復進度",
         "start": "開始修復",
         "previewing": "正在預覽...",
@@ -2870,7 +2870,7 @@
         "default": "預設實例",
         "running": "執行中",
         "targetHint": "目標：{{instance}}",
-        "uninitializedHint": "目標實例尚未初始化，請先到多開實例頁啟動一次。",
+        "uninitializedHint": "目標實例尚未初始化，請先到應用多開頁啟動一次。",
         "shortLabel": "實例",
         "saveFailed": "儲存實例綁定失敗：{{error}}"
       },
@@ -3337,7 +3337,7 @@
     "title": "GitHub Copilot 帳號管理",
     "instances": {
       "unsupported": {
-        "desc": "GitHub Copilot 多開實例僅支援 macOS，請在 macOS 上使用。"
+        "desc": "GitHub Copilot 應用多開僅支援 macOS，請在 macOS 上使用。"
       }
     },
     "empty": {
@@ -3648,7 +3648,7 @@
     "title": "Windsurf 帳號管理",
     "instances": {
       "unsupported": {
-        "desc": "Windsurf 多開實例僅支援 macOS，請在 macOS 上使用。"
+        "desc": "Windsurf 應用多開僅支援 macOS，請在 macOS 上使用。"
       }
     },
     "empty": {
@@ -3817,7 +3817,7 @@
     "title": "Cursor 帳號管理",
     "instances": {
       "unsupported": {
-        "descPlatform": "Cursor 多開實例僅支援 macOS、Windows 和 Linux。"
+        "descPlatform": "Cursor 應用多開僅支援 macOS、Windows 和 Linux。"
       }
     },
     "empty": {
@@ -3918,7 +3918,7 @@
       "goCodex": "前往 Codex",
       "goDashboard": "前往儀表板",
       "goGitHubCopilot": "前往 GitHub Copilot",
-      "goInstances": "前往多開實例",
+      "goInstances": "前往應用多開",
       "goKiro": "前往 Kiro",
       "goSettings": "前往設定",
       "goVerification": "前往喚醒驗證",
@@ -4035,7 +4035,7 @@
         "2": "綁定帳號後，透過「啟動/定位視窗/停止」管理生命週期。"
       },
       "summary": "用於帳號隔離和並行運行。每個實例有獨立目錄、獨立狀態，可避免互相污染。",
-      "title": "多開實例（重點）"
+      "title": "應用多開（重點）"
     },
     "navTitle": "功能使用手冊",
     "providers": {
@@ -4061,7 +4061,7 @@
         "1": "確認帳號列表中能看到方案/配額和重置時間。",
         "2": "執行「切換/注入」並在客戶端驗證生效。"
       },
-      "summary": "四個平台頁結構一致：帳號總覽 + 多開實例，支援 OAuth、Token/JSON 匯入與切換。",
+      "summary": "四個平台頁結構一致：帳號總覽 + 應用多開，支援 OAuth、Token/JSON 匯入與切換。",
       "title": "Codex / GitHub Copilot / Windsurf / Kiro 平台"
     },
     "quickStart": {
@@ -4078,13 +4078,13 @@
       "outcomes": {
         "0": "先在儀表板看全局狀態，再進入具體平台頁操作。",
         "1": "先完成一個平台的完整閉環，再擴展到其他平台。",
-        "2": "理解「帳號管理」和「多開實例」是兩條不同工作流。"
+        "2": "理解「帳號管理」和「應用多開」是兩條不同工作流。"
       },
       "steps": {
         "0": "打開「儀表板」，確認你需要管理的平台已經可見。",
         "1": "進入目標平台頁（如 Codex / GitHub Copilot），先添加 1 個帳號。",
         "2": "使用「切換/注入」按鈕驗證切號生效。",
-        "3": "再進入「多開實例」建立 1 個實例，驗證隔離和並行運行。"
+        "3": "再進入「應用多開」建立 1 個實例，驗證隔離和並行運行。"
       },
       "summary": "按「看狀態 -> 加帳號 -> 切帳號 -> 開多實例」的順序完成首輪上手，避免迷路。",
       "title": "快速開始（5 分鐘）"
@@ -4341,12 +4341,12 @@
   "qoder": {
     "title": "Qoder 帳號管理",
     "comingSoon": {
-      "title": "多開實例功能即將上線",
+      "title": "應用多開功能即將上線",
       "desc": "支援以不同帳號同時運行多個 Qoder.app 實例，敬請期待。"
     },
     "instances": {
       "unsupported": {
-        "descPlatform": "Qoder 多開實例僅支援 macOS、Windows 和 Linux。"
+        "descPlatform": "Qoder 應用多開僅支援 macOS、Windows 和 Linux。"
       }
     },
     "oauth": {
@@ -4364,7 +4364,7 @@
     },
     "flowNotice": {
       "title": "Qoder 帳號接入說明（點擊展開/收起）",
-      "desc": "目前支援官方授權登入（回調）、本機匯入、JSON 匯入、切號注入、多開實例綁定與配額概覽。登入流程沿用 Qoder 用戶端真實落盤資料。",
+      "desc": "目前支援官方授權登入（回調）、本機匯入、JSON 匯入、切號注入、應用多開綁定與配額概覽。登入流程沿用 Qoder 用戶端真實落盤資料。",
       "permission": "權限範圍：讀取 Qoder 本地認證儲存（auth 憑證與使用者資訊），用於帳號切換與工作階段注入；所有資料僅在本機處理。",
       "network": "網路範圍：OAuth 授權登入需連網請求 Qoder 官方服務完成回調；配額查詢透過 Qoder API 取得用量資料。不會上傳本地金鑰或憑證。"
     },
@@ -4987,7 +4987,7 @@
       "success": "切換成功"
     },
     "instances": {
-      "unsupportedDescPlatform": "Claude 多開實例僅支援 macOS、Windows 和 Linux。",
+      "unsupportedDescPlatform": "Claude 應用多開僅支援 macOS、Windows 和 Linux。",
       "launchDialogTitle": "啟動實例",
       "launchCommand": "啟動命令",
       "executeInTerminal": "在終端機執行",

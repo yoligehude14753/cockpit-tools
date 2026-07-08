@@ -9583,7 +9583,7 @@ pub fn start_codex_with_args(codex_home: &str, extra_args: &[String]) -> Result<
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     {
         let _ = (codex_home, extra_args);
-        Err("Codex 多开实例仅支持 macOS 和 Windows".to_string())
+        Err("Codex 应用多开仅支持 macOS 和 Windows".to_string())
     }
 }
 
@@ -10269,7 +10269,7 @@ pub fn close_codex_instances(codex_homes: &[String], timeout_secs: u64) -> Resul
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     {
         let _ = (codex_homes, timeout_secs);
-        Err("Codex 多开实例仅支持 macOS 和 Windows".to_string())
+        Err("Codex 应用多开仅支持 macOS 和 Windows".to_string())
     }
 }
 
@@ -11041,7 +11041,7 @@ pub fn start_vscode_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (user_data_dir, extra_args, use_new_window);
-        Err("GitHub Copilot 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("GitHub Copilot 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -11174,7 +11174,7 @@ pub fn start_codebuddy_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (user_data_dir, extra_args, use_new_window);
-        Err("CodeBuddy 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("CodeBuddy 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -11286,7 +11286,7 @@ pub fn start_codebuddy_default_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (extra_args, use_new_window);
-        Err("CodeBuddy 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("CodeBuddy 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -11419,7 +11419,7 @@ pub fn start_codebuddy_cn_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (user_data_dir, extra_args, use_new_window);
-        Err("CodeBuddy CN 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("CodeBuddy CN 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -11531,7 +11531,7 @@ pub fn start_codebuddy_cn_default_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (extra_args, use_new_window);
-        Err("CodeBuddy CN 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("CodeBuddy CN 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -11662,7 +11662,7 @@ pub fn start_workbuddy_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (user_data_dir, extra_args, use_new_window);
-        Err("WorkBuddy 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("WorkBuddy 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -11772,7 +11772,7 @@ pub fn start_workbuddy_default_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (extra_args, use_new_window);
-        Err("WorkBuddy 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("WorkBuddy 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -11899,7 +11899,7 @@ pub fn start_qoder_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (user_data_dir, extra_args, use_new_window);
-        Err("Qoder 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Qoder 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -12005,7 +12005,7 @@ pub fn start_qoder_default_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (extra_args, use_new_window);
-        Err("Qoder 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Qoder 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -12132,7 +12132,7 @@ pub fn start_trae_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (user_data_dir, extra_args, use_new_window);
-        Err("Trae 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Trae 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -12268,7 +12268,7 @@ pub fn start_trae_platform_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (platform, user_data_dir, extra_args, use_new_window);
-        Err("Trae 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Trae 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -12374,7 +12374,7 @@ pub fn start_trae_default_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (extra_args, use_new_window);
-        Err("Trae 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("Trae 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 
@@ -12606,7 +12606,7 @@ pub fn start_vscode_default_with_args_with_new_window(
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (extra_args, use_new_window);
-        Err("GitHub Copilot 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+        Err("GitHub Copilot 应用多开仅支持 macOS、Windows 和 Linux".to_string())
     }
 }
 

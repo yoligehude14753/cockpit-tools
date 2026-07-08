@@ -168,7 +168,7 @@ pub fn get_default_instances_root_dir_for_platform(
     }
 
     #[allow(unreachable_code)]
-    Err("Trae 多开实例仅支持 macOS、Windows 和 Linux".to_string())
+    Err("Trae 应用多开仅支持 macOS、Windows 和 Linux".to_string())
 }
 
 pub fn get_instance_defaults() -> Result<InstanceDefaults, String> {

@@ -121,7 +121,7 @@
           "inline": "内嵌建议"
         },
         "subtitle": "多实例独立配置，多账号并行运行。",
-        "title": "多开实例"
+        "title": "应用多开"
       },
       "noMatch": {
         "desc": "请尝试调整搜索或筛选条件",
@@ -204,7 +204,7 @@
         "planEndsInHours": "{{hours}} 小时后重置"
       },
       "flowNotice": {
-        "alternative": "多开实例隔离：使用独立受管 profile；每个实例登录一次，后续按实例快速切换账号环境。"
+        "alternative": "应用多开隔离：使用独立受管 profile；每个实例登录一次，后续按实例快速切换账号环境。"
       },
       "injecting": "注入中...",
       "usage": {
@@ -292,7 +292,7 @@
     "sponsors": "赞助商",
     "sponsorAppreciation": "赞赏",
     "apiRelay": "中转站",
-    "instances": "多开实例",
+    "instances": "应用多开",
     "manual": "使用手册",
     "quickUpdate": {
       "update": "更新",
@@ -522,7 +522,7 @@
     "showSensitive": "显示邮箱"
   },
   "instances": {
-    "title": "多开实例",
+    "title": "应用多开",
     "subtitle": "多实例独立配置，多账号并行运行。",
     "defaultName": "默认实例",
     "search": "搜索实例",
@@ -1149,7 +1149,7 @@
       "claudeAutoRefresh": "Claude 自动刷新配额",
       "claudeAutoRefreshDesc": "后台自动更新 Claude 账号配额缓存",
       "claudeAppPath": "Claude Desktop 启动目标",
-      "claudeAppPathDesc": "默认实例可使用 Microsoft Store 应用目标；多开实例请选择真实 Claude.exe。",
+      "claudeAppPathDesc": "默认实例可使用 Microsoft Store 应用目标；应用多开请选择真实 Claude.exe。",
       "antigravityLaunchOnSwitch": "切换时启动 Antigravity",
       "antigravityLaunchOnSwitchDesc": "关闭后切号只写入 Antigravity 默认账号数据，不会关闭、启动或重启应用。",
       "tokenKeeper": "后台授权保活",
@@ -1235,12 +1235,12 @@
       "desc": "未找到 {{app}} 应用程序路径，请立即设置后继续启动。",
       "codexLaunchHint": "关闭后仅执行切号与登录覆盖，不再尝试启动 Codex App，也不会再次要求设置启动路径。",
       "action": "立即设置",
-      "claudeMultiInstanceRequiresExe": "Claude 多开实例需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。",
+      "claudeMultiInstanceRequiresExe": "Claude 应用多开需要真实 Claude.exe 路径；Microsoft Store 启动目标仅适用于默认桌面端。",
       "scanApps": "扫描应用",
       "scanRoots": "扫描范围",
       "scanRootsPlaceholder": "可选，选择一个目录或盘符；留空时按盘符扫描 WindowsApps 并补充开始菜单应用。",
       "windowsApp": "微软商店",
-      "defaultOnly": "仅适用于默认桌面端；多开实例请选择真实 Claude.exe。",
+      "defaultOnly": "仅适用于默认桌面端；应用多开请选择真实 Claude.exe。",
       "claudeScanEmpty": "未扫描到 Claude Desktop，请手动选择 Claude.exe 或调整扫描范围。",
       "claudeTargetPlaceholder": "Claude.exe 路径或 shell:AppsFolder\\..."
     }
@@ -1857,10 +1857,10 @@
     "subtitle": "实时监控所有Codex账号的模型配额状态。",
     "instances": {
       "subtitle": "多实例独立配置，多账号并行运行。",
-      "comingSoon": "多开实例功能即将上线",
+      "comingSoon": "应用多开功能即将上线",
       "comingSoonDesc": "支持以不同账号同时运行多个 Codex.app 实例，敬请期待。",
       "unsupported": {
-        "desc": "Codex 多开实例仅支持 macOS 和 Windows。",
+        "desc": "Codex 应用多开仅支持 macOS 和 Windows。",
         "title": "暂不支持当前系统"
       },
       "quota": {
@@ -2648,7 +2648,7 @@
         "default": "默认实例",
         "running": "运行中",
         "targetHint": "目标：{{instance}}",
-        "uninitializedHint": "目标实例尚未初始化，请先到多开实例页启动一次。",
+        "uninitializedHint": "目标实例尚未初始化，请先到应用多开页启动一次。",
         "shortLabel": "实例",
         "saveFailed": "保存实例绑定失败：{{error}}"
       },
@@ -3205,7 +3205,7 @@
         "instanceScopeTarget": "仅目标实例",
         "instanceScopeTargetDesc": "只修复上方选中的实例，通常更快。",
         "instanceScopeAll": "全部实例",
-        "instanceScopeAllDesc": "修复所有 Codex 实例，适合多开实例一起恢复。",
+        "instanceScopeAllDesc": "修复所有 Codex 实例，适合应用多开一起恢复。",
         "progressTitle": "修复进度",
         "start": "开始修复",
         "previewing": "正在预览...",
@@ -3635,7 +3635,7 @@
     "title": "GitHub Copilot 账号管理",
     "instances": {
       "unsupported": {
-        "desc": "GitHub Copilot 多开实例仅支持 macOS。"
+        "desc": "GitHub Copilot 应用多开仅支持 macOS。"
       }
     },
     "empty": {
@@ -3946,7 +3946,7 @@
     "title": "Windsurf 账号管理",
     "instances": {
       "unsupported": {
-        "desc": "Windsurf 多开实例仅支持 macOS。"
+        "desc": "Windsurf 应用多开仅支持 macOS。"
       }
     },
     "empty": {
@@ -4085,7 +4085,7 @@
     "title": "Kiro 账号管理",
     "instances": {
       "unsupported": {
-        "descPlatform": "Kiro 多开实例仅支持 macOS、Windows 和 Linux。"
+        "descPlatform": "Kiro 应用多开仅支持 macOS、Windows 和 Linux。"
       }
     },
     "empty": {
@@ -4115,7 +4115,7 @@
     "title": "Cursor 账号管理",
     "instances": {
       "unsupported": {
-        "descPlatform": "Cursor 多开实例仅支持 macOS、Windows 和 Linux。"
+        "descPlatform": "Cursor 应用多开仅支持 macOS、Windows 和 Linux。"
       }
     },
     "empty": {
@@ -4185,8 +4185,8 @@
     },
     "title": "Gemini Cli 账号管理",
     "instances": {
-      "unsupported": "Gemini Cli 暂不支持多开实例管理。",
-      "unsupportedDescPlatform": "Gemini Cli 多开实例仅支持 macOS、Windows 和 Linux。",
+      "unsupported": "Gemini Cli 暂不支持应用多开管理。",
+      "unsupportedDescPlatform": "Gemini Cli 应用多开仅支持 macOS、Windows 和 Linux。",
       "launchDialogTitle": "启动实例",
       "launchHint": "可复制命令手动执行，或点击下方按钮直接在终端执行。",
       "runInTerminal": "终端执行",
@@ -4309,7 +4309,7 @@
       "goCodex": "前往 Codex",
       "goDashboard": "前往仪表盘",
       "goGitHubCopilot": "前往 GitHub Copilot",
-      "goInstances": "前往多开实例",
+      "goInstances": "前往应用多开",
       "goKiro": "前往 Kiro",
       "goSettings": "前往设置",
       "goVerification": "前往唤醒验证",
@@ -4426,7 +4426,7 @@
         "2": "绑定账号后，通过“启动/定位窗口/停止”管理生命周期。"
       },
       "summary": "用于账号隔离和并行运行。每个实例有独立目录、独立状态，可避免互相污染。",
-      "title": "多开实例（重点）"
+      "title": "应用多开（重点）"
     },
     "navTitle": "功能使用手册",
     "providers": {
@@ -4452,7 +4452,7 @@
         "1": "确认账号列表中能看到计划/配额和重置时间。",
         "2": "执行“切换/注入”并在客户端验证生效。"
       },
-      "summary": "四个平台页结构一致：账号总览 + 多开实例，支持 OAuth、Token/JSON 导入与切换。",
+      "summary": "四个平台页结构一致：账号总览 + 应用多开，支持 OAuth、Token/JSON 导入与切换。",
       "title": "Codex / GitHub Copilot / Windsurf / Kiro 平台"
     },
     "quickStart": {
@@ -4469,13 +4469,13 @@
       "outcomes": {
         "0": "先在仪表盘看全局状态，再进入具体平台页操作。",
         "1": "先完成一个平台的完整闭环，再扩展到其他平台。",
-        "2": "理解“账号管理”和“多开实例”是两条不同工作流。"
+        "2": "理解“账号管理”和“应用多开”是两条不同工作流。"
       },
       "steps": {
         "0": "打开“仪表盘”，确认你需要管理的平台已经可见。",
         "1": "进入目标平台页（如 Codex / GitHub Copilot），先添加 1 个账号。",
         "2": "使用“切换/注入”按钮验证切号生效。",
-        "3": "再进入“多开实例”创建 1 个实例，验证隔离和并行运行。"
+        "3": "再进入“应用多开”创建 1 个实例，验证隔离和并行运行。"
       },
       "summary": "按“看状态 -> 加账号 -> 切账号 -> 开多实例”的顺序完成首轮上手，避免迷路。",
       "title": "快速开始（5 分钟）"
@@ -4540,7 +4540,7 @@
     "title": "Qoder 账号管理",
     "flowNotice": {
       "title": "Qoder 账号接入说明（点击展开/收起）",
-      "desc": "当前支持官方 CLI device login 授权、本地导入、JSON 导入、切号注入、多开实例绑定与配额概览。浏览器授权无需保持 Qoder 运行；切号注入按 Qoder 客户端真实落盘规则写回。",
+      "desc": "当前支持官方 CLI device login 授权、本地导入、JSON 导入、切号注入、应用多开绑定与配额概览。浏览器授权无需保持 Qoder 运行；切号注入按 Qoder 客户端真实落盘规则写回。",
       "permission": "权限范围：读取 Qoder 本地认证存储、用户信息与机器标识缓存（如 machine_token.json、cache/id），用于官方授权登录、本地导入、账号切换与会话注入；所有数据仅在本机处理。",
       "network": "网络范围：OAuth 授权登录会在浏览器中打开 Qoder 官方 device login 页面，并轮询 Qoder 官方 OpenAPI 完成授权；配额查询通过 Qoder API 获取用量数据。不上传本地密钥、凭证或原始存储内容。"
     },
@@ -4559,11 +4559,11 @@
     },
     "comingSoon": {
       "title": "Qoder 账号接入准备中",
-      "desc": "当前版本已支持 Qoder 多开实例、平台管理与菜单栏入口，账号登录与配额面板将在后续版本开放。"
+      "desc": "当前版本已支持 Qoder 应用多开、平台管理与菜单栏入口，账号登录与配额面板将在后续版本开放。"
     },
     "instances": {
       "unsupported": {
-        "descPlatform": "Qoder 多开实例仅支持 macOS、Windows 和 Linux。"
+        "descPlatform": "Qoder 应用多开仅支持 macOS、Windows 和 Linux。"
       }
     },
     "addModal": {
@@ -4720,7 +4720,7 @@
     },
     "instances": {
       "unsupported": {
-        "descPlatform": "CodeBuddy CN 多开实例仅支持 macOS、Windows 和 Linux。"
+        "descPlatform": "CodeBuddy CN 应用多开仅支持 macOS、Windows 和 Linux。"
       }
     },
     "syncFailed": "同步失败: {{error}}",
@@ -4851,7 +4851,7 @@
     "oauthSuccessCloseLaterStatus": "✅ 账号添加完成，已保持当前页面打开。",
     "instances": {
       "unsupported": {
-        "descPlatform": "WorkBuddy 多开实例仅支持 macOS、Windows 和 Linux。"
+        "descPlatform": "WorkBuddy 应用多开仅支持 macOS、Windows 和 Linux。"
       }
     }
   },
@@ -4996,7 +4996,7 @@
       "success": "切号成功"
     },
     "instances": {
-      "unsupportedDescPlatform": "Claude 多开实例仅支持 macOS、Windows 和 Linux。",
+      "unsupportedDescPlatform": "Claude 应用多开仅支持 macOS、Windows 和 Linux。",
       "launchDialogTitle": "启动实例",
       "launchCommand": "启动命令",
       "executeInTerminal": "在终端运行",

@@ -182,7 +182,7 @@ export function GeminiInstancesContent({
         unsupportedTitleKey="common.shared.instances.unsupported.title"
         unsupportedTitleDefault="暂不支持当前系统"
         unsupportedDescKey="gemini.instances.unsupportedDescPlatform"
-        unsupportedDescDefault="Gemini Cli 多开实例仅支持 macOS、Windows 和 Linux。"
+        unsupportedDescDefault="Gemini Cli 应用多开仅支持 macOS、Windows 和 Linux。"
         onInstanceStarted={handleInstanceStarted}
         resolveStartSuccessMessage={() =>
           t("gemini.switch.success", "切号成功")

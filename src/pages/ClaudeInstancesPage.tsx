@@ -221,7 +221,7 @@ export function ClaudeInstancesContent({
         unsupportedTitleKey="common.shared.instances.unsupported.title"
         unsupportedTitleDefault="暂不支持当前系统"
         unsupportedDescKey="claude.instances.unsupportedDescPlatform"
-        unsupportedDescDefault="Claude / Claude CLI 多开实例仅支持 macOS、Windows 和 Linux。"
+        unsupportedDescDefault="Claude / Claude CLI 应用多开仅支持 macOS、Windows 和 Linux。"
         onInstanceStarted={handleInstanceStarted}
         resolveStartSuccessMessage={(instance) =>
           (instance.launchMode ?? 'app') === 'cli'

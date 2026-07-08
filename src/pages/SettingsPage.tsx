@@ -4196,7 +4196,7 @@ export function SettingsPage() {
                       <div className="row-desc">
                         {t(
                           'settings.general.claudeAppPathDesc',
-                          '默认实例可使用 Microsoft Store 应用目标；多开实例请选择真实 Claude.exe。',
+                          '默认实例可使用 Microsoft Store 应用目标；应用多开请选择真实 Claude.exe。',
                         )}
                       </div>
                     </div>
@@ -4290,7 +4290,7 @@ export function SettingsPage() {
                                 <div className="settings-claude-candidate-note">
                                   {t(
                                     'appPath.missing.defaultOnly',
-                                    '仅适用于默认桌面端；多开实例请选择真实 Claude.exe',
+                                    '仅适用于默认桌面端；应用多开请选择真实 Claude.exe',
                                   )}
                                 </div>
                               ) : null}

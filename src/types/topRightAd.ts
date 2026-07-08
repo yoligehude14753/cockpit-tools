@@ -7,6 +7,11 @@ export interface TopRightAd {
   badge?: string | null;
   ctaLabel?: string | null;
   ctaUrl?: string | null;
+  displayMode?: string | null;
+  displayPages?: string[] | null;
+  displayPlatforms?: string[] | null;
+  excludePages?: string[] | null;
+  excludePlatforms?: string[] | null;
   targetVersions: string;
   targetLanguages?: string[];
   createdAt: string;

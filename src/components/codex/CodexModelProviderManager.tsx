@@ -3379,7 +3379,7 @@ export function CodexModelProviderManager({
                             ? t("codex.modelProviders.enableAndStart", "启用并启动")
                             : t(
                                 "codex.modelProviders.instance.uninitializedHint",
-                                "目标实例尚未初始化，请先到多开实例页启动一次。",
+                                "目标实例尚未初始化，请先到应用多开页启动一次。",
                               )
                         }
                         onClick={() =>

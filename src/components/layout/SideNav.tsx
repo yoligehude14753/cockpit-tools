@@ -124,6 +124,10 @@ function isAntigravitySuitePlatformIds(platformIds: PlatformId[]): boolean {
   return platformIds.includes('antigravity') && platformIds.includes('antigravity_ide');
 }
 
+function isAntigravitySuitePage(page: Page): boolean {
+  return page === 'overview' || page === 'instances' || page === 'wakeup' || page === 'verification';
+}
+
 export function SideNav({
   page,
   setPage,
@@ -181,7 +185,7 @@ export function SideNav({
   const remoteHiddenPlatformIds = useRemoteConfigStore((state) => state.hiddenPlatformIds);
 
   const antigravityRuntimeTarget = useAntigravityRuntimeTarget();
-  const currentPlatformId = page === 'overview'
+  const currentPlatformId = isAntigravitySuitePage(page)
     ? antigravityRuntimeTarget
     : PAGE_PLATFORM_MAP[page] ?? null;
   const currentEntryId = useMemo<SideNavEntryId | null>(

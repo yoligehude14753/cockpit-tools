@@ -1,8 +1,8 @@
 import { ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AlarmClock, Layers, ShieldCheck } from 'lucide-react';
 import { Page } from '../types/navigation';
 import { ManualHelpIconButton } from './ManualHelpIconButton';
-import { TopCenterPromoBanner } from './TopCenterPromoBanner';
 import { AntigravityInstalledVersionBadge } from './AntigravityInstalledVersionBadge';
 import { PlatformId } from '../types/platform';
 import {
@@ -70,6 +70,25 @@ export function OverviewTabsHeader({
       label: t('overview.title'),
       icon: <span className="tab-icon">{renderPlatformIcon(currentPlatformId, 16)}</span>,
     },
+    ...(currentPlatformId === 'antigravity_ide'
+      ? [
+          {
+            key: 'instances' as const,
+            label: t('instances.title', '应用多开'),
+            icon: <Layers className="tab-icon" />,
+          },
+          {
+            key: 'wakeup' as const,
+            label: t('wakeup.title'),
+            icon: <AlarmClock className="tab-icon" />,
+          },
+          {
+            key: 'verification' as const,
+            label: t('wakeup.verification.title'),
+            icon: <ShieldCheck className="tab-icon" />,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -81,7 +100,6 @@ export function OverviewTabsHeader({
           </span>
           <ManualHelpIconButton className="platform-header-help" onClick={onOpenManual} />
         </div>
-        <TopCenterPromoBanner />
         <div className="page-top-strip-right">
           <AntigravityInstalledVersionBadge />
         </div>

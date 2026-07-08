@@ -1894,7 +1894,7 @@ export function QoderAccountsPage() {
                 <div className="ghcp-flow-notice-desc">
                   {t(
                     'qoder.flowNotice.desc',
-                    '当前支持官方授权登录（回调）、本地导入、JSON 导入、切号注入、多开实例绑定与配额概览。登录流程沿用 Qoder 客户端真实落盘数据。',
+                    '当前支持官方授权登录（回调）、本地导入、JSON 导入、切号注入、应用多开绑定与配额概览。登录流程沿用 Qoder 客户端真实落盘数据。',
                   )}
                 </div>
                 <ul className="ghcp-flow-notice-list">

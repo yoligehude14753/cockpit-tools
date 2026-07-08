@@ -28,6 +28,25 @@ const REASONING_EFFORT_XHIGH: &str = "xhigh";
 const CODEX_WAKEUP_TEST_CANCELLED_MESSAGE: &str = "Codex 唤醒测试已取消";
 const CODEX_WAKEUP_CANCEL_POLL_MS: u64 = 120;
 const GPT_5_5_MODEL_PRESET_MIGRATION_ID: &str = "add-gpt-5-5-model-preset";
+const PRUNE_LEGACY_MODEL_PRESETS_MIGRATION_ID: &str =
+    "prune-legacy-codex-model-presets-before-gpt-5-4";
+const LEGACY_CODEX_MODEL_PRESET_IDS: &[&str] = &[
+    "preset-gpt-5-3-codex",
+    "preset-gpt-5-2-codex",
+    "preset-gpt-5-2",
+    "preset-gpt-5-1-codex-max",
+    "preset-gpt-5-1-codex-mini",
+];
+const LEGACY_CODEX_MODEL_PRESET_MODELS: &[&str] = &[
+    "gpt-5-codex",
+    "gpt-5-codex-mini",
+    "gpt-5.3-codex",
+    "gpt-5.3-codex-spark",
+    "gpt-5.2",
+    "gpt-5.2-codex",
+    "gpt-5.1-codex-max",
+    "gpt-5.1-codex-mini",
+];
 
 static TASKS_LOCK: std::sync::LazyLock<Mutex<()>> = std::sync::LazyLock::new(|| Mutex::new(()));
 static HISTORY_LOCK: std::sync::LazyLock<Mutex<()>> = std::sync::LazyLock::new(|| Mutex::new(()));
@@ -344,7 +363,10 @@ impl Default for CodexWakeupState {
             enabled: false,
             tasks: Vec::new(),
             model_presets: default_model_presets(),
-            model_preset_migrations: vec![GPT_5_5_MODEL_PRESET_MIGRATION_ID.to_string()],
+            model_preset_migrations: vec![
+                GPT_5_5_MODEL_PRESET_MIGRATION_ID.to_string(),
+                PRUNE_LEGACY_MODEL_PRESETS_MIGRATION_ID.to_string(),
+            ],
         }
     }
 }
@@ -469,19 +491,6 @@ fn default_model_presets() -> Vec<CodexWakeupModelPreset> {
         ("preset-gpt-5-5", "GPT-5.5", "gpt-5.5"),
         ("preset-gpt-5-4", "GPT-5.4", "gpt-5.4"),
         ("preset-gpt-5-4-mini", "GPT-5.4-Mini", "gpt-5.4-mini"),
-        ("preset-gpt-5-3-codex", "GPT-5.3-Codex", "gpt-5.3-codex"),
-        ("preset-gpt-5-2-codex", "GPT-5.2-Codex", "gpt-5.2-codex"),
-        ("preset-gpt-5-2", "GPT-5.2", "gpt-5.2"),
-        (
-            "preset-gpt-5-1-codex-max",
-            "GPT-5.1-Codex-Max",
-            "gpt-5.1-codex-max",
-        ),
-        (
-            "preset-gpt-5-1-codex-mini",
-            "GPT-5.1-Codex-Mini",
-            "gpt-5.1-codex-mini",
-        ),
     ];
 
     items
@@ -556,6 +565,44 @@ fn ensure_gpt_5_5_model_preset(state: &mut CodexWakeupState) -> bool {
 
     state.model_presets.insert(0, gpt_5_5_model_preset());
     true
+}
+
+fn is_legacy_codex_model_preset(preset: &CodexWakeupModelPreset) -> bool {
+    let id = preset.id.trim();
+    let model = preset.model.trim();
+    LEGACY_CODEX_MODEL_PRESET_IDS
+        .iter()
+        .any(|item| id.eq_ignore_ascii_case(item))
+        || LEGACY_CODEX_MODEL_PRESET_MODELS
+            .iter()
+            .any(|item| model.eq_ignore_ascii_case(item))
+}
+
+fn prune_legacy_model_presets(state: &mut CodexWakeupState) -> bool {
+    if state
+        .model_preset_migrations
+        .iter()
+        .any(|item| item == PRUNE_LEGACY_MODEL_PRESETS_MIGRATION_ID)
+    {
+        return false;
+    }
+
+    state
+        .model_preset_migrations
+        .push(PRUNE_LEGACY_MODEL_PRESETS_MIGRATION_ID.to_string());
+    state
+        .model_presets
+        .retain(|preset| !is_legacy_codex_model_preset(preset));
+    true
+}
+
+fn apply_model_preset_migrations(state: &mut CodexWakeupState) -> bool {
+    let mut changed = false;
+    changed |= prune_legacy_model_presets(state);
+    changed |= ensure_gpt_5_5_model_preset(state);
+    state.model_preset_migrations.sort();
+    state.model_preset_migrations.dedup();
+    changed
 }
 
 fn data_dir() -> Result<PathBuf, String> {
@@ -1618,7 +1665,7 @@ fn load_state_inner() -> Result<CodexWakeupState, String> {
         .collect();
     state.model_preset_migrations.sort();
     state.model_preset_migrations.dedup();
-    let migration_changed = ensure_gpt_5_5_model_preset(&mut state);
+    let migration_changed = apply_model_preset_migrations(&mut state);
     refresh_next_run_at(&mut state);
     if migration_changed {
         let _lock = TASKS_LOCK.lock().map_err(|_| "获取 Codex 唤醒任务锁失败")?;
@@ -1675,7 +1722,7 @@ pub fn save_state(next_state: &CodexWakeupState) -> Result<CodexWakeupState, Str
     };
     state.model_preset_migrations.sort();
     state.model_preset_migrations.dedup();
-    ensure_gpt_5_5_model_preset(&mut state);
+    apply_model_preset_migrations(&mut state);
 
     refresh_next_run_at(&mut state);
 
@@ -2438,4 +2485,60 @@ pub fn get_task(task_id: &str) -> Result<Option<CodexWakeupTask>, String> {
         .tasks
         .into_iter()
         .find(|item| item.id == task_id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        apply_model_preset_migrations, default_model_presets, CodexWakeupModelPreset,
+        CodexWakeupState, PRUNE_LEGACY_MODEL_PRESETS_MIGRATION_ID, REASONING_EFFORT_MEDIUM,
+    };
+
+    fn model_preset(id: &str, name: &str, model: &str) -> CodexWakeupModelPreset {
+        CodexWakeupModelPreset {
+            id: id.to_string(),
+            name: name.to_string(),
+            model: model.to_string(),
+            allowed_reasoning_efforts: vec![REASONING_EFFORT_MEDIUM.to_string()],
+            default_reasoning_effort: REASONING_EFFORT_MEDIUM.to_string(),
+        }
+    }
+
+    #[test]
+    fn default_model_presets_only_include_gpt_5_4_and_newer() {
+        let models: Vec<String> = default_model_presets()
+            .into_iter()
+            .map(|preset| preset.model)
+            .collect();
+
+        assert_eq!(models, vec!["gpt-5.5", "gpt-5.4", "gpt-5.4-mini"]);
+    }
+
+    #[test]
+    fn model_preset_migration_prunes_legacy_codex_defaults() {
+        let mut state = CodexWakeupState {
+            enabled: false,
+            tasks: Vec::new(),
+            model_presets: vec![
+                model_preset("preset-gpt-5-5", "GPT-5.5", "gpt-5.5"),
+                model_preset("preset-gpt-5-codex", "GPT-5 Codex", "gpt-5-codex"),
+                model_preset("preset-gpt-5-3-codex", "GPT-5.3-Codex", "gpt-5.3-codex"),
+                model_preset("custom-gpt-5-4", "Custom GPT-5.4", "gpt-5.4"),
+            ],
+            model_preset_migrations: Vec::new(),
+        };
+
+        assert!(apply_model_preset_migrations(&mut state));
+        let models: Vec<String> = state
+            .model_presets
+            .iter()
+            .map(|preset| preset.model.clone())
+            .collect();
+
+        assert_eq!(models, vec!["gpt-5.5", "gpt-5.4"]);
+        assert!(state
+            .model_preset_migrations
+            .iter()
+            .any(|item| item == PRUNE_LEGACY_MODEL_PRESETS_MIGRATION_ID));
+    }
 }

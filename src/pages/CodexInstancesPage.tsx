@@ -31,7 +31,7 @@ import {
 import { useEscClose } from "../hooks/useEscClose";
 
 /**
- * Codex 多开实例内容组件（不包含 header）
+ * Codex 应用多开内容组件（不包含 header）
  * 用于嵌入到 CodexAccountsPage 中
  */
 interface CodexInstancesContentProps {
@@ -458,7 +458,7 @@ export function CodexInstancesContent({
           unsupportedTitleKey="common.shared.instances.unsupported.title"
           unsupportedTitleDefault="暂不支持当前系统"
           unsupportedDescKey="codex.instances.unsupported.desc"
-          unsupportedDescDefault="Codex 多开实例仅支持 macOS 和 Windows。"
+          unsupportedDescDefault="Codex 应用多开仅支持 macOS 和 Windows。"
           onInstanceStarted={handleInstanceStarted}
           resolveStartSuccessMessage={(instance) =>
             (instance.launchMode ?? "app") === "cli"

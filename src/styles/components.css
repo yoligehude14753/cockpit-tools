@@ -172,6 +172,7 @@
 
 /* Main Content */
 .main-wrapper {
+  position: relative;
   flex: 1;
   margin-inline-start: 120px; /* 增加起始侧留白，主要避开 Sidebar */
   padding: 40px 32px 32px 0;
@@ -182,6 +183,20 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.app-global-promo-layer {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  right: 32px;
+  height: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.app-global-promo-layer .global-promo-center {
+  top: 0;
 }
 
 .main-content {

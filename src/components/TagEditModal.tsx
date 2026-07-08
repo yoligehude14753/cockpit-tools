@@ -10,6 +10,7 @@ interface TagEditModalProps {
   initialTags: string[];
   initialNotes?: string;
   availableTags?: string[];
+  resetKey?: string | null;
   onClose: () => void;
   onSave: (tags: string[], notes?: string) => void | Promise<void>;
 }
@@ -33,7 +34,7 @@ const normalizeTagList = (tags: string[]) => {
   return result;
 };
 
-export const TagEditModal = ({ isOpen, initialTags, initialNotes, availableTags = [], onClose, onSave }: TagEditModalProps) => {
+export const TagEditModal = ({ isOpen, initialTags, initialNotes, availableTags = [], resetKey, onClose, onSave }: TagEditModalProps) => {
   const { t } = useTranslation();
   useEscClose(isOpen, onClose);
   const [tags, setTags] = useState<string[]>([]);
@@ -42,15 +43,19 @@ export const TagEditModal = ({ isOpen, initialTags, initialNotes, availableTags 
   const [error, setError] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [globalRenamingTag, setGlobalRenamingTag] = useState<string | null>(null);
+  const normalizedInitialTags = useMemo(() => normalizeTagList(initialTags), [initialTags]);
+  const initialNotesValue = initialNotes ?? '';
+  const initialTagsSignature = normalizedInitialTags.join('\u0001');
+  const effectiveResetKey = resetKey ?? `${initialTagsSignature}\u0002${initialNotesValue}`;
 
   useEffect(() => {
     if (!isOpen) return;
-    setTags(normalizeTagList(initialTags));
-    setNotes(initialNotes ?? '');
+    setTags(normalizedInitialTags);
+    setNotes(initialNotesValue);
     setInputValue('');
     setError('');
     setGlobalRenamingTag(null);
-  }, [initialNotes, initialTags, isOpen]);
+  }, [effectiveResetKey, isOpen]);
 
   const remaining = useMemo(() => MAX_TAGS - tags.length, [tags.length]);
   const normalizedAvailableTags = useMemo(() => normalizeTagList(availableTags), [availableTags]);

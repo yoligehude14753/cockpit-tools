@@ -156,19 +156,7 @@ const CODEX_OFFICIAL_EMPTY_HEADERS: &[&str] = &[
     "x-client-request-id",
     "x-responsesapi-include-timing-metrics",
 ];
-const DEFAULT_CODEX_MODELS: &[&str] = &[
-    "gpt-5-codex",
-    "gpt-5-codex-mini",
-    "gpt-5.5",
-    "gpt-5.4",
-    "gpt-5.4-mini",
-    "gpt-5.3-codex",
-    "gpt-5.3-codex-spark",
-    "gpt-5.2",
-    "gpt-5.2-codex",
-    "gpt-5.1-codex-max",
-    "gpt-5.1-codex-mini",
-];
+const DEFAULT_CODEX_MODELS: &[&str] = &["gpt-5.5", "gpt-5.4", "gpt-5.4-mini"];
 const CODEX_IMAGE_MODEL_ID: &str = "gpt-image-2";
 const CODEX_AUTO_REVIEW_MODEL_ID: &str = "codex-auto-review";
 const DEFAULT_IMAGES_MAIN_MODEL: &str = "gpt-5.4-mini";
@@ -1135,7 +1123,7 @@ pub async fn run_official_wakeup_chat(
     let model = model
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or("gpt-5-codex");
+        .unwrap_or("gpt-5.4");
     let reasoning_effort = reasoning_effort
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -6529,6 +6517,53 @@ fn sidecar_auth_file_name(account_id: &str) -> String {
     format!("{safe}.json")
 }
 
+fn write_string_atomic_if_changed(path: &Path, content: &str) -> Result<bool, String> {
+    match std::fs::read_to_string(path) {
+        Ok(existing) if existing == content => return Ok(false),
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => {}
+    }
+    write_string_atomic(path, content)?;
+    Ok(true)
+}
+
+fn remove_stale_sidecar_auth_files(
+    auths_dir: &Path,
+    expected_file_names: &HashSet<String>,
+) -> Result<(), String> {
+    if !auths_dir.exists() {
+        return Ok(());
+    }
+    let entries = std::fs::read_dir(auths_dir)
+        .map_err(|e| format!("读取 API 服务 sidecar 认证目录失败: {}", e))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("读取 API 服务 sidecar 认证文件失败: {}", e))?;
+        let path = entry.path();
+        if !path.is_file() || path.extension().and_then(|item| item.to_str()) != Some("json") {
+            continue;
+        }
+        let Some(file_name) = path
+            .file_name()
+            .and_then(|item| item.to_str())
+            .map(|item| item.to_string())
+        else {
+            continue;
+        };
+        if expected_file_names.contains(&file_name) {
+            continue;
+        }
+        std::fs::remove_file(&path).map_err(|e| {
+            format!(
+                "清理过期 API 服务 sidecar 认证文件失败: path={}, error={}",
+                path.display(),
+                e
+            )
+        })?;
+    }
+    Ok(())
+}
+
 fn sidecar_stable_id(kind: &str, parts: &[&str]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(kind.trim().as_bytes());
@@ -6822,6 +6857,15 @@ fn sidecar_api_key_account_scope_values(
     Value::Object(values)
 }
 
+fn sidecar_account_last_refresh(account: &CodexAccount) -> String {
+    account
+        .token_updated_at
+        .or_else(|| (account.created_at > 0).then_some(account.created_at))
+        .or_else(|| (account.last_used > 0).then_some(account.last_used))
+        .unwrap_or(0)
+        .to_string()
+}
+
 fn sidecar_auth_json_for_account(
     account: &CodexAccount,
     collection: &CodexLocalAccessCollection,
@@ -6840,7 +6884,7 @@ fn sidecar_auth_json_for_account(
         "access_token": account.tokens.access_token.clone(),
         "refresh_token": account.tokens.refresh_token.clone().unwrap_or_default(),
         "account_id": account_id,
-        "last_refresh": now_ms().to_string(),
+        "last_refresh": sidecar_account_last_refresh(account),
         "email": account.email.clone(),
         "plan_type": account.plan_type.clone(),
         "excluded_models": excluded_models,
@@ -7253,10 +7297,6 @@ async fn prepare_sidecar_launch_config_in_dir(
     account_overrides: HashMap<String, CodexAccount>,
 ) -> Result<SidecarLaunchConfig, String> {
     let auths_dir = sidecar_auths_dir(&base_dir);
-    if auths_dir.exists() {
-        std::fs::remove_dir_all(&auths_dir)
-            .map_err(|e| format!("清理 API 服务 sidecar 认证目录失败: {}", e))?;
-    }
     std::fs::create_dir_all(&auths_dir)
         .map_err(|e| format!("创建 API 服务 sidecar 认证目录失败: {}", e))?;
 
@@ -7265,6 +7305,7 @@ async fn prepare_sidecar_launch_config_in_dir(
 
     let mut manifest_accounts = Vec::new();
     let mut codex_keys = Vec::new();
+    let mut expected_auth_files = HashSet::new();
     let mut effective_image_generation_mode = collection.image_generation_mode;
     for account_id in effective_sidecar_account_ids(collection) {
         if account_health_blocks_routing(health_snapshot.get(&account_id)) {
@@ -7318,13 +7359,15 @@ async fn prepare_sidecar_launch_config_in_dir(
 
         let file_name = sidecar_auth_file_name(&account.id);
         let auth_path = auths_dir.join(&file_name);
+        expected_auth_files.insert(file_name.clone());
         let auth_json =
             sidecar_auth_json_for_account(&account, collection, effective_proxy_url_ref);
         let auth_content = serde_json::to_string_pretty(&auth_json)
             .map_err(|e| format!("序列化 sidecar Codex OAuth 认证失败: {}", e))?;
-        write_string_atomic(&auth_path, &auth_content)?;
+        write_string_atomic_if_changed(&auth_path, &auth_content)?;
         manifest_accounts.push(sidecar_account_manifest_value(&account, Some(&file_name)));
     }
+    remove_stale_sidecar_auth_files(&auths_dir, &expected_auth_files)?;
 
     let model_ids = visible_codex_model_ids_for_collection(collection, Some(&health_snapshot));
     let manifest = json!({
@@ -7453,8 +7496,8 @@ async fn prepare_sidecar_launch_config_in_dir(
     let manifest_content = serde_json::to_string_pretty(&manifest)
         .map_err(|e| format!("序列化 sidecar manifest 失败: {}", e))?;
     let fingerprint = sidecar_config_fingerprint(&config_content, &manifest_content);
-    write_string_atomic(&config_path, &config_content)?;
-    write_string_atomic(&manifest_path, &manifest_content)?;
+    write_string_atomic_if_changed(&config_path, &config_content)?;
+    write_string_atomic_if_changed(&manifest_path, &manifest_content)?;
 
     Ok(SidecarLaunchConfig {
         config_path,
@@ -8219,7 +8262,7 @@ fn collect_local_access_profile_takeover_dirs() -> Vec<PathBuf> {
         Ok(store) => store,
         Err(err) => {
             logger::log_codex_api_warn(&format!(
-                "Codex API 服务加载 Codex 多开实例失败，跳过自动接管配置: {}",
+                "Codex API 服务加载 Codex 应用多开失败，跳过自动接管配置: {}",
                 err
             ));
             return Vec::new();
@@ -14283,7 +14326,11 @@ pub async fn update_local_access_port(port: u16) -> Result<CodexLocalAccessState
 }
 
 pub async fn set_local_access_enabled(enabled: bool) -> Result<CodexLocalAccessState, String> {
-    ensure_runtime_loaded().await?;
+    if enabled {
+        ensure_runtime_loaded().await?;
+    } else {
+        ensure_runtime_loaded_without_start().await?;
+    }
 
     let maybe_collection = {
         let runtime = gateway_runtime().lock().await;
@@ -14304,13 +14351,15 @@ pub async fn set_local_access_enabled(enabled: bool) -> Result<CodexLocalAccessS
         sync_runtime_collection(&mut runtime, collection);
     }
 
-    ensure_gateway_matches_runtime().await?;
     if enabled {
+        ensure_gateway_matches_runtime().await?;
         ensure_local_access_profile_takeovers(&next_collection).await?;
+        snapshot_state().await
     } else {
+        stop_gateway().await;
         restore_takeover_profiles_after_disable(&next_collection)?;
+        snapshot_state_without_gateway_reload().await
     }
-    snapshot_state().await
 }
 
 pub async fn restore_local_access_gateway() {
@@ -18916,19 +18965,21 @@ mod tests {
         resolve_upstream_target, restore_config_toml_from_takeover_backup,
         sanitize_collection_with_accounts, scutil_proxy_map,
         should_retry_single_account_upstream_status, should_treat_response_as_stream,
-        should_try_next_account, sidecar_api_key_account_scope_values,
-        sidecar_auth_json_for_account, sidecar_cached_account_usable_after_prepare_error,
-        sidecar_codex_api_key_auth_id, sidecar_config_fingerprint,
-        sidecar_payload_default_service_tier, sidecar_routing_strategy_value, sidecar_stable_id,
-        supported_codex_model_ids, system_proxy_target_scheme, system_proxy_value_url,
-        validate_client_model_visible, visible_codex_model_ids_for_api_key, websocket_accept_value,
+        should_try_next_account, sidecar_api_key_account_scope_values, sidecar_auth_file_name,
+        sidecar_auth_json_for_account, sidecar_auths_dir,
+        sidecar_cached_account_usable_after_prepare_error, sidecar_codex_api_key_auth_id,
+        sidecar_config_fingerprint, sidecar_payload_default_service_tier,
+        sidecar_routing_strategy_value, sidecar_stable_id, supported_codex_model_ids,
+        system_proxy_target_scheme, system_proxy_value_url, validate_client_model_visible,
+        visible_codex_model_ids_for_api_key, websocket_accept_value,
         websocket_connect_error_from_http_response, windows_proxy_url_from_server,
         windows_reg_dword_enabled, windows_reg_query_map,
         write_local_access_profile_model_override, write_provider_gateway_model_catalog,
-        write_string_atomic, CodexLocalAccessCollection, CodexLocalAccessGatewayMode,
-        CodexLocalAccessScope, CodexModelProviderGatewayChatTestRequest, GatewayResponseAdapter,
-        ParsedRequest, ResolvedLocalApiKey, ResponseUsageCollector, RoutingCandidate,
-        SidecarUsageDetails, SidecarUsageEvent, UsageCapture, CODEX_AUTO_REVIEW_MODEL_ID,
+        write_string_atomic, write_string_atomic_if_changed, CodexLocalAccessCollection,
+        CodexLocalAccessGatewayMode, CodexLocalAccessScope,
+        CodexModelProviderGatewayChatTestRequest, GatewayResponseAdapter, ParsedRequest,
+        ResolvedLocalApiKey, ResponseUsageCollector, RoutingCandidate, SidecarUsageDetails,
+        SidecarUsageEvent, UsageCapture, CODEX_AUTO_REVIEW_MODEL_ID,
         CODEX_LOCAL_ACCESS_TEST_DISABLE_IMAGE_GENERATION_HEADER, CODEX_PROFILE_AUTH_FILE,
         CODEX_PROFILE_CONFIG_FILE, CODEX_PROVIDER_MODEL_BACKUP_FILE,
         CODEX_PROVIDER_MODEL_CATALOG_FILE, DEFAULT_MAX_RETRY_INTERVAL_MS,
@@ -19690,6 +19741,25 @@ wire_api = "responses"
     }
 
     #[test]
+    fn write_string_atomic_if_changed_skips_identical_content() {
+        let dir = make_temp_dir("codex-sidecar-write-if-changed");
+        let path = dir.join("auth.json");
+
+        assert!(write_string_atomic_if_changed(&path, "{\"token\":\"a\"}")
+            .expect("initial write should succeed"));
+        assert!(!write_string_atomic_if_changed(&path, "{\"token\":\"a\"}")
+            .expect("unchanged write should succeed"));
+        assert!(write_string_atomic_if_changed(&path, "{\"token\":\"b\"}")
+            .expect("changed write should succeed"));
+        assert_eq!(
+            fs::read_to_string(&path).expect("read updated content"),
+            "{\"token\":\"b\"}"
+        );
+
+        fs::remove_dir_all(&dir).expect("cleanup temp dir");
+    }
+
+    #[test]
     fn sidecar_oauth_auth_json_includes_access_token_expiry() {
         let account = CodexAccount::new(
             "account-exp".to_string(),
@@ -19708,9 +19778,69 @@ wire_api = "responses"
         let auth_json = sidecar_auth_json_for_account(&account, &collection, None);
 
         assert_eq!(
+            auth_json.get("last_refresh").and_then(Value::as_str),
+            account
+                .token_updated_at
+                .map(|value| value.to_string())
+                .as_deref()
+        );
+        assert_eq!(
             auth_json.get("expired").and_then(Value::as_i64),
             Some(4_102_444_800i64)
         );
+    }
+
+    #[tokio::test]
+    async fn prepare_sidecar_config_prunes_stale_auth_files_incrementally() {
+        let dir = make_temp_dir("codex-sidecar-incremental-auth-files");
+        let account = CodexAccount::new(
+            "oauth-incremental".to_string(),
+            "incremental@example.com".to_string(),
+            CodexTokens {
+                id_token: String::new(),
+                access_token: make_test_jwt(json!({
+                    "sub": "access-incremental",
+                    "exp": 4_102_444_800i64,
+                })),
+                refresh_token: Some("refresh-incremental".to_string()),
+            },
+        );
+        let collection = test_local_access_collection(vec![account.id.clone()]);
+        let overrides = HashMap::from([(account.id.clone(), account.clone())]);
+
+        prepare_sidecar_launch_config_in_dir(
+            &collection,
+            dir.clone(),
+            HashMap::new(),
+            None,
+            overrides.clone(),
+        )
+        .await
+        .expect("initial sidecar config should build");
+
+        let auths_dir = sidecar_auths_dir(&dir);
+        let auth_path = auths_dir.join(sidecar_auth_file_name(&account.id));
+        let initial_auth_content = fs::read_to_string(&auth_path).expect("read auth file");
+        let stale_path = auths_dir.join("stale.json");
+        fs::write(&stale_path, "{}").expect("write stale auth file");
+
+        prepare_sidecar_launch_config_in_dir(
+            &collection,
+            dir.clone(),
+            HashMap::new(),
+            None,
+            overrides,
+        )
+        .await
+        .expect("second sidecar config should build");
+
+        assert!(!stale_path.exists(), "stale auth file should be removed");
+        assert_eq!(
+            fs::read_to_string(&auth_path).expect("read retained auth file"),
+            initial_auth_content
+        );
+
+        fs::remove_dir_all(&dir).expect("cleanup temp dir");
     }
 
     #[test]

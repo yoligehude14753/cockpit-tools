@@ -121,7 +121,7 @@ pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
     }
 
     #[allow(unreachable_code)]
-    Err("Codex 多开实例仅支持 macOS 和 Windows".to_string())
+    Err("Codex 应用多开仅支持 macOS 和 Windows".to_string())
 }
 
 pub fn get_instance_defaults() -> Result<InstanceDefaults, String> {

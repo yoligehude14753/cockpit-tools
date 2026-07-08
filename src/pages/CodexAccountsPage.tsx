@@ -15695,6 +15695,7 @@ export function CodexAccountsPage() {
 
           <TagEditModal
             isOpen={!!showTagModal}
+            resetKey={showTagModal}
             initialTags={
               accounts.find((a) => a.id === showTagModal)?.tags || []
             }

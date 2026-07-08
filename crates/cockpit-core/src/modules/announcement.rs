@@ -117,6 +117,16 @@ pub struct TopRightAd {
     pub cta_label: Option<String>,
     #[serde(default)]
     pub cta_url: Option<String>,
+    #[serde(default)]
+    pub display_mode: Option<String>,
+    #[serde(default)]
+    pub display_pages: Option<Vec<String>>,
+    #[serde(default)]
+    pub display_platforms: Option<Vec<String>>,
+    #[serde(default)]
+    pub exclude_pages: Option<Vec<String>>,
+    #[serde(default)]
+    pub exclude_platforms: Option<Vec<String>>,
     #[serde(default = "default_target_versions")]
     pub target_versions: String,
     #[serde(default)]
@@ -711,6 +721,11 @@ pub async fn mark_all_announcements_as_read() -> Result<(), String> {
     let announcements = filter_announcements(raw_payload.announcements, current_version, &locale);
     let ids: Vec<String> = announcements.iter().map(|item| item.id.clone()).collect();
     save_read_ids(&ids)
+}
+
+pub async fn force_refresh_top_right_ad() -> Result<TopRightAdState, String> {
+    remove_cache()?;
+    get_top_right_ad_state().await
 }
 
 pub async fn force_refresh_announcements() -> Result<AnnouncementState, String> {

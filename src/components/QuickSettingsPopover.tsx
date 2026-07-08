@@ -2358,7 +2358,7 @@ export function QuickSettingsPopover({ type }: QuickSettingsPopoverProps) {
                               <div className="qs-claude-candidate-note">
                                 {t(
                                   'appPath.missing.defaultOnly',
-                                  '仅适用于默认桌面端；多开实例请选择真实 Claude.exe',
+                                  '仅适用于默认桌面端；应用多开请选择真实 Claude.exe',
                                 )}
                               </div>
                             ) : null}

@@ -10,9 +10,9 @@
 一款**通用的 AI IDE 账号管理工具**，目前支持 **Antigravity IDE**、**Codex**、**GitHub Copilot**、**Windsurf**、**Kiro**、**Cursor**、**Gemini Cli**、**CodeBuddy**、**CodeBuddy CN**、**Qoder**、**Trae**、**TRAE SOLO**、**Trae CN**、**TRAE SOLO CN** 和 **Zed**，并支持多账号多实例并行运行。
 
 
-> 本工具旨在帮助用户高效管理多个 AI IDE 账号，支持一键切换、配额监控、自动唤醒与多开实例并行运行，助您充分利用不同账号的资源。
+> 本工具旨在帮助用户高效管理多个 AI IDE 账号，支持一键切换、配额监控、自动唤醒与应用多开并行运行，助您充分利用不同账号的资源。
 
-**功能**：一键切号 · 多账号管理 · 多开实例 · 配额监控 · 唤醒任务 · 插件联动 · GitHub Copilot 管理 · Windsurf 管理 · Kiro 管理 · Cursor 管理 · Gemini Cli 管理 · CodeBuddy 管理 · CodeBuddy CN 管理 · Qoder 管理 · Trae 套件管理 · Zed 管理
+**功能**：一键切号 · 多账号管理 · 应用多开 · 配额监控 · 唤醒任务 · 插件联动 · GitHub Copilot 管理 · Windsurf 管理 · Kiro 管理 · Cursor 管理 · Gemini Cli 管理 · CodeBuddy 管理 · CodeBuddy CN 管理 · Qoder 管理 · Trae 套件管理 · Zed 管理
 
 **语言**：支持 18 种语言
 
@@ -73,7 +73,7 @@
 > *(唤醒任务)*
 > ![Wakeup Tasks](docs/images/wakeup_detail.png)
 
-#### 2.1 Antigravity IDE 多开实例
+#### 2.1 Antigravity IDE 应用多开
 
 支持同一平台多账号多实例并行运行。比如同时打开两个 Antigravity IDE，分别绑定不同账号，分别处理不同项目，互不影响。
 
@@ -92,7 +92,7 @@
 
 > ![Codex Accounts](docs/images/codex_list.png)
 
-#### 3.1 Codex 多开实例
+#### 3.1 Codex 应用多开
 
 Codex 同样支持多账号多实例并行运行。比如同时打开两个 Codex，分别绑定不同账号，分别处理不同项目，互不影响。
 
@@ -109,7 +109,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **订阅识别**：自动识别 Free / Individual / Pro / Business / Enterprise 等计划类型
 - **批量管理**：支持标签与批量操作
 
-#### 4.1 GitHub Copilot 多开实例
+#### 4.1 GitHub Copilot 应用多开
 
 基于 VS Code 的 Copilot 多实例管理，支持独立配置与生命周期控制。
 
@@ -124,7 +124,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **批量管理**：支持标签与批量操作
 - **切号注入**：支持切号后注入并启动 Windsurf
 
-#### 5.1 Windsurf 多开实例
+#### 5.1 Windsurf 应用多开
 
 支持 Windsurf 多实例管理，支持独立配置与生命周期控制。
 
@@ -139,7 +139,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **批量管理**：支持标签与批量操作
 - **切号注入**：支持切号后注入并启动 Kiro
 
-#### 6.1 Kiro 多开实例
+#### 6.1 Kiro 应用多开
 
 支持 Kiro 多实例管理，支持独立配置与生命周期控制。
 
@@ -154,7 +154,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **批量管理**：支持标签与批量操作
 - **切号注入**：支持切号后注入并启动 Cursor
 
-#### 7.1 Cursor 多开实例
+#### 7.1 Cursor 应用多开
 
 支持 Cursor 多实例管理，支持独立配置与生命周期控制。
 
@@ -168,7 +168,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **配额视图**：展示 Total Usage、Auto + Composer、API Usage、On-Demand 与周期信息
 - **批量管理**：支持标签与批量操作
 - **切号注入**：支持切号后注入 Gemini Cli 本地凭证（`~/.gemini`）
-- **平台限制**：Gemini Cli 暂不支持多开实例管理
+- **平台限制**：Gemini Cli 暂不支持应用多开管理
 
 ### 9. CodeBuddy 账号管理
 
@@ -177,7 +177,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **批量管理**：支持标签与批量操作
 - **切号注入**：支持切号后注入并启动 CodeBuddy
 
-#### 9.1 CodeBuddy 多开实例
+#### 9.1 CodeBuddy 应用多开
 
 支持 CodeBuddy 多实例管理，支持独立配置与生命周期控制。
 
@@ -192,7 +192,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **批量管理**：支持标签与批量操作
 - **切号注入**：支持切号后按客户端本地认证存储规则注入并启动 CodeBuddy CN
 
-#### 10.1 CodeBuddy CN 多开实例
+#### 10.1 CodeBuddy CN 应用多开
 
 支持 CodeBuddy CN 多实例管理，支持独立配置与生命周期控制。
 
@@ -207,7 +207,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **批量管理**：支持标签、筛选、导出与批量删除/刷新
 - **切号注入**：支持切号后注入并启动 Qoder
 
-#### 11.1 Qoder 多开实例
+#### 11.1 Qoder 应用多开
 
 支持 Qoder 多实例管理，支持独立配置与生命周期控制。
 
@@ -223,7 +223,7 @@ Codex 同样支持多账号多实例并行运行。比如同时打开两个 Code
 - **Trae 套件**：支持 Trae、TRAE SOLO、Trae CN、TRAE SOLO CN 默认客户端的本机导入与切号注入，默认归入 Trae 分组
 - **切号注入**：支持切号后按各客户端真实落盘规则写回并启动目标客户端
 
-#### 12.1 Trae 多开实例
+#### 12.1 Trae 应用多开
 
 支持原 Trae 客户端多实例管理，支持独立配置与生命周期控制。
 

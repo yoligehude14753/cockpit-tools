@@ -47,7 +47,6 @@ import { ManualHelpIconButton } from '../components/ManualHelpIconButton';
 import { QuickSettingsPopover } from '../components/QuickSettingsPopover';
 import { SingleSelectDropdown } from '../components/SingleSelectDropdown';
 import { TagEditModal } from '../components/TagEditModal';
-import { TopCenterPromoBanner } from '../components/TopCenterPromoBanner';
 import { ClaudeIcon } from '../components/icons/ClaudeIcon';
 import { ModelProviderUsagePanel } from '../components/model-provider/ModelProviderUsagePanel';
 import { PlatformGroupSwitcher } from '../components/platform/PlatformGroupSwitcher';
@@ -2782,7 +2781,7 @@ export function ClaudeAccountsPage({ subPlatform = 'desktop' }: ClaudeAccountsPa
     },
     {
       key: 'instances',
-      label: t('instances.title', '多开实例'),
+      label: t('instances.title', '应用多开'),
       icon: <Layers className="tab-icon" />,
     },
   ];
@@ -2805,7 +2804,6 @@ export function ClaudeAccountsPage({ subPlatform = 'desktop' }: ClaudeAccountsPa
           </span>
           <ManualHelpIconButton className="platform-header-help" />
         </div>
-        <TopCenterPromoBanner />
         <div className="page-top-strip-right-placeholder" aria-hidden="true" />
       </div>
       <div className="page-tabs-row page-tabs-center page-tabs-row-with-leading">

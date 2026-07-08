@@ -121,7 +121,6 @@ interface DashboardPageProps {
   onNavigate: (page: Page) => void;
   onOpenPlatformLayout: () => void;
   onEasterEggTriggerClick: () => void;
-  topCenterBanner?: React.ReactNode;
 }
 
 const DASHBOARD_DEFERRED_PREFETCH_DELAY_MS = 6000;
@@ -270,7 +269,6 @@ export function DashboardPage({
   onNavigate,
   onOpenPlatformLayout,
   onEasterEggTriggerClick,
-  topCenterBanner,
 }: DashboardPageProps) {
   const { t } = useTranslation();
   const antigravityRuntimeTarget = useAntigravityRuntimeTarget();
@@ -3308,7 +3306,6 @@ export function DashboardPage({
           <span>{t('nav.dashboard', '仪表盘')}</span>
           <ManualHelpIconButton className="header-action-btn dashboard-manual-btn dashboard-title-manual-btn" />
         </div>
-        {topCenterBanner}
         <div className="dashboard-top-actions">
           <button className="header-action-btn" onClick={onOpenPlatformLayout}>
             <span>{t('platformLayout.title', '平台布局')}</span>

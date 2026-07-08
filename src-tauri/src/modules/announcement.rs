@@ -123,6 +123,16 @@ pub struct TopRightAd {
     pub cta_label: Option<String>,
     #[serde(default)]
     pub cta_url: Option<String>,
+    #[serde(default)]
+    pub display_mode: Option<String>,
+    #[serde(default)]
+    pub display_pages: Option<Vec<String>>,
+    #[serde(default)]
+    pub display_platforms: Option<Vec<String>>,
+    #[serde(default)]
+    pub exclude_pages: Option<Vec<String>>,
+    #[serde(default)]
+    pub exclude_platforms: Option<Vec<String>>,
     #[serde(default = "default_target_versions")]
     pub target_versions: String,
     #[serde(default)]
@@ -1141,6 +1151,11 @@ pub async fn get_sponsor_module_state() -> Result<SponsorModuleState, String> {
 pub async fn force_refresh_sponsor_module() -> Result<SponsorModuleState, String> {
     remove_cache()?;
     get_sponsor_module_state().await
+}
+
+pub async fn force_refresh_top_right_ad() -> Result<TopRightAdState, String> {
+    remove_cache()?;
+    get_top_right_ad_state().await
 }
 
 pub async fn mark_announcement_as_read(id: &str) -> Result<(), String> {
