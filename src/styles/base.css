@@ -128,3 +128,21 @@ html[data-theme="dark"] body {
     linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
   color-scheme: dark;
 }
+
+html[data-reduced-motion="true"] {
+  scroll-behavior: auto !important;
+}
+
+html[data-reduced-motion="true"] body {
+  background: var(--bg-primary) !important;
+}
+
+html[data-reduced-motion="true"] *:not(.loading-spinner):not(.spin):not(.icon-spin):not(.floating-card-spin),
+html[data-reduced-motion="true"] *:not(.loading-spinner):not(.spin):not(.icon-spin):not(.floating-card-spin)::before,
+html[data-reduced-motion="true"] *:not(.loading-spinner):not(.spin):not(.icon-spin):not(.floating-card-spin)::after {
+  animation: none !important;
+  transition: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  scroll-behavior: auto !important;
+}

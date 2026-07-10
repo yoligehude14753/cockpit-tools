@@ -70,6 +70,8 @@ pub struct GeneralConfig {
     pub default_terminal: String,
     /// 应用主题: "light", "dark", "system"
     pub theme: String,
+    /// 是否减少界面动画
+    pub reduced_motion_enabled: bool,
     /// 界面缩放比例（WebView Zoom）
     pub ui_scale: f64,
     /// 自动刷新间隔（分钟），-1 表示禁用
@@ -1007,6 +1009,7 @@ fn is_general_config_patch_field(key: &str) -> bool {
         "language"
             | "default_terminal"
             | "theme"
+            | "reduced_motion_enabled"
             | "ui_scale"
             | "auto_refresh_minutes"
             | "codex_auto_refresh_minutes"
@@ -2440,6 +2443,7 @@ pub fn get_general_config(app: tauri::AppHandle) -> Result<GeneralConfig, String
         language: user_config.language,
         default_terminal: user_config.default_terminal,
         theme: user_config.theme,
+        reduced_motion_enabled: user_config.reduced_motion_enabled,
         ui_scale: user_config.ui_scale,
         auto_refresh_minutes: user_config.auto_refresh_minutes,
         codex_auto_refresh_minutes: user_config.codex_auto_refresh_minutes,

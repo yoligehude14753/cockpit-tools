@@ -28,6 +28,7 @@ import {
   buildAccountTierFilterOptions,
 } from '../utils/accountFilters';
 import { resolveUpdaterDownloadUrl } from '../utils/updaterReleaseNotes';
+import { applyReducedMotion } from '../utils/reducedMotion';
 import { getSubscriptionTier } from '../utils/account';
 import type { Account } from '../types/account';
 import type { CodexAccount } from '../types/codex';
@@ -127,6 +128,7 @@ interface GeneralConfig {
   language: string;
   default_terminal: string;
   theme: string;
+  reduced_motion_enabled: boolean;
   ui_scale: number;
   auto_refresh_minutes: number;
   codex_auto_refresh_minutes: number;
@@ -461,6 +463,7 @@ export function SettingsPage() {
   const [language, setLanguage] = useState(getCurrentLanguage());
   const [defaultTerminal, setDefaultTerminal] = useState('system');
   const [theme, setTheme] = useState('system');
+  const [reducedMotionEnabled, setReducedMotionEnabled] = useState(false);
   const [uiScale, setUiScale] = useState('1');
   const [autoRefresh, setAutoRefresh] = useState('5');
   const [codexAutoRefresh, setCodexAutoRefresh] = useState('10');
@@ -899,6 +902,13 @@ export function SettingsPage() {
     if (!generalLoaded) {
       return;
     }
+    applyReducedMotion(reducedMotionEnabled);
+  }, [generalLoaded, reducedMotionEnabled]);
+
+  useEffect(() => {
+    if (!generalLoaded) {
+      return;
+    }
     void applyUiScale(uiScale);
   }, [generalLoaded, uiScale]);
 
@@ -983,6 +993,7 @@ export function SettingsPage() {
       language,
       default_terminal: defaultTerminal,
       theme,
+      reduced_motion_enabled: reducedMotionEnabled,
       ui_scale: normalizedUiScale,
       auto_refresh_minutes: autoRefreshNum,
       codex_auto_refresh_minutes: codexAutoRefreshNum,
@@ -1230,6 +1241,7 @@ export function SettingsPage() {
     language,
     defaultTerminal,
     theme,
+    reducedMotionEnabled,
     uiScale,
     opencodeAppPath,
     antigravityAppPath,
@@ -1536,6 +1548,7 @@ export function SettingsPage() {
       setLanguage(normalizeLanguage(config.language));
       setDefaultTerminal(config.default_terminal || 'system');
       setTheme(config.theme);
+      setReducedMotionEnabled(Boolean(config.reduced_motion_enabled ?? false));
       setUiScale(String(config.ui_scale ?? 1));
       setAutoRefresh(String(config.auto_refresh_minutes));
       setCodexAutoRefresh(String(config.codex_auto_refresh_minutes ?? 10));
@@ -3163,6 +3176,30 @@ export function SettingsPage() {
                     <option value="dark">{t('settings.general.themeDark')}</option>
                     <option value="system">{t('settings.general.themeSystem')}</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="settings-row">
+                <div className="row-label">
+                  <div className="row-title">
+                    {t('settings.general.reducedMotion', '减少动画')}
+                  </div>
+                  <div className="row-desc">
+                    {t(
+                      'settings.general.reducedMotionDesc',
+                      '降低页面淡入、弹层过渡、阴影、模糊和平滑滚动，仅保留必要加载反馈'
+                    )}
+                  </div>
+                </div>
+                <div className="row-control">
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={reducedMotionEnabled}
+                      onChange={(event) => setReducedMotionEnabled(event.target.checked)}
+                    />
+                    <span className="slider"></span>
+                  </label>
                 </div>
               </div>
 
@@ -7442,7 +7479,7 @@ export function SettingsPage() {
           </div>
         </div>
       )}
-      {showUnlockFireworks && (
+      {showUnlockFireworks && !reducedMotionEnabled && (
         <UnlockFireworksOverlay />
       )}
     </main>

@@ -78,6 +78,7 @@ import {
   summarizeCodexQuotaPool,
 } from "../utils/codexQuotaPool";
 import { filterCodexLocalAccessAccountIds } from "../utils/codexLocalAccessAccounts";
+import { scrollElementTo } from "../utils/reducedMotion";
 import { SingleSelectDropdown } from "../components/SingleSelectDropdown";
 import { CodexLocalAccessModal } from "../components/CodexLocalAccessModal";
 import { PaginationControls } from "../components/PaginationControls";
@@ -1098,10 +1099,8 @@ export function CodexApiServicePage() {
 
   useEffect(() => {
     if (!testDialogOpen) return;
-    testChatScrollRef.current?.scrollTo({
-      top: testChatScrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    const node = testChatScrollRef.current;
+    scrollElementTo(node, { top: node?.scrollHeight ?? 0 });
   }, [testChatMessages, testDialogOpen]);
 
   useEffect(() => {

@@ -44,6 +44,7 @@ import {
   type FileCorruptedError,
 } from "./FileCorruptedModal";
 import { ModalErrorMessage, useModalErrorState } from "./ModalErrorMessage";
+import { scrollElementIntoView } from "../utils/reducedMotion";
 import { useEscClose } from "../hooks/useEscClose";
 import type { InstanceStoreState } from "../stores/createInstanceStore";
 import { showInstanceFloatingCardWindow } from "../services/floatingCardService";
@@ -962,7 +963,7 @@ export function InstancesManager<TAccount extends AccountLike>({
 
   useEffect(() => {
     if (!formError || !showModal) return;
-    formErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    scrollElementIntoView(formErrorRef.current, { block: "end" });
   }, [formError, formErrorTick, showModal]);
 
   useEffect(() => {

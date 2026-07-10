@@ -77,6 +77,9 @@ pub struct UserConfig {
     /// 应用主题
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// 是否减少界面动画
+    #[serde(default = "default_reduced_motion_enabled")]
+    pub reduced_motion_enabled: bool,
     /// 界面缩放比例
     #[serde(default = "default_ui_scale")]
     pub ui_scale: f64,
@@ -597,6 +600,9 @@ fn default_default_terminal() -> String {
 fn default_theme() -> String {
     "system".to_string()
 }
+fn default_reduced_motion_enabled() -> bool {
+    false
+}
 fn default_ui_scale() -> f64 {
     1.0
 }
@@ -993,6 +999,7 @@ impl Default for UserConfig {
             language: default_language(),
             default_terminal: default_default_terminal(),
             theme: default_theme(),
+            reduced_motion_enabled: default_reduced_motion_enabled(),
             ui_scale: default_ui_scale(),
             auto_refresh_minutes: default_auto_refresh(),
             codex_auto_refresh_minutes: default_codex_auto_refresh(),
@@ -1702,6 +1709,12 @@ pub fn load_user_config() -> Result<UserConfig, String> {
             obj.insert(
                 "default_terminal".to_string(),
                 json!(default_default_terminal()),
+            );
+        }
+        if !obj.contains_key("reduced_motion_enabled") {
+            obj.insert(
+                "reduced_motion_enabled".to_string(),
+                json!(default_reduced_motion_enabled()),
             );
         }
         if !obj.contains_key("global_proxy_enabled") {

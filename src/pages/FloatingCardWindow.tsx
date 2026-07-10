@@ -51,6 +51,7 @@ import { useGitHubCopilotAccountStore } from '../stores/useGitHubCopilotAccountS
 import { useKiroAccountStore } from '../stores/useKiroAccountStore';
 import { usePlatformLayoutStore } from '../stores/usePlatformLayoutStore';
 import { useRemoteConfigStore } from '../stores/useRemoteConfigStore';
+import { applyReducedMotion } from '../utils/reducedMotion';
 import { useQoderAccountStore } from '../stores/useQoderAccountStore';
 import { useZcodeAccountStore } from '../stores/useZcodeAccountStore';
 import { useTraeAccountStore } from '../stores/useTraeAccountStore';
@@ -123,6 +124,7 @@ const FLOATING_CARD_NO_DRAG_SELECTOR =
 type FloatingCardGeneralConfig = {
   language: string;
   theme: string;
+  reduced_motion_enabled: boolean;
   ui_scale?: number;
   floating_card_always_on_top?: boolean;
   floating_card_confirm_on_close?: boolean;
@@ -588,6 +590,7 @@ export function FloatingCardWindow() {
   useEffect(() => {
     let disposed = false;
     let cleanupThemeWatcher: (() => void) | null = null;
+    let unlistenFocus: (() => void) | null = null;
 
     const applyTheme = (theme: string) => {
       const appliedTheme = resolveAppliedTheme(theme);
@@ -620,7 +623,10 @@ export function FloatingCardWindow() {
         if (disposed) return;
 
         await changeLanguage(normalizeLanguage(config.language));
+        cleanupThemeWatcher?.();
+        cleanupThemeWatcher = null;
         applyTheme(config.theme);
+        applyReducedMotion(config.reduced_motion_enabled);
         if (config.theme === 'system') {
           cleanupThemeWatcher = watchSystemTheme();
         }
@@ -636,11 +642,17 @@ export function FloatingCardWindow() {
       }
     };
 
-    void loadGeneralConfig();
+    const bindGeneralConfig = async () => {
+      await loadGeneralConfig();
+      unlistenFocus = await listen(TauriEvent.WINDOW_FOCUS, loadGeneralConfig);
+    };
+
+    void bindGeneralConfig();
 
     return () => {
       disposed = true;
       cleanupThemeWatcher?.();
+      unlistenFocus?.();
     };
   }, []);
 

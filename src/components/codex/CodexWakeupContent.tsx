@@ -75,6 +75,7 @@ import {
   maskSensitiveValue,
   PRIVACY_MODE_CHANGED_EVENT,
 } from '../../utils/privacy';
+import { isReducedMotionEnabled } from '../../utils/reducedMotion';
 
 const WAKEUP_ACCOUNT_PAGE_SIZE_OPTIONS = [50, 100, 200] as const;
 
@@ -720,12 +721,19 @@ function WakeupSingleSelectDropdown({
       setOpen(false);
     };
     document.addEventListener('mousedown', handlePointerDown);
+    const handleScroll = () => {
+      if (isReducedMotionEnabled()) {
+        setOpen(false);
+        return;
+      }
+      updatePanelPosition();
+    };
     window.addEventListener('resize', updatePanelPosition);
-    window.addEventListener('scroll', updatePanelPosition, true);
+    window.addEventListener('scroll', handleScroll, true);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
       window.removeEventListener('resize', updatePanelPosition);
-      window.removeEventListener('scroll', updatePanelPosition, true);
+      window.removeEventListener('scroll', handleScroll, true);
     };
   }, [disabled, open]);
 

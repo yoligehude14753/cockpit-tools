@@ -43,6 +43,7 @@ import type {
   CodexLocalAccessUsageStats,
 } from "../types/codexLocalAccess";
 import { getCodexPlanFilterKey } from "../types/codex";
+import { scrollElementTo } from "../utils/reducedMotion";
 import {
   buildCodexAccountPresentation,
   buildQuotaPreviewLines,
@@ -698,10 +699,8 @@ export function CodexLocalAccessModal({
 
   useEffect(() => {
     if (!testDialogOpen) return;
-    testChatScrollRef.current?.scrollTo({
-      top: testChatScrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    const node = testChatScrollRef.current;
+    scrollElementTo(node, { top: node?.scrollHeight ?? 0 });
   }, [testChatMessages, testDialogOpen]);
 
   const normalizeTag = (value: string) => value.trim().toLowerCase();
