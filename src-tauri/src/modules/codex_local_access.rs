@@ -5056,6 +5056,33 @@ const fn codex_price(
 
 const CODEX_LOCAL_ACCESS_PRICE_BOOK: &[CodexLocalAccessPriceBookEntry] = &[
     CodexLocalAccessPriceBookEntry {
+        model_id: "gpt-5.6-sol",
+        max_context_tokens: 1_050_000,
+        long_context_threshold_tokens: CODEX_LOCAL_ACCESS_LONG_CONTEXT_THRESHOLD_TOKENS,
+        standard: codex_price(5.0, 0.5, 30.0),
+        standard_long: Some(codex_price(10.0, 1.0, 45.0)),
+        priority: Some(codex_price(10.0, 1.0, 60.0)),
+        priority_long: None,
+    },
+    CodexLocalAccessPriceBookEntry {
+        model_id: "gpt-5.6-terra",
+        max_context_tokens: 1_050_000,
+        long_context_threshold_tokens: CODEX_LOCAL_ACCESS_LONG_CONTEXT_THRESHOLD_TOKENS,
+        standard: codex_price(2.5, 0.25, 15.0),
+        standard_long: Some(codex_price(5.0, 0.5, 22.5)),
+        priority: Some(codex_price(5.0, 0.5, 30.0)),
+        priority_long: None,
+    },
+    CodexLocalAccessPriceBookEntry {
+        model_id: "gpt-5.6-luna",
+        max_context_tokens: 1_050_000,
+        long_context_threshold_tokens: CODEX_LOCAL_ACCESS_LONG_CONTEXT_THRESHOLD_TOKENS,
+        standard: codex_price(1.0, 0.1, 6.0),
+        standard_long: Some(codex_price(2.0, 0.2, 9.0)),
+        priority: Some(codex_price(2.0, 0.2, 12.0)),
+        priority_long: None,
+    },
+    CodexLocalAccessPriceBookEntry {
         model_id: "gpt-5.5",
         max_context_tokens: 1_050_000,
         long_context_threshold_tokens: CODEX_LOCAL_ACCESS_LONG_CONTEXT_THRESHOLD_TOKENS,
