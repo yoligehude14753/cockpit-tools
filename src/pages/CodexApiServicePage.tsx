@@ -885,8 +885,8 @@ export function CodexApiServicePage() {
       modelOrder.set(key, ids.length);
       ids.push(trimmed);
     };
-    modelIds.forEach(pushId);
     (state?.modelPricingPresets ?? []).forEach((item) => pushId(item.modelId));
+    modelIds.forEach(pushId);
     (collection?.modelPricings ?? []).forEach((item) => pushId(item.modelId));
     return ids.map((modelId) => {
       const key = modelId.toLowerCase();
