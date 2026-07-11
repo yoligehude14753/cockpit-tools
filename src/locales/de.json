@@ -2135,6 +2135,7 @@
       "hourlyReset": "5-Stunden-Reset-Zeit",
       "subscriptionExpiry": "Abo-Ablauf",
       "custom": "Eigene Reihenfolge",
+      "customSettingsTooltip": "Eigene Reihenfolge konfigurieren",
       "customModalTitle": "Eigene Kontoreihenfolge",
       "customModalDesc": "Ziehen Sie Konten oder nutzen Sie die Hoch-/Runter-Tasten, um die Reihenfolge anzupassen.",
       "customDragHandle": "Zum Sortieren ziehen",

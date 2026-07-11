@@ -7,17 +7,23 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
-## [1.2.0] - 2026-07-11
+## [1.2.0] - 2026-07-12
 
 ### Added
 
 - **Added ZCode platform account management**: supports Z.ai and BigModel OAuth and API Key accounts, local and JSON import/export, real account switching, quota queries, tags, filters, batch operations, launch-path settings, and isolated multi-instance management on macOS, Windows, and Linux.
+- **Antigravity accounts can now use a persistent custom order**: select custom sorting to arrange accounts by dragging or with move buttons, reopen the editor from the toolbar, and keep the order across reloads as accounts are added or removed. Thanks @khanra17 for #1501.
+- **Codex model providers can enable Responses WebSocket per provider**: each provider can persist its WebSocket transport capability, which is synchronized to the account and Codex configuration when adding accounts, editing credentials, switching providers, or starting instances; Chat Completions and built-in OpenAI remain disabled. Thanks @longwQaQ for #1512.
 
 ### Changed
 
 - **Codex model loading now uses dynamic discovery**: removed the CDP-based `codex_model_injector` and Cockpit-managed static model catalog overrides; the official client now discovers models from the active provider or profile-local gateway, while user-defined model catalogs remain intact.
 - **Codex Chat Completions providers now use stable client model aliases**: upstream models are mapped to official-client-compatible model slots and translated back before requests are sent, with generated profile overrides cleaned up when no longer needed.
 - **Codex OAuth offers an in-app incognito WebView on macOS**: Windows and Linux continue to use the regular browser and manual callback flow without showing this option.
+
+### Fixed
+
+- **Fixed legacy Antigravity launch fallback opening Antigravity IDE on Windows**: taskbar shortcut matching now excludes Antigravity IDE when Cockpit is launching the legacy Antigravity app. Thanks @khanra17 for #1453.
 
 ---
 ## [1.1.5] - 2026-07-11

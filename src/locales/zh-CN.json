@@ -2863,6 +2863,7 @@
       "hourlyReset": "按5小时配额重置时间",
       "subscriptionExpiry": "按订阅有效期",
       "custom": "自定义顺序",
+      "customSettingsTooltip": "配置自定义顺序",
       "customModalTitle": "自定义账号排序",
       "customModalDesc": "拖动账号或使用上下按钮调整展示顺序。",
       "customDragHandle": "拖拽排序",

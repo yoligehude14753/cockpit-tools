@@ -2135,6 +2135,7 @@
       "hourlyReset": "Heure de réinitialisation sur 5 heures",
       "subscriptionExpiry": "Expiration abonnement",
       "custom": "Ordre personnalisé",
+      "customSettingsTooltip": "Configurer l’ordre personnalisé",
       "customModalTitle": "Ordre des comptes",
       "customModalDesc": "Faites glisser les comptes ou utilisez les boutons haut/bas pour ajuster l’ordre.",
       "customDragHandle": "Faire glisser",

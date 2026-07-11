@@ -2135,6 +2135,7 @@
       "hourlyReset": "5時間クォータのリセット時間",
       "subscriptionExpiry": "契約期限",
       "custom": "カスタム順",
+      "customSettingsTooltip": "カスタム順を設定",
       "customModalTitle": "アカウントのカスタム順",
       "customModalDesc": "アカウントをドラッグするか上下ボタンで表示順を調整します。",
       "customDragHandle": "ドラッグして並べ替え",

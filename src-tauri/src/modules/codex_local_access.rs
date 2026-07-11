@@ -6577,8 +6577,14 @@ fn restore_takeover_profiles_after_disable(
     collection: &CodexLocalAccessCollection,
 ) -> Result<(), String> {
     let backups = load_takeover_backups()?;
+    let default_profile = codex_account::get_codex_home();
+    let default_key = normalize_profile_dir_key(&default_profile);
+    let protect_default_profile = account::is_dev_profile();
     let mut restored_count = 0usize;
     for backup in &backups.profiles {
+        if protect_default_profile && backup.profile_dir == default_key {
+            continue;
+        }
         if restore_profile_takeover_backup(backup, &collection.api_key)? {
             restored_count += 1;
         }
@@ -6589,13 +6595,11 @@ fn restore_takeover_profiles_after_disable(
         profiles: Vec::new(),
     })?;
 
-    let default_profile = codex_account::get_codex_home();
-    let default_key = normalize_profile_dir_key(&default_profile);
     let default_had_backup = backups
         .profiles
         .iter()
         .any(|backup| backup.profile_dir == default_key);
-    let cleaned_default_without_backup = if default_had_backup {
+    let cleaned_default_without_backup = if protect_default_profile || default_had_backup {
         false
     } else {
         cleanup_profile_takeover_without_backup(&default_profile, &collection.api_key)?
@@ -8659,16 +8663,18 @@ fn push_local_access_takeover_dir(
 fn collect_local_access_profile_takeover_dirs_from_store(
     store: crate::models::InstanceStore,
     default_profile: PathBuf,
+    include_default_profile: bool,
 ) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     let mut seen = HashSet::new();
 
-    if store
-        .default_settings
-        .bind_account_id
-        .as_deref()
-        .map(crate::modules::codex_instance::is_api_service_bind_account_id)
-        .unwrap_or(false)
+    if include_default_profile
+        && store
+            .default_settings
+            .bind_account_id
+            .as_deref()
+            .map(crate::modules::codex_instance::is_api_service_bind_account_id)
+            .unwrap_or(false)
     {
         push_local_access_takeover_dir(&mut dirs, &mut seen, default_profile);
     }
@@ -8702,7 +8708,13 @@ fn collect_local_access_profile_takeover_dirs() -> Vec<PathBuf> {
         }
     };
 
-    collect_local_access_profile_takeover_dirs_from_store(store, codex_account::get_codex_home())
+    // Dev and production keep separate app data, but the official default Codex
+    // profile is shared. Never let an automatically restored dev gateway claim it.
+    collect_local_access_profile_takeover_dirs_from_store(
+        store,
+        codex_account::get_codex_home(),
+        !account::is_dev_profile(),
+    )
 }
 
 async fn ensure_profile_takeover(
@@ -21258,6 +21270,7 @@ wire_api = "responses"
         let dirs = collect_local_access_profile_takeover_dirs_from_store(
             store,
             PathBuf::from("/tmp/default-codex"),
+            true,
         );
 
         assert_eq!(dirs, vec![PathBuf::from("/tmp/codex-api-service")]);
@@ -21281,9 +21294,34 @@ wire_api = "responses"
         let dirs = collect_local_access_profile_takeover_dirs_from_store(
             store,
             PathBuf::from("/tmp/default-codex"),
+            true,
         );
 
         assert_eq!(dirs, vec![PathBuf::from("/tmp/default-codex")]);
+    }
+
+    #[test]
+    fn takeover_dirs_skip_default_profile_when_default_takeover_is_disabled() {
+        let mut store = InstanceStore::new();
+        store.default_settings = DefaultInstanceSettings {
+            bind_account_id: Some(
+                crate::modules::codex_instance::CODEX_API_SERVICE_BIND_ACCOUNT_ID.to_string(),
+            ),
+            ..DefaultInstanceSettings::default()
+        };
+        store.instances = vec![test_instance(
+            "api-service",
+            "/tmp/codex-api-service",
+            Some(crate::modules::codex_instance::CODEX_API_SERVICE_BIND_ACCOUNT_ID),
+        )];
+
+        let dirs = collect_local_access_profile_takeover_dirs_from_store(
+            store,
+            PathBuf::from("/tmp/default-codex"),
+            false,
+        );
+
+        assert_eq!(dirs, vec![PathBuf::from("/tmp/codex-api-service")]);
     }
 
     #[test]

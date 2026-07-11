@@ -2863,6 +2863,7 @@
       "hourlyReset": "5-hour reset time",
       "subscriptionExpiry": "Subscription term",
       "custom": "Custom order",
+      "customSettingsTooltip": "Configure custom order",
       "customModalTitle": "Custom account order",
       "customModalDesc": "Drag accounts or use the up and down buttons to adjust the display order.",
       "customDragHandle": "Drag to sort",

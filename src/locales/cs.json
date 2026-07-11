@@ -2135,6 +2135,7 @@
       "hourlyReset": "Čas resetu 5 hodin",
       "subscriptionExpiry": "Konec předplatného",
       "custom": "Vlastní pořadí",
+      "customSettingsTooltip": "Nastavit vlastní pořadí",
       "customModalTitle": "Vlastní pořadí účtů",
       "customModalDesc": "Přetažením účtů nebo tlačítky nahoru/dolů upravte pořadí zobrazení.",
       "customDragHandle": "Přetáhnout",

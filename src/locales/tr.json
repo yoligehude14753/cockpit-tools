@@ -2135,6 +2135,7 @@
       "hourlyReset": "5 saatlik sıfırlama zamanı",
       "subscriptionExpiry": "Abonelik bitişi",
       "custom": "Özel sıra",
+      "customSettingsTooltip": "Özel sırayı yapılandır",
       "customModalTitle": "Özel hesap sırası",
       "customModalDesc": "Hesapları sürükleyin veya yukarı/aşağı düğmeleriyle görünüm sırasını ayarlayın.",
       "customDragHandle": "Sürükle",

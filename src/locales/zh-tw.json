@@ -2252,6 +2252,7 @@
       "hourlyReset": "按5小時配額重置時間",
       "subscriptionExpiry": "按訂閱到期",
       "custom": "自訂順序",
+      "customSettingsTooltip": "設定自訂順序",
       "customModalTitle": "自訂帳號排序",
       "customModalDesc": "拖曳帳號或使用上下按鈕調整顯示順序。",
       "customDragHandle": "拖曳排序",

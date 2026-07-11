@@ -22,6 +22,34 @@ func TestConvertOpenAIResponsesRequestToCodex_PreservesExplicitParallelToolsSett
 	}
 }
 
+func TestConvertOpenAIResponsesRequestToCodex_RemovesNamespaceFromReplayedInput(t *testing.T) {
+	inputJSON := []byte(`{
+		"model":"gpt-5.5",
+		"input":[{
+			"type":"function_call",
+			"call_id":"call_1",
+			"name":"lookup",
+			"namespace":"mcp__example",
+			"arguments":"{}"
+		}],
+		"tools":[{"type":"namespace","name":"mcp__example"}]
+	}`)
+
+	output := ConvertOpenAIResponsesRequestToCodex("gpt-5.5", inputJSON, false)
+	if got := gjson.GetBytes(output, "input.0.namespace"); got.Exists() {
+		t.Fatalf("input namespace was not removed: %s", got.Raw)
+	}
+	if got := gjson.GetBytes(output, "input.0.name").String(); got != "lookup" {
+		t.Fatalf("input name = %q, want lookup", got)
+	}
+	if got := gjson.GetBytes(output, "input.0.call_id").String(); got != "call_1" {
+		t.Fatalf("input call_id = %q, want call_1", got)
+	}
+	if got := gjson.GetBytes(output, "tools.0.type").String(); got != "namespace" {
+		t.Fatalf("tool type = %q, want namespace", got)
+	}
+}
+
 // TestConvertSystemRoleToDeveloper_BasicConversion tests the basic system -> developer role conversion
 func TestConvertSystemRoleToDeveloper_BasicConversion(t *testing.T) {
 	inputJSON := []byte(`{

@@ -2135,6 +2135,7 @@
       "hourlyReset": "Время сброса 5-часовой квоты",
       "subscriptionExpiry": "Срок подписки",
       "custom": "Свой порядок",
+      "customSettingsTooltip": "Настроить свой порядок",
       "customModalTitle": "Свой порядок аккаунтов",
       "customModalDesc": "Перетаскивайте аккаунты или используйте кнопки вверх/вниз, чтобы изменить порядок.",
       "customDragHandle": "Перетащить",

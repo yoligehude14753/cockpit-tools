@@ -2485,7 +2485,8 @@ pub fn write_auth_file_to_dir(base_dir: &Path, account: &CodexAccount) -> Result
             base_dir,
             &provider_config,
             &api_key,
-            account.api_supports_websockets,
+            account.api_provider_mode == CodexApiProviderMode::Custom
+                && account.api_supports_websockets,
         )?;
         provider_config
     } else {
@@ -4410,6 +4411,28 @@ requires_openai_auth = false
 
         let content = fs::read_to_string(base_dir.join("config.toml")).expect("read config");
         assert!(content.contains("supports_websockets = true"));
+
+        fs::remove_dir_all(&base_dir).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn builtin_openai_api_key_account_keeps_websockets_disabled() {
+        let base_dir = make_temp_dir("codex-config-builtin-openai-websocket-test");
+        let mut account = CodexAccount::new_api_key(
+            "openai-api-key".to_string(),
+            "openai@example.com".to_string(),
+            "sk-openai".to_string(),
+            CodexApiProviderMode::OpenaiBuiltin,
+            Some("https://api.openai.com/v1".to_string()),
+            None,
+            None,
+        );
+        account.api_supports_websockets = true;
+
+        write_account_bundle_to_dir(&base_dir, &account).expect("write account bundle");
+
+        let content = fs::read_to_string(base_dir.join("config.toml")).expect("read config");
+        assert!(content.contains("supports_websockets = false"));
 
         fs::remove_dir_all(&base_dir).expect("cleanup temp dir");
     }

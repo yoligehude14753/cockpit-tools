@@ -7,17 +7,23 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
 ---
-## [1.2.0] - 2026-07-11
+## [1.2.0] - 2026-07-12
 
 ### 新增
 
 - **新增 ZCode 平台账号管理**：支持 Z.ai 与 BigModel OAuth 和 API Key 账号、本机与 JSON 导入导出、真实切号、配额查询、标签筛选、批量操作、启动路径设置，以及 macOS、Windows、Linux 隔离多开。
+- **Antigravity 账号支持持久化自定义排序**：可选择自定义排序，通过拖拽或上下移动按钮调整账号顺序，从工具栏重新打开设置；刷新页面以及新增或删除账号后会继续维护该顺序。感谢 @khanra17 贡献 #1501。
+- **Codex 模型供应商支持按供应商启用 Responses WebSocket**：供应商可独立保存 WebSocket 传输能力，新增账号、编辑凭据、快速切换和实例启动会将该能力同步到账号与 Codex 配置；Chat Completions 和官方 OpenAI 保持关闭。感谢 @longwQaQ 贡献 #1512。
 
 ### 变更
 
 - **Codex 模型加载改为动态发现**：移除基于 CDP 的 `codex_model_injector` 和 Cockpit 静态模型目录覆盖，官方客户端改为从当前模型供应商或实例专属本地网关动态发现模型，同时保留用户自定义模型目录。
 - **Codex Chat Completions 供应商改用稳定的客户端模型别名**：上游模型会映射到官方客户端兼容槽位，并在请求发出前还原为真实上游模型；不再使用时会清理生成的 profile 覆盖。
 - **macOS Codex OAuth 支持应用内无痕 WebView**：Windows 与 Linux 继续使用普通浏览器和手动回调流程，不显示该入口。
+
+### 修复
+
+- **修复 Windows 启动旧版 Antigravity 时可能误开 Antigravity IDE**：Cockpit 启动旧版 Antigravity 时，任务栏快捷方式匹配会排除 Antigravity IDE。感谢 @khanra17 贡献 #1453。
 
 ---
 ## [1.1.5] - 2026-07-11

@@ -4478,7 +4478,11 @@ export function CodexModelProviderManager({
                       onChange={(event) =>
                         mutateForm({ supportsWebsockets: event.target.checked })
                       }
-                      disabled={saving || form.wireApi !== "responses"}
+                      disabled={
+                        saving ||
+                        form.wireApi !== "responses" ||
+                        selectedPresetId === "openai_official"
+                      }
                     />
                     <span className="provider-vision-switch-track" />
                   </span>

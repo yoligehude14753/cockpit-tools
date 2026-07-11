@@ -2135,6 +2135,7 @@
       "hourlyReset": "Czas resetu 5-godzinnego",
       "subscriptionExpiry": "Koniec subskrypcji",
       "custom": "Własna kolejność",
+      "customSettingsTooltip": "Skonfiguruj własną kolejność",
       "customModalTitle": "Własna kolejność kont",
       "customModalDesc": "Przeciągnij konta albo użyj przycisków góra/dół, aby zmienić kolejność.",
       "customDragHandle": "Przeciągnij",

@@ -8829,7 +8829,8 @@ fn try_launch_via_shortcut(shortcut_pattern: &str) -> Result<Option<u32>, String
                         .to_string();
                     let name_lower = name.to_lowercase();
                     let matches_pattern = if shortcut_pattern == "antigravity" {
-                        name_lower.contains("antigravity") && !name_lower.contains("antigravity ide")
+                        name_lower.contains("antigravity")
+                            && !name_lower.contains("antigravity ide")
                     } else {
                         name_lower.contains(shortcut_pattern)
                     };

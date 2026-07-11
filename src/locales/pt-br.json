@@ -2135,6 +2135,7 @@
       "hourlyReset": "Horário de redefinição de 5 horas",
       "subscriptionExpiry": "Expiração da assinatura",
       "custom": "Ordem personalizada",
+      "customSettingsTooltip": "Configurar ordem personalizada",
       "customModalTitle": "Ordem das contas",
       "customModalDesc": "Arraste contas ou use os botões para cima/baixo para ajustar a ordem.",
       "customDragHandle": "Arraste para ordenar",

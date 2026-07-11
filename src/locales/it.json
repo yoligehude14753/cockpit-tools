@@ -2135,6 +2135,7 @@
       "hourlyReset": "Ora di reset 5 ore",
       "subscriptionExpiry": "Scadenza abbonamento",
       "custom": "Ordine personalizzato",
+      "customSettingsTooltip": "Configura ordine personalizzato",
       "customModalTitle": "Ordine account",
       "customModalDesc": "Trascina gli account o usa i pulsanti su/giù per modificare l’ordine.",
       "customDragHandle": "Trascina per ordinare",

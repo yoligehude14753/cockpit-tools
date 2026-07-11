@@ -2135,6 +2135,7 @@
       "hourlyReset": "5시간 할당량 재설정 시간",
       "subscriptionExpiry": "구독 만료",
       "custom": "사용자 순서",
+      "customSettingsTooltip": "사용자 순서 설정",
       "customModalTitle": "계정 순서 설정",
       "customModalDesc": "계정을 끌거나 위/아래 버튼으로 표시 순서를 조정하세요.",
       "customDragHandle": "끌어서 정렬",

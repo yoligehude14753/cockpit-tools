@@ -2181,6 +2181,7 @@
       "hourlyReset": "وقت إعادة الضبط لمدة 5 ساعات",
       "subscriptionExpiry": "انتهاء الاشتراك",
       "custom": "ترتيب مخصص",
+      "customSettingsTooltip": "إعداد الترتيب المخصص",
       "customModalTitle": "ترتيب الحسابات",
       "customModalDesc": "اسحب الحسابات أو استخدم أزرار أعلى/أسفل لتعديل ترتيب العرض.",
       "customDragHandle": "اسحب للترتيب",

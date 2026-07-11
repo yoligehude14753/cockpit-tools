@@ -445,6 +445,7 @@ QQ 交流群、微信群或新建的 Telegram 畅聊群都可以加入。
 - Codex、Claude CLI 与 Claude Desktop Gateway 第三方供应商预设和模型映射方向参考：[CC Switch](https://github.com/farion1231/cc-switch)
 - Codex 模型目录与前端模型显示思路参考：[CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus)
 - Claude 可选登录 helper 运行时基于：[Electron](https://github.com/electron/electron)
+- 感谢 [@longwQaQ](https://github.com/longwQaQ) 贡献 Codex 模型供应商 Responses WebSocket 配置能力（[#1512](https://github.com/jlcodes99/cockpit-tools/pull/1512)）。
 
 感谢项目作者的开源贡献！如果这些项目对你有帮助，也请给他们点个 ⭐ Star 支持一下！
 

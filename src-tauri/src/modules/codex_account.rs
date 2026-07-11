@@ -367,6 +367,7 @@ fn migrate_apikey_fun_wire_api(account: &mut CodexAccount) -> bool {
 
 fn normalize_api_key_websocket_capability(account: &mut CodexAccount) -> bool {
     let normalized = account.is_api_key_auth()
+        && account.api_provider_mode == CodexApiProviderMode::Custom
         && account.api_wire_api.as_deref() == Some("responses")
         && account.api_supports_websockets;
     if account.api_supports_websockets == normalized {
@@ -407,8 +408,8 @@ fn apply_api_key_fields(
     account.api_provider_name = provider_config.provider_name;
     account.api_model_catalog = normalize_api_model_catalog(api_model_catalog);
     account.api_wire_api = normalize_api_wire_api(api_wire_api);
-    account.api_supports_websockets =
-        account.api_wire_api.as_deref() == Some("responses") && api_supports_websockets;
+    account.api_supports_websockets = api_supports_websockets;
+    let _ = normalize_api_key_websocket_capability(account);
     account.api_supports_vision = api_supports_vision;
     account.api_model_vision_support = normalize_api_model_vision_support(api_model_vision_support);
     account.api_vision_routing_model = normalize_optional_value(api_vision_routing_model);
@@ -2514,8 +2515,8 @@ fn apply_api_key_import_metadata(account: &mut CodexAccount, value: &serde_json:
     if let Some(supports_websockets) =
         read_json_bool(value, &["api_supports_websockets", "apiSupportsWebsockets"])
     {
-        account.api_supports_websockets =
-            account.api_wire_api.as_deref() == Some("responses") && supports_websockets;
+        account.api_supports_websockets = supports_websockets;
+        let _ = normalize_api_key_websocket_capability(account);
     }
 }
 
@@ -2915,8 +2916,8 @@ pub fn upsert_api_key_account(
         acc.plan_type = Some(API_KEY_LOGIN_PLAN_TYPE.to_string());
         acc.account_name = account_name;
         acc.api_wire_api = normalize_api_wire_api(api_wire_api.clone());
-        acc.api_supports_websockets =
-            acc.api_wire_api.as_deref() == Some("responses") && api_supports_websockets;
+        acc.api_supports_websockets = api_supports_websockets;
+        let _ = normalize_api_key_websocket_capability(&mut acc);
         acc.api_supports_vision = api_supports_vision;
         acc.api_model_vision_support = normalize_api_model_vision_support(api_model_vision_support);
         acc.api_vision_routing_model = normalize_optional_value(api_vision_routing_model);
@@ -4038,7 +4039,8 @@ pub fn write_auth_file_to_dir(base_dir: &Path, account: &CodexAccount) -> Result
             base_dir,
             &provider_config,
             &api_key,
-            account.api_supports_websockets,
+            account.api_provider_mode == CodexApiProviderMode::Custom
+                && account.api_supports_websockets,
         )?;
         provider_config
     } else {
@@ -9928,10 +9930,12 @@ multi_agent = true
             Vec::new(),
         );
         account.api_wire_api = Some("responses".to_string());
+        account.api_supports_websockets = true;
 
         write_account_bundle_to_dir(&base_dir, &account).expect("write account bundle");
 
         let config = fs::read_to_string(base_dir.join("config.toml")).expect("read config");
+        assert!(config.contains("supports_websockets = true"));
         assert!(!config.contains("model_catalog_json"));
         assert!(!base_dir
             .join(super::CODEX_MANAGED_MODEL_CATALOG_FILE)

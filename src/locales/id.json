@@ -2309,6 +2309,7 @@
       "hourlyReset": "5-hour reset time​",
       "subscriptionExpiry": "Akhir langganan",
       "custom": "Urutan kustom",
+      "customSettingsTooltip": "Atur urutan kustom",
       "customModalTitle": "Urutan akun kustom",
       "customModalDesc": "Seret akun atau gunakan tombol naik/turun untuk mengatur urutan tampilan.",
       "customDragHandle": "Seret untuk urutkan",

@@ -96,8 +96,13 @@ function normalizeWireApi(value: unknown): CodexProviderWireApi | undefined {
 function normalizeSupportsWebsockets(
   value: unknown,
   wireApi?: CodexProviderWireApi,
+  baseUrl?: string,
 ): boolean {
-  return wireApi === 'responses' && value === true;
+  return (
+    wireApi === 'responses' &&
+    value === true &&
+    resolveCodexApiProviderPresetId(baseUrl ?? '') !== 'openai_official'
+  );
 }
 
 function normalizeEnableModePreference(
@@ -296,6 +301,7 @@ function toValidProviderList(raw: unknown): CodexModelProvider[] {
       supportsWebsockets: normalizeSupportsWebsockets(
         (item as { supportsWebsockets?: unknown }).supportsWebsockets,
         wireApi,
+        baseUrl,
       ),
       enableModePreference: normalizeEnableModePreference(
         (item as { enableModePreference?: unknown }).enableModePreference,
@@ -489,7 +495,7 @@ export async function createCodexModelProvider(input: {
     website: sanitizeName(input.website ?? '') || undefined,
     apiKeyUrl: sanitizeName(input.apiKeyUrl ?? '') || undefined,
     wireApi,
-    supportsWebsockets: normalizeSupportsWebsockets(input.supportsWebsockets, wireApi),
+    supportsWebsockets: normalizeSupportsWebsockets(input.supportsWebsockets, wireApi, baseUrl),
     enableModePreference: normalizeEnableModePreference(input.enableModePreference),
     boundOauthAccountId: normalizeBoundOauthAccountId(input.boundOauthAccountId),
     boundOauthUseLocalGateway:
@@ -597,6 +603,7 @@ export async function updateCodexModelProvider(
     provider.supportsWebsockets = normalizeSupportsWebsockets(
       patch.supportsWebsockets ?? provider.supportsWebsockets,
       provider.wireApi ?? undefined,
+      provider.baseUrl,
     );
   }
   if (patch.enableModePreference !== undefined) {
@@ -790,7 +797,7 @@ export async function upsertCodexModelProviderFromCredential(
       website: sanitizeName(input.website ?? '') || undefined,
       apiKeyUrl: sanitizeName(input.apiKeyUrl ?? '') || undefined,
       wireApi,
-      supportsWebsockets: normalizeSupportsWebsockets(input.supportsWebsockets, wireApi),
+      supportsWebsockets: normalizeSupportsWebsockets(input.supportsWebsockets, wireApi, apiBaseUrl),
       enableModePreference: 'auto',
       boundOauthAccountId: undefined,
       boundOauthUseLocalGateway: false,
@@ -836,6 +843,7 @@ export async function upsertCodexModelProviderFromCredential(
     provider.supportsWebsockets = normalizeSupportsWebsockets(
       input.supportsWebsockets ?? provider.supportsWebsockets,
       provider.wireApi ?? undefined,
+      provider.baseUrl,
     );
   }
   if (input.integrationType !== undefined) {

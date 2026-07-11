@@ -2135,6 +2135,7 @@
       "hourlyReset": "Thời gian đặt lại 5 giờ",
       "subscriptionExpiry": "Hạn gói",
       "custom": "Thứ tự tùy chỉnh",
+      "customSettingsTooltip": "Thiết lập thứ tự tùy chỉnh",
       "customModalTitle": "Thứ tự tài khoản",
       "customModalDesc": "Kéo tài khoản hoặc dùng nút lên/xuống để chỉnh thứ tự hiển thị.",
       "customDragHandle": "Kéo để sắp xếp",

@@ -2135,6 +2135,7 @@
       "hourlyReset": "Hora de restablecimiento de 5 horas",
       "subscriptionExpiry": "Vencimiento de suscripción",
       "custom": "Orden personalizado",
+      "customSettingsTooltip": "Configurar orden personalizado",
       "customModalTitle": "Orden de cuentas",
       "customModalDesc": "Arrastra cuentas o usa los botones arriba/abajo para ajustar el orden.",
       "customDragHandle": "Arrastrar para ordenar",

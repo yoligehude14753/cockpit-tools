@@ -442,6 +442,7 @@ Every bit of support helps sustain open-source development. Thank you!
 - Codex, Claude CLI, and Claude Desktop Gateway third-party provider presets and model mapping direction reference: [CC Switch](https://github.com/farion1231/cc-switch)
 - Codex model catalog and frontend model display ideas reference: [CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus)
 - Claude optional sign-in helper runtime is based on: [Electron](https://github.com/electron/electron)
+- Thanks [@longwQaQ](https://github.com/longwQaQ) for contributing per-provider Codex Responses WebSocket configuration ([#1512](https://github.com/jlcodes99/cockpit-tools/pull/1512)).
 
 Thanks to the project author for their open-source contributions! If these projects have helped you, please give them a ⭐ Star to show your support!
 
