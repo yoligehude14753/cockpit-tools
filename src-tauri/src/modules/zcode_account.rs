@@ -11,18 +11,23 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 
-use crate::models::zcode::{ZcodeAccount, ZcodeAccountIndex};
+use crate::models::zcode::{ZcodeAccount, ZcodeAccountIndex, ZcodeAuthMode};
 use crate::modules::{account, atomic_write};
 
 const ACCOUNTS_DIR: &str = "zcode_accounts";
 const ACCOUNTS_INDEX_FILE: &str = "zcode_accounts.json";
 const CREDENTIALS_FILE: &str = "credentials.json";
+const CONFIG_FILE: &str = "config.json";
 const SETTINGS_FILE: &str = "setting.json";
 const CREDENTIAL_PREFIX: &str = "enc:v1:";
 const DEFAULT_APP_VERSION: &str = "3.3.4";
 const BILLING_BALANCE_URL: &str = "https://zcode.z.ai/api/v1/zcode-plan/billing/balance";
 const ACTIVE_PROVIDER_KEY: &str = "oauth:active_provider";
 const ZCODE_JWT_KEY: &str = "zcodejwttoken";
+const ZAI_API_KEY_PROVIDER_ID: &str = "builtin:zai";
+const BIGMODEL_API_KEY_PROVIDER_ID: &str = "builtin:bigmodel";
+const ZAI_API_BASE_URL: &str = "https://api.z.ai/api/anthropic";
+const BIGMODEL_API_BASE_URL: &str = "https://open.bigmodel.cn/api/anthropic";
 
 static ZCODE_ACCOUNT_LOCK: std::sync::LazyLock<Mutex<()>> =
     std::sync::LazyLock::new(|| Mutex::new(()));
@@ -68,6 +73,27 @@ fn account_id(provider: &str, user_id: Option<&str>, email: Option<&str>) -> Str
         "zcode_{:x}",
         md5::compute(format!("{}:{}", provider, identity))
     )
+}
+
+fn api_key_account_id(provider: &str, api_key: &str) -> String {
+    format!(
+        "zcode_apikey_{:x}",
+        md5::compute(format!("{}:{}", provider, api_key))
+    )
+}
+
+fn provider_display_name(provider: &str) -> &'static str {
+    if provider == "bigmodel" {
+        "BigModel"
+    } else {
+        "Z.ai"
+    }
+}
+
+fn api_key_suffix(api_key: &str) -> String {
+    let mut chars: Vec<char> = api_key.chars().rev().take(4).collect();
+    chars.reverse();
+    chars.into_iter().collect()
 }
 
 fn accounts_dir() -> Result<PathBuf, String> {
@@ -148,8 +174,20 @@ pub fn upsert_account(mut value: ZcodeAccount) -> Result<ZcodeAccount, String> {
     value.display_name = normalize_string(value.display_name.as_deref());
     value.avatar_url = normalize_string(value.avatar_url.as_deref());
     value.refresh_token = normalize_string(value.refresh_token.as_deref());
+    value.api_key = normalize_string(value.api_key.as_deref());
     value.plan_type = normalize_string(value.plan_type.as_deref());
     value.tags = normalize_tags(value.tags.unwrap_or_default());
+    if value.auth_mode == ZcodeAuthMode::ApiKey {
+        let api_key = value
+            .api_key
+            .as_deref()
+            .ok_or_else(|| "ZCode API Key 账号缺少 API Key".to_string())?;
+        value.id = api_key_account_id(&value.provider, api_key);
+        value.access_token.clear();
+        value.refresh_token = None;
+        value.zcode_jwt_token.clear();
+        value.plan_type = Some("API Key".to_string());
+    }
     if value.id.trim().is_empty() {
         value.id = account_id(
             &value.provider,
@@ -379,6 +417,14 @@ pub fn default_credentials_path() -> Result<PathBuf, String> {
     Ok(resolve_default_v2_dir()?.join(CREDENTIALS_FILE))
 }
 
+fn default_config_path() -> Result<PathBuf, String> {
+    Ok(resolve_default_v2_dir()?.join(CONFIG_FILE))
+}
+
+fn default_settings_path() -> Result<PathBuf, String> {
+    Ok(resolve_default_v2_dir()?.join(SETTINGS_FILE))
+}
+
 pub fn default_data_root_dir() -> Result<PathBuf, String> {
     resolve_default_v2_dir()?
         .parent()
@@ -388,6 +434,14 @@ pub fn default_data_root_dir() -> Result<PathBuf, String> {
 
 pub fn credentials_path_for_instance_root(root: &Path) -> PathBuf {
     root.join("data/.zcode/v2").join(CREDENTIALS_FILE)
+}
+
+fn config_path_for_instance_root(root: &Path) -> PathBuf {
+    root.join("data/.zcode/v2").join(CONFIG_FILE)
+}
+
+fn settings_path_for_instance_root(root: &Path) -> PathBuf {
+    root.join("data/.zcode/v2").join(SETTINGS_FILE)
 }
 
 fn decrypted_value(
@@ -449,6 +503,7 @@ fn account_from_credentials_path_with_home(
     let now = now_ts();
     Ok(ZcodeAccount {
         id: account_id(&provider, user_id.as_deref(), Some(&email)),
+        auth_mode: ZcodeAuthMode::Oauth,
         provider,
         email,
         user_id,
@@ -457,6 +512,7 @@ fn account_from_credentials_path_with_home(
         access_token,
         refresh_token,
         zcode_jwt_token,
+        api_key: None,
         expires_at: None,
         plan_type: None,
         quota_total: None,
@@ -475,13 +531,107 @@ fn account_from_credentials_path_with_home(
     })
 }
 
-pub async fn import_from_local() -> Result<ZcodeAccount, String> {
-    let path = default_credentials_path()?;
-    if !path.exists() {
-        return Err("未找到 ZCode 本地 credentials.json".to_string());
+fn api_key_account(
+    provider: &str,
+    api_key: &str,
+    account_name: Option<&str>,
+) -> Result<ZcodeAccount, String> {
+    let provider = normalize_provider(provider)?;
+    let api_key =
+        normalize_string(Some(api_key)).ok_or_else(|| "请输入 ZCode API Key".to_string())?;
+    if api_key.chars().any(char::is_whitespace) {
+        return Err("ZCode API Key 不能包含空白字符".to_string());
     }
-    let account = upsert_account(account_from_credentials_path(&path)?)?;
-    refresh_account_quota(&account.id).await.or(Ok(account))
+    let display_name = normalize_string(account_name).unwrap_or_else(|| {
+        format!(
+            "{} API Key ...{}",
+            provider_display_name(&provider),
+            api_key_suffix(&api_key)
+        )
+    });
+    let now = now_ts();
+    Ok(ZcodeAccount {
+        id: api_key_account_id(&provider, &api_key),
+        auth_mode: ZcodeAuthMode::ApiKey,
+        provider,
+        email: "unknown@zcode.local".to_string(),
+        user_id: None,
+        display_name: Some(display_name),
+        avatar_url: None,
+        access_token: String::new(),
+        refresh_token: None,
+        zcode_jwt_token: String::new(),
+        api_key: Some(api_key),
+        expires_at: None,
+        plan_type: Some("API Key".to_string()),
+        quota_total: None,
+        quota_used: None,
+        quota_remaining: None,
+        quota_reset_at: None,
+        quota_query_last_error: None,
+        quota_query_last_error_at: None,
+        usage_updated_at: None,
+        tags: None,
+        user_info_raw: None,
+        subscription_raw: None,
+        quota_raw: None,
+        created_at: now,
+        last_used: now,
+    })
+}
+
+pub fn import_api_key(
+    api_key: &str,
+    provider: &str,
+    account_name: Option<&str>,
+) -> Result<ZcodeAccount, String> {
+    upsert_account(api_key_account(provider, api_key, account_name)?)
+}
+
+fn api_key_from_provider_config(root: &Map<String, Value>, provider: &str) -> Option<String> {
+    let provider_id = if provider == "bigmodel" {
+        BIGMODEL_API_KEY_PROVIDER_ID
+    } else {
+        ZAI_API_KEY_PROVIDER_ID
+    };
+    root.get("provider")?
+        .get(provider_id)?
+        .get("options")?
+        .get("apiKey")?
+        .as_str()
+        .and_then(|value| normalize_string(Some(value)))
+}
+
+fn api_key_accounts_from_config(path: &Path) -> Result<Vec<ZcodeAccount>, String> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let root = read_json_map(path)?;
+    ["zai", "bigmodel"]
+        .into_iter()
+        .filter_map(|provider| {
+            api_key_from_provider_config(&root, provider)
+                .map(|api_key| api_key_account(provider, &api_key, None))
+        })
+        .collect()
+}
+
+pub async fn import_from_local() -> Result<Vec<ZcodeAccount>, String> {
+    let mut imported = Vec::new();
+    let credentials_path = default_credentials_path()?;
+    if credentials_path.exists() {
+        if let Ok(account) = account_from_credentials_path(&credentials_path) {
+            let account = upsert_account(account)?;
+            imported.push(refresh_account_quota(&account.id).await.unwrap_or(account));
+        }
+    }
+    for account in api_key_accounts_from_config(&default_config_path()?)? {
+        imported.push(upsert_account(account)?);
+    }
+    if imported.is_empty() {
+        return Err("未找到可导入的 ZCode OAuth 凭据或 API Key".to_string());
+    }
+    Ok(imported)
 }
 
 fn official_user_info(account: &ZcodeAccount) -> Value {
@@ -493,6 +643,127 @@ fn official_user_info(account: &ZcodeAccount) -> Value {
             "avatar": account.avatar_url,
         })
     })
+}
+
+fn ensure_object<'a>(map: &'a mut Map<String, Value>, key: &str) -> &'a mut Map<String, Value> {
+    let value = map
+        .entry(key.to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !value.is_object() {
+        *value = Value::Object(Map::new());
+    }
+    value.as_object_mut().expect("object inserted above")
+}
+
+fn write_json_map(path: &Path, values: Map<String, Value>, label: &str) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("ZCode {} 目录无效", label))?;
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("创建 ZCode {} 目录失败: {}", label, error))?;
+    let content = serde_json::to_string_pretty(&Value::Object(values))
+        .map_err(|error| format!("序列化 ZCode {} 失败: {}", label, error))?;
+    atomic_write::write_string_atomic(path, &content)
+        .map_err(|error| format!("写入 ZCode {} 失败: {}", label, error))
+}
+
+fn api_key_provider_spec(provider: &str) -> (&'static str, &'static str, &'static str) {
+    if provider == "bigmodel" {
+        (
+            BIGMODEL_API_KEY_PROVIDER_ID,
+            "Bigmodel - API Key",
+            BIGMODEL_API_BASE_URL,
+        )
+    } else {
+        (ZAI_API_KEY_PROVIDER_ID, "Z.ai - API Key", ZAI_API_BASE_URL)
+    }
+}
+
+fn default_api_key_models() -> Value {
+    json!({
+        "GLM-5.2": {
+            "limit": { "context": 1_000_000 },
+            "modalities": { "input": ["text"], "output": ["text"] }
+        },
+        "GLM-5-Turbo": {
+            "name": "glm-5-turbo",
+            "reasoning": {
+                "enabled": true,
+                "variants": ["enabled", "off"],
+                "defaultVariant": "enabled"
+            },
+            "limit": { "context": 200_000, "output": 64_000 },
+            "modalities": { "input": ["text"], "output": ["text"] }
+        }
+    })
+}
+
+fn write_api_key_to_config_path(account: &ZcodeAccount, path: &Path) -> Result<(), String> {
+    let provider = normalize_provider(&account.provider)?;
+    let api_key = account
+        .api_key
+        .as_deref()
+        .and_then(|value| normalize_string(Some(value)))
+        .ok_or_else(|| "ZCode API Key 账号缺少 API Key".to_string())?;
+    let (provider_id, display_name, base_url) = api_key_provider_spec(&provider);
+    let mut root = read_json_map(path)?;
+    let providers = ensure_object(&mut root, "provider");
+    let provider_value = providers
+        .entry(provider_id.to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !provider_value.is_object() {
+        *provider_value = Value::Object(Map::new());
+    }
+    let provider_config = provider_value
+        .as_object_mut()
+        .expect("object inserted above");
+    provider_config.insert("name".to_string(), Value::String(display_name.to_string()));
+    provider_config.insert("kind".to_string(), Value::String("anthropic".to_string()));
+    provider_config.insert("enabled".to_string(), Value::Bool(true));
+    provider_config.insert("source".to_string(), Value::String("custom".to_string()));
+    provider_config.insert("updatedAt".to_string(), Value::Number(now_ms().into()));
+    provider_config.remove("systemDisabledReason");
+    if !provider_config.get("models").is_some_and(Value::is_object) {
+        provider_config.insert("models".to_string(), default_api_key_models());
+    }
+    let options = ensure_object(provider_config, "options");
+    options.insert("apiKey".to_string(), Value::String(api_key));
+    options.insert("baseURL".to_string(), Value::String(base_url.to_string()));
+    write_json_map(path, root, "config.json")
+}
+
+fn write_auth_mode_to_settings_path(
+    provider: &str,
+    auth_mode: ZcodeAuthMode,
+    path: &Path,
+) -> Result<(), String> {
+    let provider = normalize_provider(provider)?;
+    let mut root = read_json_map(path)?;
+    root.insert(
+        "providerFamilyDomain".to_string(),
+        Value::String(provider.clone()),
+    );
+    root.insert(
+        "providerFamilyDomainUpdatedAt".to_string(),
+        Value::Number(now_ms().into()),
+    );
+    root.insert(
+        "providerFamilyDomainMigrated".to_string(),
+        Value::Bool(true),
+    );
+    let family_modes = ensure_object(&mut root, "modelProviderFamilyModes");
+    family_modes.insert(
+        provider,
+        Value::String(
+            if auth_mode == ZcodeAuthMode::ApiKey {
+                "apiKey"
+            } else {
+                "oauth"
+            }
+            .to_string(),
+        ),
+    );
+    write_json_map(path, root, "setting.json")
 }
 
 pub fn write_account_to_credentials_path(
@@ -508,6 +779,11 @@ fn write_account_to_credentials_path_with_home(
     path: &Path,
     home: &Path,
 ) -> Result<(), String> {
+    if account.auth_mode != ZcodeAuthMode::Oauth {
+        return Err(
+            "API Key 账号应写入 ZCode config.json，而不是 OAuth credentials.json".to_string(),
+        );
+    }
     let mut values = read_json_map(path)?;
     for provider in ["zai", "bigmodel"] {
         for suffix in ["access_token", "refresh_token", "user_info"] {
@@ -545,7 +821,12 @@ fn write_account_to_credentials_path_with_home(
 
 pub fn inject_to_default(account_id: &str) -> Result<ZcodeAccount, String> {
     let mut value = load_account(account_id).ok_or_else(|| "ZCode 账号不存在".to_string())?;
-    write_account_to_credentials_path(&value, &default_credentials_path()?)?;
+    if value.auth_mode == ZcodeAuthMode::ApiKey {
+        write_api_key_to_config_path(&value, &default_config_path()?)?;
+    } else {
+        write_account_to_credentials_path(&value, &default_credentials_path()?)?;
+    }
+    write_auth_mode_to_settings_path(&value.provider, value.auth_mode, &default_settings_path()?)?;
     value.last_used = now_ts();
     let value = upsert_account(value)?;
     let mut index = load_index()?;
@@ -556,7 +837,16 @@ pub fn inject_to_default(account_id: &str) -> Result<ZcodeAccount, String> {
 
 pub fn inject_to_instance_root(account_id: &str, root: &Path) -> Result<ZcodeAccount, String> {
     let value = load_account(account_id).ok_or_else(|| "ZCode 账号不存在".to_string())?;
-    write_account_to_credentials_path(&value, &credentials_path_for_instance_root(root))?;
+    if value.auth_mode == ZcodeAuthMode::ApiKey {
+        write_api_key_to_config_path(&value, &config_path_for_instance_root(root))?;
+    } else {
+        write_account_to_credentials_path(&value, &credentials_path_for_instance_root(root))?;
+    }
+    write_auth_mode_to_settings_path(
+        &value.provider,
+        value.auth_mode,
+        &settings_path_for_instance_root(root),
+    )?;
     Ok(value)
 }
 
@@ -651,6 +941,12 @@ fn apply_quota_payload(value: &mut ZcodeAccount, payload: Value) -> Result<(), S
 
 pub async fn refresh_account_quota(account_id: &str) -> Result<ZcodeAccount, String> {
     let mut value = load_account(account_id).ok_or_else(|| "ZCode 账号不存在".to_string())?;
+    if value.auth_mode == ZcodeAuthMode::ApiKey {
+        value.plan_type = Some("API Key".to_string());
+        value.quota_query_last_error = None;
+        value.quota_query_last_error_at = None;
+        return upsert_account(value);
+    }
     let url = format!(
         "{}?app_version={}",
         BILLING_BALANCE_URL,
@@ -734,8 +1030,19 @@ fn parse_import_accounts(content: &str) -> Result<Vec<ZcodeAccount>, String> {
     for item in items {
         let mut account: ZcodeAccount = serde_json::from_value(item)
             .map_err(|error| format!("ZCode 导入账号格式无效: {}", error))?;
-        if account.access_token.trim().is_empty() || account.zcode_jwt_token.trim().is_empty() {
-            return Err("ZCode 导入账号缺少必要 Token".to_string());
+        if account.auth_mode == ZcodeAuthMode::ApiKey {
+            if account
+                .api_key
+                .as_deref()
+                .and_then(|value| normalize_string(Some(value)))
+                .is_none()
+            {
+                return Err("ZCode 导入的 API Key 账号缺少 API Key".to_string());
+            }
+        } else if account.access_token.trim().is_empty()
+            || account.zcode_jwt_token.trim().is_empty()
+        {
+            return Err("ZCode 导入的 OAuth 账号缺少必要 Token".to_string());
         }
         account.id.clear();
         imported.push(account);
@@ -768,6 +1075,7 @@ mod tests {
     fn sample_account() -> ZcodeAccount {
         ZcodeAccount {
             id: "zcode_fixture".to_string(),
+            auth_mode: ZcodeAuthMode::Oauth,
             provider: "zai".to_string(),
             email: "fixture@example.com".to_string(),
             user_id: Some("fixture-user".to_string()),
@@ -776,6 +1084,7 @@ mod tests {
             access_token: "access-token".to_string(),
             refresh_token: Some("refresh-token".to_string()),
             zcode_jwt_token: "zcode-jwt-token".to_string(),
+            api_key: None,
             expires_at: Some(1_900_000_000),
             plan_type: None,
             quota_total: None,
@@ -864,6 +1173,60 @@ mod tests {
         assert_eq!(restored.access_token, account.access_token);
         assert_eq!(restored.refresh_token, account.refresh_token);
         assert_eq!(restored.zcode_jwt_token, account.zcode_jwt_token);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn api_key_writer_uses_official_provider_config_and_setting_mode() {
+        let root = make_temp_dir("zcode-api-key-round-trip");
+        let config_path = config_path_for_instance_root(&root);
+        let settings_path = settings_path_for_instance_root(&root);
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        fs::write(
+            &config_path,
+            r#"{"preserved":true,"provider":{"custom:test":{"name":"Keep me"}}}"#,
+        )
+        .unwrap();
+        fs::write(
+            &settings_path,
+            r#"{"locale":"zh-CN","modelProviderFamilyModes":{"bigmodel":"oauth"}}"#,
+        )
+        .unwrap();
+
+        let account = api_key_account("zai", "zai-test-key", Some("Work Key")).unwrap();
+        write_api_key_to_config_path(&account, &config_path).unwrap();
+        write_auth_mode_to_settings_path("zai", ZcodeAuthMode::ApiKey, &settings_path).unwrap();
+
+        let config = read_json_map(&config_path).unwrap();
+        assert_eq!(config.get("preserved"), Some(&Value::Bool(true)));
+        assert_eq!(
+            config["provider"]["custom:test"]["name"].as_str(),
+            Some("Keep me")
+        );
+        assert_eq!(
+            config["provider"][ZAI_API_KEY_PROVIDER_ID]["options"]["apiKey"].as_str(),
+            Some("zai-test-key")
+        );
+        assert_eq!(
+            config["provider"][ZAI_API_KEY_PROVIDER_ID]["options"]["baseURL"].as_str(),
+            Some(ZAI_API_BASE_URL)
+        );
+        assert_eq!(
+            config["provider"][ZAI_API_KEY_PROVIDER_ID]["enabled"].as_bool(),
+            Some(true)
+        );
+
+        let settings = read_json_map(&settings_path).unwrap();
+        assert_eq!(settings["locale"].as_str(), Some("zh-CN"));
+        assert_eq!(settings["providerFamilyDomain"].as_str(), Some("zai"));
+        assert_eq!(
+            settings["modelProviderFamilyModes"]["zai"].as_str(),
+            Some("apiKey")
+        );
+        assert_eq!(
+            settings["modelProviderFamilyModes"]["bigmodel"].as_str(),
+            Some("oauth")
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -975,6 +1338,11 @@ mod tests {
         invalid["zcode_jwt_token"] = Value::String(String::new());
         let error = parse_import_accounts(&invalid.to_string()).unwrap_err();
         assert!(error.contains("缺少必要 Token"));
+
+        let api_key = api_key_account("bigmodel", "bigmodel-test-key", None).unwrap();
+        let parsed = parse_import_accounts(&serde_json::to_string(&api_key).unwrap()).unwrap();
+        assert_eq!(parsed[0].auth_mode, ZcodeAuthMode::ApiKey);
+        assert_eq!(parsed[0].api_key.as_deref(), Some("bigmodel-test-key"));
     }
 
     #[test]

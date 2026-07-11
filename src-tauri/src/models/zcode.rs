@@ -1,9 +1,19 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ZcodeAuthMode {
+    #[default]
+    Oauth,
+    ApiKey,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZcodeAccount {
     pub id: String,
+    #[serde(default)]
+    pub auth_mode: ZcodeAuthMode,
     pub provider: String,
     pub email: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -12,10 +22,14 @@ pub struct ZcodeAccount {
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    #[serde(default)]
     pub access_token: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refresh_token: Option<String>,
+    #[serde(default)]
     pub zcode_jwt_token: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -49,6 +63,8 @@ pub struct ZcodeAccount {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZcodeAccountSummary {
     pub id: String,
+    #[serde(default)]
+    pub auth_mode: ZcodeAuthMode,
     pub provider: String,
     pub email: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,6 +99,7 @@ impl ZcodeAccount {
     pub fn summary(&self) -> ZcodeAccountSummary {
         ZcodeAccountSummary {
             id: self.id.clone(),
+            auth_mode: self.auth_mode,
             provider: self.provider.clone(),
             email: self.email.clone(),
             user_id: self.user_id.clone(),

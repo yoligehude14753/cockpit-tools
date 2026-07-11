@@ -78,8 +78,16 @@ export interface CodebuddySuiteAccountsPlatformConfig<TAccount extends Codebuddy
   oauthOpenButtonKey?: string;
   oauthOpenButtonDefault?: string;
   showOauthIncognitoOpenButton?: boolean;
+  tokenTabLabelKey?: string;
+  tokenTabLabelDefault?: string;
   tokenDescKey: string;
   tokenDescDefault: string;
+  tokenInputPlaceholderKey?: string;
+  tokenInputPlaceholderDefault?: string;
+  tokenSubmitLabelKey?: string;
+  tokenSubmitLabelDefault?: string;
+  tokenInputSecret?: boolean;
+  tokenControl?: ReactNode;
   importLocalDescKey: string;
   importLocalDescDefault: string;
   importLocalClientKey: string;
@@ -122,6 +130,7 @@ export function CodebuddySuiteAccountsSharedView<TAccount extends CodebuddySuite
       ? readAccountsOverviewFilterStringArray(page.filterPersistenceScope, FILTER_TYPES_FIELD)
       : [],
   );
+  const [tokenInputVisible, setTokenInputVisible] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [showCheckinModal, setShowCheckinModal] = useState(false);
@@ -160,6 +169,10 @@ export function CodebuddySuiteAccountsSharedView<TAccount extends CodebuddySuite
     isFlowNoticeCollapsed, setIsFlowNoticeCollapsed,
     currentAccountId, formatDate, normalizeTag,
   } = page;
+
+  useEffect(() => {
+    if (!showAddModal || addTab !== 'token') setTokenInputVisible(false);
+  }, [addTab, showAddModal]);
 
   useEscClose(showAddModal, closeAddModal);
   useEscClose(!!deleteConfirm, () => setDeleteConfirm(null));
@@ -667,7 +680,7 @@ export function CodebuddySuiteAccountsSharedView<TAccount extends CodebuddySuite
             </div>
             <div className="modal-tabs">
               <button className={`modal-tab ${addTab === 'oauth' ? 'active' : ''}`} onClick={() => openAddModal('oauth')}><Globe size={14} /> {t('common.shared.addModal.oauth', '授权登录')}</button>
-              <button className={`modal-tab ${addTab === 'token' ? 'active' : ''}`} onClick={() => openAddModal('token')}><KeyRound size={14} />{t('common.shared.addModal.token', 'Token / JSON')}</button>
+              <button className={`modal-tab ${addTab === 'token' ? 'active' : ''}`} onClick={() => openAddModal('token')}><KeyRound size={14} />{t(platformConfig.tokenTabLabelKey || 'common.shared.addModal.token', platformConfig.tokenTabLabelDefault || 'Token / JSON')}</button>
               <button className={`modal-tab ${addTab === 'json' ? 'active' : ''}`} onClick={() => openAddModal('json')}><Database size={14} />{t('common.shared.addModal.import', '本地导入')}</button>
             </div>
             <div className="modal-body">
@@ -807,11 +820,34 @@ export function CodebuddySuiteAccountsSharedView<TAccount extends CodebuddySuite
               )}
               {addTab === 'token' && (
                 <div className="add-section token-section">
+                  {platformConfig.tokenControl}
                   <p className="section-desc">{t(platformConfig.tokenDescKey, platformConfig.tokenDescDefault)}</p>
-                  <textarea className="token-input" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} placeholder={t('common.shared.token.placeholder', '粘贴 Token 或 JSON...')} />
+                  {platformConfig.tokenInputSecret ? (
+                    <div className="token-secret-field">
+                      <input
+                        className="token-input"
+                        type={tokenInputVisible ? 'text' : 'password'}
+                        value={tokenInput}
+                        autoComplete="off"
+                        onChange={(e) => setTokenInput(e.target.value)}
+                        placeholder={t(platformConfig.tokenInputPlaceholderKey || 'common.shared.token.placeholder', platformConfig.tokenInputPlaceholderDefault || '粘贴 Token 或 JSON...')}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary icon-only token-secret-toggle"
+                        onClick={() => setTokenInputVisible((visible) => !visible)}
+                        title={t(tokenInputVisible ? 'common.hide' : 'common.show', tokenInputVisible ? '隐藏' : '显示')}
+                        aria-label={t(tokenInputVisible ? 'common.hide' : 'common.show', tokenInputVisible ? '隐藏' : '显示')}
+                      >
+                        {tokenInputVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  ) : (
+                    <textarea className="token-input" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} placeholder={t(platformConfig.tokenInputPlaceholderKey || 'common.shared.token.placeholder', platformConfig.tokenInputPlaceholderDefault || '粘贴 Token 或 JSON...')} />
+                  )}
                   <button className="btn btn-primary btn-full" onClick={handleTokenImport} disabled={importing || !tokenInput.trim()}>
                     {importing ? <RefreshCw size={16} className="loading-spinner" /> : <Download size={16} />}
-                    {t('common.shared.token.import', 'Import')}
+                    {t(platformConfig.tokenSubmitLabelKey || 'common.shared.token.import', platformConfig.tokenSubmitLabelDefault || 'Import')}
                   </button>
                 </div>
               )}

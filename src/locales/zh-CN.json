@@ -4597,8 +4597,8 @@
     "search": "搜索 ZCode 账号...",
     "flowNotice": {
       "title": "ZCode 账号管理说明",
-      "desc": "Cockpit 读取并回写 ZCode 本地加密凭据，用于真实切号与实例绑定。",
-      "permission": "本地范围：~/.zcode/v2/credentials.json 与受管实例目录。",
+      "desc": "Cockpit 按 ZCode 官方格式管理 OAuth 凭据与 API Key，用于真实切号与实例绑定。",
+      "permission": "本地范围：~/.zcode/v2/credentials.json、config.json、setting.json 与受管实例目录。",
       "network": "网络范围：OAuth、用户信息、订阅与配额接口；不会将账号上传到 Cockpit 服务。"
     },
     "empty": "暂无 ZCode 账号",
@@ -4617,6 +4617,13 @@
     },
     "token": {
       "desc": "粘贴由 Cockpit 导出的 ZCode 账号 JSON。"
+    },
+    "apiKey": {
+      "tab": "API Key",
+      "desc": "添加 ZCode 官方支持的 Z.ai 或 BigModel API Key。切号和多开实例会写入各自的 config.json。",
+      "placeholder": "粘贴 API Key",
+      "add": "添加 API Key",
+      "provider": "API Key 服务"
     },
     "import": {
       "localDesc": "从本机 ZCode 加密凭据或 JSON 文件导入账号。",

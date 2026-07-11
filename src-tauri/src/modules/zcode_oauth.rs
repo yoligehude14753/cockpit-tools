@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use url::Url;
 use uuid::Uuid;
 
-use crate::models::zcode::{ZcodeAccount, ZcodeOAuthStartResponse};
+use crate::models::zcode::{ZcodeAccount, ZcodeAuthMode, ZcodeOAuthStartResponse};
 use crate::modules::{logger, zcode_account};
 
 const OAUTH_TIMEOUT_SECONDS: i64 = 300;
@@ -119,11 +119,7 @@ fn authorize_url_matches_pending(url: &Url, pending: &PendingOAuthState) -> bool
     }
 }
 
-pub fn open_oauth_window(
-    app: &AppHandle,
-    auth_url: &str,
-    incognito: bool,
-) -> Result<(), String> {
+pub fn open_oauth_window(app: &AppHandle, auth_url: &str, incognito: bool) -> Result<(), String> {
     let parsed = Url::parse(auth_url.trim())
         .map_err(|error| format!("ZCode OAuth 授权地址无效: {}", error))?;
     let pending = PENDING_OAUTH
@@ -498,6 +494,7 @@ async fn exchange_callback(
     let now = now_ts();
     let account = ZcodeAccount {
         id: String::new(),
+        auth_mode: ZcodeAuthMode::Oauth,
         provider: pending.provider.clone(),
         email,
         user_id,
@@ -506,6 +503,7 @@ async fn exchange_callback(
         access_token,
         refresh_token,
         zcode_jwt_token,
+        api_key: None,
         expires_at,
         plan_type: None,
         quota_total: None,

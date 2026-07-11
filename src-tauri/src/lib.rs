@@ -991,6 +991,7 @@ pub fn run() {
             commands::zcode::delete_zcode_accounts,
             commands::zcode::import_zcode_from_json,
             commands::zcode::import_zcode_from_local,
+            commands::zcode::import_zcode_api_key,
             commands::zcode::export_zcode_accounts,
             commands::zcode::zcode_oauth_login_start,
             commands::zcode::zcode_oauth_login_complete,

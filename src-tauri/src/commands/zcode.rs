@@ -25,9 +25,21 @@ pub fn import_zcode_from_json(json_content: String) -> Result<Vec<ZcodeAccount>,
 
 #[tauri::command]
 pub async fn import_zcode_from_local(app: AppHandle) -> Result<Vec<ZcodeAccount>, String> {
-    let account = zcode_account::import_from_local().await?;
+    let accounts = zcode_account::import_from_local().await?;
     let _ = tray::update_tray_menu(&app);
-    Ok(vec![account])
+    Ok(accounts)
+}
+
+#[tauri::command]
+pub fn import_zcode_api_key(
+    app: AppHandle,
+    api_key: String,
+    provider: String,
+    account_name: Option<String>,
+) -> Result<ZcodeAccount, String> {
+    let account = zcode_account::import_api_key(&api_key, &provider, account_name.as_deref())?;
+    let _ = tray::update_tray_menu(&app);
+    Ok(account)
 }
 
 #[tauri::command]

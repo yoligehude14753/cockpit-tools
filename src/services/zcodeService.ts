@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { ZcodeAccount } from '../types/zcode';
 
 export type ZcodeOAuthProvider = 'zai' | 'bigmodel';
+export type ZcodeApiKeyProvider = 'zai' | 'bigmodel';
 
 export interface ZcodeOAuthStartResponse {
   loginId: string;
@@ -30,6 +31,18 @@ export async function importZcodeFromJson(jsonContent: string): Promise<ZcodeAcc
 
 export async function importZcodeFromLocal(): Promise<ZcodeAccount[]> {
   return await invoke('import_zcode_from_local');
+}
+
+export async function importZcodeApiKey(
+  apiKey: string,
+  provider: ZcodeApiKeyProvider,
+  accountName?: string,
+): Promise<ZcodeAccount> {
+  return await invoke('import_zcode_api_key', {
+    apiKey,
+    provider,
+    accountName: accountName?.trim() || null,
+  });
 }
 
 export async function exportZcodeAccounts(accountIds: string[]): Promise<string> {

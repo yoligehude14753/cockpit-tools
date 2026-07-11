@@ -6,11 +6,13 @@ import type {
 } from './codebuddy-suite';
 
 export interface ZcodeAccount extends CodebuddySuiteAccountBase {
+  auth_mode?: 'oauth' | 'api_key';
   provider: 'zai' | 'bigmodel' | string;
   user_id?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
-  zcode_jwt_token: string;
+  zcode_jwt_token?: string;
+  api_key?: string | null;
   quota_total?: number | null;
   quota_used?: number | null;
   quota_remaining?: number | null;
@@ -82,6 +84,7 @@ export function getZcodeAccountDisplayEmail(account: ZcodeAccount): string {
 }
 
 export function getZcodePlanBadge(account: ZcodeAccount): string {
+  if (account.auth_mode === 'api_key') return 'API Key';
   return account.plan_type?.trim() || account.provider || 'UNKNOWN';
 }
 

@@ -29,6 +29,7 @@ export function ZcodeAccountsPage() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<PlatformOverviewTab>('overview');
   const [oauthProvider, setOauthProvider] = useState<zcodeService.ZcodeOAuthProvider>('zai');
+  const [apiKeyProvider, setApiKeyProvider] = useState<zcodeService.ZcodeApiKeyProvider>('zai');
   const store = useZcodeAccountStore();
 
   const page = useProviderAccountsPage<ZcodeAccount>({
@@ -61,6 +62,7 @@ export function ZcodeAccountsPage() {
     dataService: {
       importFromJson: zcodeService.importZcodeFromJson,
       importFromLocal: zcodeService.importZcodeFromLocal,
+      addWithToken: (apiKey) => zcodeService.importZcodeApiKey(apiKey, apiKeyProvider),
       exportAccounts: zcodeService.exportZcodeAccounts,
       injectToVSCode: zcodeService.injectZcodeAccount,
     },
@@ -97,9 +99,9 @@ export function ZcodeAccountsPage() {
       titleKey: 'zcode.flowNotice.title',
       titleDefault: 'ZCode 账号管理说明',
       descKey: 'zcode.flowNotice.desc',
-      descDefault: 'Cockpit 读取并回写 ZCode 本地加密凭据，用于真实切号与实例绑定。',
+      descDefault: 'Cockpit 按 ZCode 官方格式管理 OAuth 凭据与 API Key，用于真实切号与实例绑定。',
       permissionKey: 'zcode.flowNotice.permission',
-      permissionDefault: '本地范围：~/.zcode/v2/credentials.json 与受管实例目录。',
+      permissionDefault: '本地范围：~/.zcode/v2/credentials.json、config.json、setting.json 与受管实例目录。',
       networkKey: 'zcode.flowNotice.network',
       networkDefault: '网络范围：OAuth、用户信息、订阅与配额接口；不会上传账号到 Cockpit 服务。',
     },
@@ -125,8 +127,15 @@ export function ZcodeAccountsPage() {
     oauthOpenButtonKey: 'zcode.oauth.openWindow',
     oauthOpenButtonDefault: '打开授权窗口',
     showOauthIncognitoOpenButton: true,
-    tokenDescKey: 'zcode.token.desc',
-    tokenDescDefault: '粘贴由 Cockpit 导出的 ZCode 账号 JSON。',
+    tokenTabLabelKey: 'zcode.apiKey.tab',
+    tokenTabLabelDefault: 'API Key',
+    tokenDescKey: 'zcode.apiKey.desc',
+    tokenDescDefault: '添加 ZCode 官方支持的 Z.ai 或 BigModel API Key。切号和多开实例会写入各自的 config.json。',
+    tokenInputPlaceholderKey: 'zcode.apiKey.placeholder',
+    tokenInputPlaceholderDefault: '粘贴 API Key',
+    tokenSubmitLabelKey: 'zcode.apiKey.add',
+    tokenSubmitLabelDefault: '添加 API Key',
+    tokenInputSecret: true,
     importLocalDescKey: 'zcode.import.localDesc',
     importLocalDescDefault: '从本机 ZCode 加密凭据或 JSON 文件导入账号。',
     importLocalClientKey: 'zcode.import.localClient',
@@ -150,6 +159,26 @@ export function ZcodeAccountsPage() {
     quotaPrefix: 'zcode',
     tableUsageClassName: 'zcode-table-usage',
     showMfaQuickCode: false,
+    tokenControl: (
+      <div className="zcode-oauth-provider-control" role="group" aria-label={t('zcode.apiKey.provider', 'API Key 服务')}>
+        <button
+          type="button"
+          className={`btn btn-secondary ${apiKeyProvider === 'zai' ? 'active' : ''}`}
+          aria-pressed={apiKeyProvider === 'zai'}
+          onClick={() => setApiKeyProvider('zai')}
+        >
+          Z.ai
+        </button>
+        <button
+          type="button"
+          className={`btn btn-secondary ${apiKeyProvider === 'bigmodel' ? 'active' : ''}`}
+          aria-pressed={apiKeyProvider === 'bigmodel'}
+          onClick={() => setApiKeyProvider('bigmodel')}
+        >
+          BigModel
+        </button>
+      </div>
+    ),
     oauthProviderControl: (
       <div className="zcode-oauth-provider-control" role="group" aria-label={t('zcode.oauth.provider', '登录服务')}>
         <button

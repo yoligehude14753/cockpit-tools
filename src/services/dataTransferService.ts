@@ -1192,6 +1192,13 @@ function detectLegacyPlatform(value: unknown): PlatformId | null {
   if (id?.startsWith('codebuddy_cn_')) return 'codebuddy_cn';
   if (id?.startsWith('workbuddy_')) return 'workbuddy';
   if (id?.startsWith('codebuddy_')) return 'codebuddy';
+  if (
+    id?.startsWith('zcode_') ||
+    'zcode_jwt_token' in sample ||
+    (sample.auth_mode === 'api_key' && 'api_key' in sample && 'provider' in sample)
+  ) {
+    return 'zcode';
+  }
 
   if ('tokens' in sample || 'OPENAI_API_KEY' in sample || 'auth_mode' in sample || 'authMode' in sample) {
     return 'codex';
