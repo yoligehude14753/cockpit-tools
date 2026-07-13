@@ -105,15 +105,18 @@ import {
 import { changeLanguage, normalizeLanguage } from '../i18n';
 import {
   ACCOUNTS_CHANGED_EVENT,
+  ACTIVE_PLATFORM_FOCUS_EVENT,
   CURRENT_ACCOUNT_CHANGED_EVENT,
+  FLOATING_CARD_PLATFORM_STORAGE_KEY,
+  persistFloatingCardPlatform,
   type AccountSyncEventPayload,
+  type ActivePlatformFocusPayload,
 } from '../utils/accountSyncEvents';
 import './FloatingCardWindow.css';
 
 const windowInstance = getCurrentWindow();
 const FLOATING_CARD_WINDOW_LABEL = 'floating-card';
 const INSTANCE_FLOATING_CARD_WINDOW_LABEL_PREFIX = 'instance-floating-card-';
-const FLOATING_CARD_PLATFORM_STORAGE_KEY = 'agtools.floating_card.platform';
 const DEFAULT_INSTANCE_ID = '__default__';
 const FLOATING_CARD_BASE_HEIGHT = 290;
 const FLOATING_CARD_MAX_HEIGHT = 520;
@@ -352,8 +355,21 @@ export function FloatingCardWindow() {
   }, [fetchRemoteConfigState]);
 
   useEffect(() => {
+    if (platformOrder.length === 0) {
+      return;
+    }
     if (platformOrder.includes(selectedPlatform)) {
       return;
+    }
+    // 当前选中平台被隐藏时，优先保留存储中的平台，再回退到列表首项
+    try {
+      const saved = localStorage.getItem(FLOATING_CARD_PLATFORM_STORAGE_KEY) as PlatformId | null;
+      if (saved && platformOrder.includes(saved)) {
+        setSelectedPlatform(saved);
+        return;
+      }
+    } catch {
+      // ignore
     }
     setSelectedPlatform(platformOrder[0] ?? 'antigravity');
   }, [platformOrder, selectedPlatform]);
@@ -519,6 +535,7 @@ export function FloatingCardWindow() {
     let disposed = false;
     let unlistenAccountsChanged: (() => void) | null = null;
     let unlistenCurrentAccountChanged: (() => void) | null = null;
+    let unlistenActivePlatformFocus: (() => void) | null = null;
 
     const bindAccountSyncListeners = async () => {
       unlistenAccountsChanged = await listen<AccountSyncEventPayload>(
@@ -542,11 +559,15 @@ export function FloatingCardWindow() {
           const payload = event.payload;
           if (
             !payload ||
-            payload.platformId !== selectedPlatform ||
             payload.sourceWindowLabel === currentWindowLabel ||
             instanceContext
           ) {
             return;
+          }
+          // 主窗口在某平台切号/使用时，悬浮窗跟随到该平台（例如 Grok），不再锁死 antigravity
+          if (payload.platformId !== selectedPlatform) {
+            if (disposed) return;
+            setSelectedPlatform(payload.platformId);
           }
           await fetchPlatformData(payload.platformId);
           if (disposed) return;
@@ -554,6 +575,23 @@ export function FloatingCardWindow() {
             ...prev,
             [payload.platformId]: payload.accountId ?? null,
           }));
+        },
+      );
+
+      unlistenActivePlatformFocus = await listen<ActivePlatformFocusPayload>(
+        ACTIVE_PLATFORM_FOCUS_EVENT,
+        (event) => {
+          const payload = event.payload;
+          if (!payload?.platformId || instanceContext) {
+            return;
+          }
+          if (payload.sourceWindowLabel === currentWindowLabel) {
+            return;
+          }
+          if (!ALL_PLATFORM_IDS.includes(payload.platformId)) {
+            return;
+          }
+          setSelectedPlatform(payload.platformId);
         },
       );
     };
@@ -564,6 +602,7 @@ export function FloatingCardWindow() {
       disposed = true;
       unlistenAccountsChanged?.();
       unlistenCurrentAccountChanged?.();
+      unlistenActivePlatformFocus?.();
     };
   }, [
     currentWindowLabel,
@@ -717,11 +756,7 @@ export function FloatingCardWindow() {
     if (instanceContext) {
       return;
     }
-    try {
-      localStorage.setItem(FLOATING_CARD_PLATFORM_STORAGE_KEY, selectedPlatform);
-    } catch {
-      // ignore storage write failures
-    }
+    persistFloatingCardPlatform(selectedPlatform);
   }, [instanceContext, selectedPlatform]);
 
   const githubCopilotCurrent = useMemo(

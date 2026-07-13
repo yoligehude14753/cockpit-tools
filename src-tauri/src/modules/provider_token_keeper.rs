@@ -411,7 +411,8 @@ async fn refresh_due_grok_accounts() -> bool {
             continue;
         }
         attempted_refreshes += 1;
-        match grok_account::force_refresh_account(&account.id).await {
+        // 软刷新：未临近过期不轮换单次 refresh_token，并在刷新前吸收 CLI 已写回的 auth.json，避免互抢
+        match grok_account::refresh_account(&account.id).await {
             Ok(updated) => {
                 clear_attempt_backoff(&key);
                 refreshed_any = true;

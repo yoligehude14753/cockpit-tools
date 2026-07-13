@@ -71,6 +71,10 @@ import {
 } from './utils/externalProviderImport';
 import { runAutoBackupCycle } from './services/scheduledBackupService';
 import { prepareCodexLocalAccessForRestart } from './services/codexLocalAccessService';
+import {
+  emitActivePlatformFocus,
+  resolvePlatformIdFromPage,
+} from './utils/accountSyncEvents';
 
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
@@ -760,6 +764,19 @@ function MainApp() {
     } catch (e) {
       console.warn('Failed to save active page to localStorage:', e);
     }
+  }, [page]);
+
+  // 主窗口切到某平台页（如 Grok）时，同步悬浮窗/菜单栏当前平台，避免一直停在默认 antigravity
+  useEffect(() => {
+    const platformId = resolvePlatformIdFromPage(page);
+    if (!platformId) {
+      return;
+    }
+    void emitActivePlatformFocus({
+      platformId,
+      page,
+      reason: 'main-window-page',
+    });
   }, [page]);
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   const [updateNotificationKey, setUpdateNotificationKey] = useState(0);

@@ -1740,11 +1740,13 @@ export function buildGrokAccountPresentation(
         item.used != null && item.total != null
           ? Math.max(0, item.total - item.used)
           : null;
+      // 主文案展示剩余额度（非仅用量）；进度条仍按 used% 填充
+      const remainingText = t("common.shared.quota.leftPercent", "剩余 {{value}}%", {
+        value: Math.round(remaining),
+      });
       const valueText = amountText
-        ? `${amountText} · ${Math.round(usedPercent)}%`
-        : t("common.shared.quota.leftPercent", "{{value}}% left", {
-            value: Math.round(remaining),
-          });
+        ? `${amountText} · ${remainingText}`
+        : remainingText;
       return {
         key: item.key,
         label: item.label,

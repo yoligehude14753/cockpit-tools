@@ -512,18 +512,25 @@ export function GrokAccountsPage() {
               </div>
             )}
             {items.map((item) => {
-              const percentage = Math.max(
+              // item.percentage 为 used%；界面主文案展示剩余%，进度条仍按已用填充
+              const usedPercent = Math.max(
                 0,
                 Math.min(100, Math.round(item.percentage)),
               );
-              const quotaClass = getGrokQuotaClass(percentage);
+              const remainingPercent = Math.max(0, Math.min(100, 100 - usedPercent));
+              const quotaClass = getGrokQuotaClass(usedPercent);
               const amountText = formatGrokQuotaUsedTotal(item.used, item.total);
+              const remainingLabel = t(
+                "common.shared.quota.leftPercent",
+                "剩余 {{value}}%",
+                { value: remainingPercent },
+              );
               const resetText = formatGrokQuotaResetTime(item.resetAtMs);
               const resetDisplay = resetText || "-";
               const titleParts = [
                 item.label,
                 amountText || null,
-                `${percentage}%`,
+                remainingLabel,
                 resetText
                   ? t("grok.quota.resetAt", "{{label}} 重置：{{time}}", {
                       label: item.label,
@@ -550,13 +557,13 @@ export function GrokAccountsPage() {
                             <span className="grok-quota-pct-sep">·</span>
                           </>
                         ) : null}
-                        {percentage}%
+                        {remainingLabel}
                       </span>
                     </div>
                     <div className="quota-bar-track">
                       <div
                         className={`quota-bar ${quotaClass}`}
-                        style={{ width: `${percentage}%` }}
+                        style={{ width: `${usedPercent}%` }}
                       />
                     </div>
                     <span className="quota-reset">{resetDisplay}</span>
@@ -579,13 +586,13 @@ export function GrokAccountsPage() {
                           <span className="grok-quota-pct-sep">·</span>
                         </>
                       ) : null}
-                      {percentage}%
+                      {remainingLabel}
                     </span>
                   </div>
                   <div className="quota-progress-track">
                     <div
                       className={`quota-progress-bar ${quotaClass}`}
-                      style={{ width: `${percentage}%` }}
+                      style={{ width: `${usedPercent}%` }}
                     />
                   </div>
                   <div className="quota-footer">
