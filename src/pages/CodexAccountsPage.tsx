@@ -8660,9 +8660,13 @@ export function CodexAccountsPage() {
 
   const handleQuickRefreshLocalAccessQuota = useCallback(async () => {
     if (!localAccessCollection) return;
+    // 与分组/全量刷新一致：OAuth + New API 可刷，普通 API Key 跳过
     const targetIds = localAccessCollection.accountIds.filter((accountId) => {
       const account = accounts.find((item) => item.id === accountId);
-      return Boolean(account && !isCodexApiKeyAccount(account));
+      return Boolean(
+        account &&
+          (!isCodexApiKeyAccount(account) || isCodexNewApiAccount(account)),
+      );
     });
 
     if (targetIds.length === 0) {
@@ -8704,6 +8708,14 @@ export function CodexAccountsPage() {
       setMessage({
         text: t("codex.refreshFailed", {
           error: t("common.shared.quota.queryFailed", "配额查询失败"),
+        }),
+        tone: "error",
+      });
+    } catch (error) {
+      setMessage({
+        text: t("codex.refreshFailed", {
+          error: String(error ?? "").replace(/^Error:\s*/, "") ||
+            t("common.shared.quota.queryFailed", "配额查询失败"),
         }),
         tone: "error",
       });
@@ -9264,6 +9276,14 @@ export function CodexAccountsPage() {
         setMessage({
           text: t("codex.refreshFailed", {
             error: t("common.shared.quota.queryFailed", "配额查询失败"),
+          }),
+          tone: "error",
+        });
+      } catch (error) {
+        setMessage({
+          text: t("codex.refreshFailed", {
+            error: String(error ?? "").replace(/^Error:\s*/, "") ||
+              t("common.shared.quota.queryFailed", "配额查询失败"),
           }),
           tone: "error",
         });
