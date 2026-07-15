@@ -632,6 +632,15 @@ fn request_uses_responses_lite(request: &ParsedRequest) -> bool {
         .any(|name| name.eq_ignore_ascii_case(CODEX_RESPONSES_LITE_HEADER))
 }
 
+fn request_body_uses_responses_lite(request: &ParsedRequest) -> bool {
+    request_uses_responses_lite(request)
+        || parse_request_body_json(&request.body)
+            .as_ref()
+            .and_then(|body| body.get("model"))
+            .and_then(Value::as_str)
+            .is_some_and(codex_protocol::codex_model_uses_responses_lite)
+}
+
 #[derive(Debug, Clone)]
 enum GatewayResponseAdapter {
     Passthrough {
@@ -2540,7 +2549,9 @@ fn build_image_generation_tool(
 
 fn should_inject_image_generation_tool(model: &str) -> bool {
     let normalized = model.trim().to_ascii_lowercase();
-    !normalized.is_empty() && !normalized.ends_with("spark")
+    !normalized.is_empty()
+        && !normalized.ends_with("spark")
+        && !codex_protocol::codex_model_uses_responses_lite(&normalized)
 }
 
 fn is_image_gen_function_name(name: &str) -> bool {
@@ -2644,6 +2655,36 @@ fn remove_hosted_image_generation_tool_from_object(object: &mut Map<String, Valu
     if remove_tool_choice {
         object.remove("tool_choice");
         changed = true;
+    }
+
+    changed
+}
+
+fn remove_hosted_image_generation_capabilities_from_object(
+    object: &mut Map<String, Value>,
+) -> bool {
+    let mut changed = remove_hosted_image_generation_tool_from_object(object);
+
+    if let Some(Value::Array(input)) = object.get_mut("input") {
+        let before = input.len();
+        input.retain_mut(|item| {
+            let Some(item_object) = item.as_object_mut() else {
+                return true;
+            };
+            if item_object.get("type").and_then(Value::as_str) != Some("additional_tools") {
+                return true;
+            }
+            changed |= remove_hosted_image_generation_capabilities_from_object(item_object);
+            !item_object
+                .get("tools")
+                .and_then(Value::as_array)
+                .is_some_and(Vec::is_empty)
+        });
+        changed |= input.len() != before;
+    }
+
+    if let Some(Value::Object(response)) = object.get_mut("response") {
+        changed |= remove_hosted_image_generation_capabilities_from_object(response);
     }
 
     changed
@@ -2775,8 +2816,17 @@ fn request_image_generation_mode(
     collection_mode: CodexLocalAccessImageGenerationMode,
     headers: &HashMap<String, String>,
 ) -> CodexLocalAccessImageGenerationMode {
+    // Collection-level hard disable always wins.
     if collection_mode == CodexLocalAccessImageGenerationMode::Disabled {
         return CodexLocalAccessImageGenerationMode::Disabled;
+    }
+    // Responses Lite cannot host image_generation in chat/responses payloads.
+    // Keep image endpoints available via ImagesOnly.
+    if headers
+        .keys()
+        .any(|name| name.eq_ignore_ascii_case(CODEX_RESPONSES_LITE_HEADER))
+    {
+        return CodexLocalAccessImageGenerationMode::ImagesOnly;
     }
     let value = headers
         .get(CODEX_LOCAL_ACCESS_DISABLE_HOSTED_IMAGE_GENERATION_HEADER)
@@ -3981,6 +4031,10 @@ fn prepare_gateway_request_with_default_service_tier(
     let original_request_body = request.body.clone();
     let (mut responses_body, stream, requested_model) =
         build_responses_body_from_chat_completions(&body_value)?;
+    codex_protocol::normalize_responses_body_for_codex_with_lite(
+        &mut responses_body,
+        request_uses_responses_lite(&request),
+    );
     if !request_has_service_tier {
         apply_default_service_tier_if_missing(&mut responses_body, default_service_tier);
     }
@@ -20634,7 +20688,12 @@ fn build_account_scoped_upstream_body<'a>(
     let remove_all_image_capabilities =
         !image_generation_tools_allowed(image_generation_mode, request_kind);
     if remove_all_image_capabilities {
-        if !remove_image_generation_capabilities_from_object(body_obj) {
+        let changed = if image_generation_mode == CodexLocalAccessImageGenerationMode::ImagesOnly {
+            remove_hosted_image_generation_capabilities_from_object(body_obj)
+        } else {
+            remove_image_generation_capabilities_from_object(body_obj)
+        };
+        if !changed {
             return Ok(Cow::Borrowed(body));
         }
         return serde_json::to_vec(&body_value)
@@ -22346,6 +22405,7 @@ struct WebSocketImageGenerationFilter {
     account: CodexAccount,
     fallback_mode: CodexLocalAccessImageGenerationMode,
     request_headers: HashMap<String, String>,
+    responses_lite: bool,
 }
 
 async fn current_websocket_image_generation_mode(
@@ -22365,36 +22425,88 @@ fn filter_websocket_client_message(
     message: Message,
     account: &CodexAccount,
     image_generation_mode: CodexLocalAccessImageGenerationMode,
+    responses_lite: bool,
 ) -> Result<Message, String> {
+    fn filter_payload(
+        body: &[u8],
+        account: &CodexAccount,
+        image_generation_mode: CodexLocalAccessImageGenerationMode,
+        responses_lite: bool,
+    ) -> Result<Option<Vec<u8>>, String> {
+        let mut body_value = parse_request_body_json(body);
+        let message_uses_responses_lite = responses_lite
+            || body_value
+                .as_ref()
+                .and_then(|value| {
+                    value
+                        .get("model")
+                        .or_else(|| value.pointer("/response/model"))
+                })
+                .and_then(Value::as_str)
+                .is_some_and(codex_protocol::codex_model_uses_responses_lite);
+        let lite_filtered = if message_uses_responses_lite {
+            match body_value.as_mut() {
+                Some(body_value) => {
+                    if codex_protocol::filter_responses_lite_tools(body_value) {
+                        Some(serde_json::to_vec(body_value).map_err(|error| {
+                            format!(
+                                "序列化 WebSocket Responses Lite 工具过滤结果失败: {}",
+                                error
+                            )
+                        })?)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+        let source = lite_filtered.as_deref().unwrap_or(body);
+        let effective_image_generation_mode = if message_uses_responses_lite
+            && image_generation_mode == CodexLocalAccessImageGenerationMode::Enabled
+        {
+            CodexLocalAccessImageGenerationMode::ImagesOnly
+        } else {
+            image_generation_mode
+        };
+        let account_filtered = build_account_scoped_upstream_body(
+            "/responses",
+            source,
+            account,
+            effective_image_generation_mode,
+            CodexLocalAccessRequestKind::Text,
+        )?;
+        match account_filtered {
+            Cow::Borrowed(_) => Ok(lite_filtered),
+            Cow::Owned(filtered) => Ok(Some(filtered)),
+        }
+    }
+
     match message {
         Message::Text(text) => {
             let body = text.to_string().into_bytes();
-            let filtered = build_account_scoped_upstream_body(
-                "/responses",
-                &body,
-                account,
-                image_generation_mode,
-                CodexLocalAccessRequestKind::Text,
-            )?;
-            if matches!(&filtered, Cow::Borrowed(_)) {
+            let Some(filtered) =
+                filter_payload(&body, account, image_generation_mode, responses_lite)?
+            else {
                 return Ok(Message::Text(text));
-            }
-            let filtered = String::from_utf8(filtered.into_owned())
+            };
+            let filtered = String::from_utf8(filtered)
                 .map_err(|error| format!("过滤 WebSocket 文本图片工具后不是 UTF-8: {}", error))?;
             Ok(Message::Text(filtered.into()))
         }
         Message::Binary(bytes) => {
-            let filtered = build_account_scoped_upstream_body(
-                "/responses",
+            let Some(filtered) = filter_payload(
                 bytes.as_ref(),
                 account,
                 image_generation_mode,
-                CodexLocalAccessRequestKind::Text,
-            )?;
-            if matches!(&filtered, Cow::Borrowed(_)) {
+                responses_lite,
+            )?
+            else {
                 return Ok(Message::Binary(bytes));
-            }
-            Ok(Message::Binary(filtered.into_owned().into()))
+            };
+            Ok(Message::Binary(filtered.into()))
         }
         other => Ok(other),
     }
@@ -22467,7 +22579,12 @@ async fn bridge_websocket_streams(
                     .map_err(|e| format!("读取 WebSocket 客户端消息失败: {}", e))?;
                 if let Some(filter) = image_filter.as_ref() {
                     let mode = current_websocket_image_generation_mode(filter).await;
-                    message = filter_websocket_client_message(message, &filter.account, mode)?;
+                    message = filter_websocket_client_message(
+                        message,
+                        &filter.account,
+                        mode,
+                        filter.responses_lite,
+                    )?;
                 }
                 let should_close = matches!(message, Message::Close(_));
                 upstream_write
@@ -22565,6 +22682,7 @@ async fn handle_websocket_connection(
                     account: success.account.clone(),
                     fallback_mode: collection.image_generation_mode,
                     request_headers: parsed.headers.clone(),
+                    responses_lite: request_body_uses_responses_lite(&parsed),
                 }),
             )
             .await?;
@@ -27079,6 +27197,60 @@ data: {"type":"response.completed","response":{"id":"resp_123","usage":{"input_t
     }
 
     #[test]
+    fn chat_completions_conversion_enforces_responses_lite_tools() {
+        let request = ParsedRequest {
+            method: "POST".to_string(),
+            target: "/v1/chat/completions".to_string(),
+            headers: HashMap::new(),
+            body: br#"{
+                "model":"gpt-5.6-sol",
+                "messages":[{"role":"user","content":"hello"}],
+                "tools":[
+                    {"type":"function","function":{"name":"lookup","parameters":{}}},
+                    {"type":"function","function":{"name":"image_gen.imagegen","parameters":{}}},
+                    {"type":"custom","name":"apply_patch"},
+                    {"type":"tool_search","execution":"client"},
+                    {"type":"tool_search"},
+                    {"type":"web_search"},
+                    {"type":"image_generation"},
+                    {"type":"namespace","name":"mcp__root"}
+                ],
+                "tool_choice":{"type":"web_search"}
+            }"#
+            .to_vec(),
+        };
+
+        let (prepared, _) = prepare_gateway_request(request).expect("request should map");
+        let mapped_body: Value =
+            serde_json::from_slice(&prepared.body).expect("mapped body should be json");
+        assert_eq!(
+            mapped_body
+                .get("parallel_tool_calls")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            mapped_body
+                .get("tools")
+                .and_then(Value::as_array)
+                .map(|tools| {
+                    tools
+                        .iter()
+                        .filter_map(|tool| tool.get("type").and_then(Value::as_str))
+                        .collect::<Vec<_>>()
+                }),
+            Some(vec!["function", "function", "custom", "tool_search"])
+        );
+        assert!(mapped_body.get("tool_choice").is_none());
+        assert!(mapped_body
+            .get("tools")
+            .and_then(Value::as_array)
+            .is_some_and(|tools| tools.iter().any(|tool| {
+                tool.get("name").and_then(Value::as_str) == Some("image_gen.imagegen")
+            })));
+    }
+
+    #[test]
     fn legacy_responses_requests_inject_default_priority_service_tier() {
         let cases = [
             (
@@ -27590,6 +27762,63 @@ data: {"type":"response.completed","response":{"id":"resp_123","usage":{"input_t
     }
 
     #[test]
+    fn responses_lite_models_never_reinject_hosted_tools() {
+        let request = ParsedRequest {
+            method: "POST".to_string(),
+            target: "/v1/responses".to_string(),
+            headers: HashMap::from([(
+                "x-openai-internal-codex-responses-lite".to_string(),
+                String::new(),
+            )]),
+            body: br#"{
+                "model":"gpt-5.6-sol",
+                "input":"hello",
+                "tools":[
+                    {"type":"function","name":"lookup"},
+                    {"type":"function","name":"image_gen.imagegen"},
+                    {"type":"custom","name":"apply_patch"},
+                    {"type":"tool_search","execution":"client"},
+                    {"type":"image_generation"},
+                    {"type":"web_search"},
+                    {"type":"namespace","name":"mcp__root"}
+                ]
+            }"#
+            .to_vec(),
+        };
+
+        let (prepared, _) = prepare_gateway_request(request).expect("request should map");
+        let account = test_account_with_plan("plus");
+        let mapped = build_account_scoped_upstream_body(
+            "/responses",
+            &prepared.body,
+            &account,
+            CodexLocalAccessImageGenerationMode::ImagesOnly,
+            CodexLocalAccessRequestKind::Text,
+        )
+        .expect("Responses Lite body should build");
+        let parsed: Value = serde_json::from_slice(mapped.as_ref()).expect("body should be json");
+        assert_eq!(
+            parsed
+                .get("tools")
+                .and_then(Value::as_array)
+                .map(|tools| {
+                    tools
+                        .iter()
+                        .filter_map(|tool| tool.get("type").and_then(Value::as_str))
+                        .collect::<Vec<_>>()
+                }),
+            Some(vec!["function", "function", "custom", "tool_search"])
+        );
+        assert!(parsed
+            .get("tools")
+            .and_then(Value::as_array)
+            .is_some_and(|tools| tools.iter().any(|tool| {
+                tool.get("type").and_then(Value::as_str) == Some("function")
+                    && tool.get("name").and_then(Value::as_str) == Some("image_gen.imagegen")
+            })));
+    }
+
+    #[test]
     fn disabled_image_generation_mode_removes_declared_tool_and_choice() {
         let account = test_account_with_plan("plus");
         let body = br#"{
@@ -27706,6 +27935,7 @@ data: {"type":"response.completed","response":{"id":"resp_123","usage":{"input_t
                 message,
                 &account,
                 CodexLocalAccessImageGenerationMode::Disabled,
+                false,
             )
             .expect("WebSocket follow-up payload should filter");
             let parsed = match filtered {
@@ -27719,6 +27949,57 @@ data: {"type":"response.completed","response":{"id":"resp_123","usage":{"input_t
                     .and_then(Value::as_str),
                 Some("keep")
             );
+        }
+    }
+
+    #[test]
+    fn websocket_followup_messages_filter_responses_lite_tools() {
+        let account = test_account_with_plan("plus");
+        let payload = r#"{
+            "type":"response.create",
+            "response":{
+                "model":"gpt-5.6-sol",
+                "tools":[
+                    {"type":"function","name":"keep_function"},
+                    {"type":"custom","name":"keep_custom"},
+                    {"type":"tool_search","execution":"client"},
+                    {"type":"image_generation"},
+                    {"type":"web_search"},
+                    {"type":"namespace","name":"mcp__root"}
+                ],
+                "tool_choice":{"type":"image_generation"}
+            }
+        }"#;
+
+        for message in [
+            Message::Text(payload.into()),
+            Message::Binary(payload.as_bytes().to_vec().into()),
+        ] {
+            let filtered = filter_websocket_client_message(
+                message,
+                &account,
+                CodexLocalAccessImageGenerationMode::Enabled,
+                false,
+            )
+            .expect("Responses Lite WebSocket follow-up payload should filter");
+            let parsed = match filtered {
+                Message::Text(text) => serde_json::from_str::<Value>(&text).unwrap(),
+                Message::Binary(bytes) => serde_json::from_slice::<Value>(&bytes).unwrap(),
+                _ => panic!("expected data frame"),
+            };
+            assert_eq!(
+                parsed
+                    .pointer("/response/tools")
+                    .and_then(Value::as_array)
+                    .map(|tools| {
+                        tools
+                            .iter()
+                            .filter_map(|tool| tool.get("type").and_then(Value::as_str))
+                            .collect::<Vec<_>>()
+                    }),
+                Some(vec!["function", "custom", "tool_search"])
+            );
+            assert!(parsed.pointer("/response/tool_choice").is_none());
         }
     }
 
@@ -27805,6 +28086,16 @@ data: {"type":"response.completed","response":{"id":"resp_123","usage":{"input_t
             request_image_generation_mode(CodexLocalAccessImageGenerationMode::Enabled, &headers),
             CodexLocalAccessImageGenerationMode::Enabled
         );
+
+        headers.insert(
+            "X-OpenAI-Internal-Codex-Responses-Lite".to_string(),
+            String::new(),
+        );
+        assert_eq!(
+            request_image_generation_mode(CodexLocalAccessImageGenerationMode::Enabled, &headers),
+            CodexLocalAccessImageGenerationMode::ImagesOnly
+        );
+        headers.remove("X-OpenAI-Internal-Codex-Responses-Lite");
 
         headers.insert(
             CODEX_LOCAL_ACCESS_DISABLE_HOSTED_IMAGE_GENERATION_HEADER.to_string(),
