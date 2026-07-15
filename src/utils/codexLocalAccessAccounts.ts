@@ -115,3 +115,19 @@ export function filterCodexLocalAccessAccountIds(
 
   return next;
 }
+
+export function resolveCodexLocalAccessInitialAccountIds(
+  accountIds: string[],
+  accounts: CodexAccount[],
+  restrictFreeAccounts: boolean,
+  accountsLoaded: boolean,
+): string[] {
+  if (!accountsLoaded) {
+    return Array.from(new Set(accountIds));
+  }
+  return filterCodexLocalAccessAccountIds(
+    accountIds,
+    accounts,
+    restrictFreeAccounts,
+  );
+}

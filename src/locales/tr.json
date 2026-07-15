@@ -2,6 +2,8 @@
   "common": {
     "confirm": "Onayla",
     "cancel": "İptal",
+    "cancelling": "İptal ediliyor...",
+    "cancelled": "İptal edildi",
     "save": "Kaydet",
     "saving": "Kaydediliyor...",
     "delete": "Sil",
@@ -240,7 +242,7 @@
     "settings": "Ayarlar",
     "codex": "Codex​",
     "githubCopilot": "GitHub Copilot​",
-    "windsurf": "Windsurf​",
+    "windsurf": "Devin​",
     "dashboard": "Gösterge Paneli",
     "morePlatforms": "Daha Fazla Platform",
     "instances": "Çoklu Örnek",
@@ -250,7 +252,6 @@
       "restart": "Yeniden başlat",
       "installing": "Yükleniyor"
     },
-    "gemini": "Gemini Cli​",
     "codebuddy": "CodeBuddy​",
     "qoder": "Qoder​",
     "trae": "Trae​",
@@ -271,7 +272,9 @@
     "switchClassicLayoutConfirm": "Şimdi geç",
     "2faManager": "2FA Yönetimi",
     "apiRelay": "Aktarım",
-    "claude": "Claude"
+    "claude": "Claude",
+    "openrouter": "OpenRouter",
+    "opencode": "OpenCode"
   },
   "sponsors": {
     "pageTitle": "Sponsorlar",
@@ -582,7 +585,7 @@
       "theme": "Tema",
       "themeDesc": "Koyu ve açık mod arasında geçiş yapın",
       "defaultTerminal": "Varsayılan Terminal",
-      "defaultTerminalDesc": "Gemini CLI açılırken kullanılan terminal",
+      "defaultTerminalDesc": "CLI açılırken kullanılan terminal",
       "terminalSystem": "Sistem Varsayılanı",
       "themeLight": "Açık",
       "themeDark": "Koyu",
@@ -664,10 +667,10 @@
       "githubCopilotSettingsTitle": "GitHub Copilot Ayarları",
       "ghcpAutoRefresh": "GitHub Copilot kota otomatik yenileme",
       "ghcpAutoRefreshDesc": "Arka plan güncelleme sıklığı",
-      "windsurfSettingsTitle": "Windsurf Ayarları",
-      "windsurfAutoRefresh": "Windsurf kota otomatik yenileme",
+      "windsurfSettingsTitle": "Devin Ayarları",
+      "windsurfAutoRefresh": "Devin kota otomatik yenileme",
       "windsurfAutoRefreshDesc": "Arka plan güncelleme sıklığı",
-      "windsurfAppPath": "Windsurf Uygulama Yolu",
+      "windsurfAppPath": "Devin Uygulama Yolu",
       "windsurfAppPathDesc": "Varsayılan yolu kullanmak için boş bırakın",
       "windsurfAppPathPlaceholder": "Varsayılan yol",
       "windsurfPathSelect": "Seç",
@@ -807,7 +810,35 @@
       "platformAutoRefresh": "{{platform}} kota otomatik yenileme",
       "traeSoloAppPath": "TRAE SOLO başlatma yolu",
       "traeCnAppPath": "Trae CN başlatma yolu",
-      "traeSoloCnAppPath": "TRAE SOLO CN başlatma yolu"
+      "traeSoloCnAppPath": "TRAE SOLO CN başlatma yolu",
+      "reducedMotion": "Hareketi azalt",
+      "reducedMotionDesc": "Solmalar, modal geçişleri, gölgeler, bulanıklık ve yumuşak kaydırmayı azaltır; yalnızca gerekli yükleme geribildirimini bırakır",
+      "autoImportFromLocal": "Yerel hesap otomatik içe aktarma",
+      "autoImportFromLocalDesc": "Açılınca yerel oturumları tarayıp içe aktarır; sonra resmi istemcide hesap değişince otomatik aktarır. Anahtar zinciri izni istenebilir.",
+      "autoImportFromLocalScanning": "Yerel hesaplar taranıyor… istediğiniz zaman kapatabilirsiniz",
+      "autoImportFromLocalScanDone": "Bitti: {{scanned}} bulundu, {{imported}} aktarıldı",
+      "autoImportFromLocalScanEmpty": "Bitti: aktarılabilir oturum yok",
+      "autoImportFromLocalScanPartial": "Bitti: kısmi hatalar",
+      "autoImportFromLocalScanFailed": "Tarama başarısız: {{error}}",
+      "autoImportFromLocalScanCancelled": "Kapatıldı; süren tarama yok sayılacak",
+      "startupPage": "Başlangıç sayfası",
+      "startupPageDesc": "Soğuk başlangıçta açılacak sayfa. “Sonuncuyu hatırla” önceki sayfayı geri yükler.",
+      "startupPageLast": "Sonuncuyu hatırla",
+      "startupPageCodexApi": "Codex API hizmeti",
+      "hermesAuthOverwrite": "Codex değişiminde Hermes senkron",
+      "hermesAuthOverwriteDesc": "Yalnız OAuth: ~/.hermes/auth.json içine openai-codex yazar (varsayılan kapalı)",
+      "themeColor": "Renk paketi",
+      "themeColorDesc": "Açık/koyu üzerine renk paketi",
+      "themeColorDefault": "Varsayılan",
+      "themeColorNord": "Nord",
+      "themeColorTokyoNight": "Tokyo Night",
+      "themeColorCatppuccin": "Catppuccin",
+      "themeColorGruvbox": "Gruvbox",
+      "themeColorEverforest": "Everforest",
+      "externalNetwork": "Harici ağa izin ver",
+      "externalNetworkDesc": "Kapalı: WebDAV, OpenRouter kullanımı, duyurular ve otomatik güncelleme kontrolünü engeller (yerel sürer).",
+      "webdavAllowedDomains": "WebDAV alan adı listesi",
+      "webdavAllowedDomainsDesc": "Virgülle ayır; boş = sınır yok"
     },
     "network": {
       "apiTitle": "Yerçekimine Karşı Kokpit API'si",
@@ -872,6 +903,7 @@
       "releaseHistoryLoading": "Sürüm notları yükleniyor...",
       "releaseHistoryEmpty": "Henüz sürüm notu yok",
       "releaseHistoryLoadFailed": "Yüklenemedi: {{error}}",
+      "releaseHistorySectionHighlights": "Önemli yenilikler",
       "releaseHistorySectionAdded": "Eklendi",
       "releaseHistorySectionChanged": "Değiştirildi",
       "releaseHistorySectionFixed": "Sabit",
@@ -1036,6 +1068,19 @@
       "retentionUnit": "days",
       "collapseAll": "Collapse remote backups",
       "expandAll": "Expand all remote backups ({{count}} more)"
+    },
+    "keysVault": {
+      "title": "OpenRouter / OpenCode Key",
+      "desc": "API anahtarlarını yerel saklar. Harici ağ açıkken OpenRouter kullanımını yeniler. Tam platform değildir.",
+      "openRouter": "OpenRouter",
+      "openCode": "OpenCode Go / Zen",
+      "label": "Etiket",
+      "empty": "Key yok",
+      "added": "Eklendi",
+      "deleted": "Silindi",
+      "refreshed": "Kullanım yenilendi",
+      "usage": "Kullanım",
+      "tierOther": "Diğer"
     }
   },
   "appPath": {
@@ -1732,7 +1777,8 @@
       "title": "Codex hesabı ekle",
       "oauth": "OAuth Yetkilendirme",
       "token": "JSON içe aktar",
-      "local": "Yerel içe aktar"
+      "local": "Yerel içe aktar",
+      "accessToken": "Erişim jetonu"
     },
     "oauth": {
       "desc": "Aşağıdaki butona tıklayın ve tarayıcıda OpenAI yetkilendirmesini tamamlayın",
@@ -1908,6 +1954,7 @@
         "planHighFirst": "Önce yüksek plan",
         "planLowFirst": "Önce düşük plan",
         "expirySoonFirst": "Yakında Biten Önce",
+        "random": "Rastgele",
         "custom": "Özel"
       },
       "statusUnconfigured": "Yapılandırılmadı",
@@ -1963,7 +2010,7 @@
       },
       "customRoutingEdit": "Özel yönlendirmeyi düzenle",
       "customRoutingTitle": "Özel yönlendirme",
-      "customRoutingDesc": "Hesap seçme sırasını ve aynı öncelikteki yük dağılımını yönetmek için her hesaba öncelik ve ağırlık verin.",
+      "customRoutingDesc": "Hesap seçim sırasını ve yük dağılımını kontrol etmek için öncelik ve ağırlık ayarlayın.",
       "customRoutingBackupTitle": "Yedek hesap",
       "customRoutingBackupDesc": "Yalnızca tüm normal hesaplar kullanılamadığında devreye girer. Normal bir hesap düzeldiğinde yeni istekler otomatik olarak geri döner.",
       "customRoutingBackupShort": "Yedek",
@@ -2122,7 +2169,12 @@
     },
     "list": {
       "showCodeReviewQuota": "Code Review kotasını göster",
-      "showAdditionalQuota": "Modele özel kotalar"
+      "showAdditionalQuota": "Modele özel kotalar",
+      "planBadgeStyle": "Plan rozet stili",
+      "planBadgeStyleDefault": "Varsayılan",
+      "planBadgeStyleOutline": "Çerçeve",
+      "planBadgeStyleSoft": "Yumuşak",
+      "planBadgeStyleMono": "Tek renk"
     },
     "time": {
       "today": "Bugün {{time}}",
@@ -2382,7 +2434,8 @@
         "selectAllSessions": "Tüm oturumları seç",
         "clearSelectedSessions": "Seçimi kaldır",
         "copyToInstance": "Örneğe kopyala",
-        "trash": "Çöp kutusu"
+        "trash": "Çöp kutusu",
+        "openRollout": "Oturum dosyasını aç"
       },
       "confirm": {
         "title": "Çöp kutusuna taşı",
@@ -2584,7 +2637,15 @@
         "removeItem": "Çıkar",
         "emptyFilteredTitle": "Eşleşen oturum yok",
         "emptyFilteredDesc": "Arama, kaynak veya seçim durumunu değiştirip tekrar deneyin."
-      }
+      },
+      "kindFilter": "Oturum türü",
+      "kind": {
+        "conversation": "Sohbet",
+        "external": "Harici",
+        "subagent": "Alt ajan",
+        "all": "Tüm türler"
+      },
+      "pickInstancePrompt": "Oturum birden fazla örnekte var. Örnek kimliğini girin:"
     },
     "api": {
       "baseUrl": "Temel URL",
@@ -2598,6 +2659,20 @@
       "showApiKey": "API Key’i göster",
       "hideApiKey": "API Key’i gizle",
       "apiKeyHiddenHint": "API Key gizli. Göstermek için tıklayın.",
+      "modelCatalog": {
+        "label": "Model listesi",
+        "fetch": "Sağlayıcıdan al",
+        "fetching": "Alınıyor...",
+        "count": "{{count}} model",
+        "placeholder": "Her satıra bir model kimliği girin veya kimlikleri virgülle ayırın.",
+        "editHint": "Alınan modeller yalnızca bu taslağa eklenir. Kaydetmeden önce inceleyip düzenleyin.",
+        "syncToggle": "Sağlayıcı modellerini Codex ile eşitle",
+        "syncDescription": "Kaydettikten sonra bu liste Cockpit tarafından yönetilen Codex model kataloğunu oluşturur. Özel katalogların üzerine yazılmaz.",
+        "fetchCredentialsRequired": "Önce API Key ve Base URL girin.",
+        "fetchEmpty": "Sağlayıcı model döndürmedi. Mevcut liste korundu.",
+        "fetchFailed": "Sağlayıcı modelleri alınamadı: {{error}}",
+        "syncRequiresModels": "Codex ile eşitlemeden önce en az bir model alın veya girin."
+      },
       "actions": {
         "addAndSwitch": "Ekle ve geçiş yap"
       },
@@ -2974,7 +3049,10 @@
         "help": "Yalnızca sağlayıcı Responses için WebSocket desteğini açıkça sunuyorsa etkinleştirin; bağlantı türünü Codex veya proxy hizmeti günlüklerinden doğrulayın.",
         "enabled": "Etkin",
         "disabled": "Devre dışı"
-      }
+      },
+      "renameApiKeyPrompt": "API key yeniden adlandır",
+      "renameApiKeySuccess": "API key yeniden adlandırıldı",
+      "renameApiKeyFailed": "API key yeniden adlandırılamadı: {{error}}"
     },
     "quickSwitch": {
       "action": "Sağlayıcıyı hızlı değiştir",
@@ -3156,22 +3234,40 @@
         "rulesSaved": "Model kuralları kaydedildi",
         "pricingAction": "Fiyatlar",
         "pricingTitle": "Model fiyatları",
-        "pricingDesc": "USD / 1M token, yalnızca yerel değer istatistikleri için.",
+        "pricingDesc": "USD / 1M token, yalnızca yerel istatistik için.",
         "pricingModel": "Model adı",
         "pricingInput": "Girdi",
         "pricingCache": "Önbellek girdi",
         "pricingOutput": "Çıktı",
         "pricingSource": "Kaynak",
         "pricingActions": "İşlem",
-        "pricingCachePlaceholder": "Girdi ile aynı",
+        "pricingCachePlaceholder": "-",
         "pricingCustom": "Özel",
         "pricingPreset": "Ön ayar",
         "pricingUnset": "Ayarsız",
         "pricingReset": "Sıfırla",
         "pricingSaved": "Fiyatlar kaydedildi",
-        "pricingInvalid": "Fiyatlar 0 veya daha büyük sayılar olmalıdır",
+        "pricingInvalid": "Fiyatlar ≥ 0 olmalı; token eşiği pozitif tam sayı olmalı",
         "pricingReprice": "Geçmişi yeniden hesapla",
-        "pricingRepriced": "Geçmiş tahminler güncel fiyatlarla yeniden hesaplandı"
+        "pricingRepriced": "Geçmiş tahminler güncel fiyatlarla yeniden hesaplandı",
+        "pricingLongThreshold": "Uzun bağlam eşiği (tokens)",
+        "pricingStandard": "Standart",
+        "pricingStandardLong": "Standart (uzun)",
+        "pricingPriority": "Öncelik",
+        "pricingOfficialMissing": "-",
+        "pricingStandardLongInput": "Standart (uzun) girdi",
+        "pricingStandardLongCache": "Standart (uzun) önbellek girdi",
+        "pricingStandardLongOutput": "Standart (uzun) çıktı",
+        "pricingPriorityInput": "Öncelik girdi",
+        "pricingPriorityCache": "Öncelik önbellek girdi",
+        "pricingPriorityOutput": "Öncelik çıktı",
+        "pricingRepriceDone": "Geçmiş tahminler güncellendi; {{updated}} satır değişti",
+        "pricingRepriceFailedWithMessage": "Tahmin güncellemesi başarısız: {{message}}",
+        "pricingRepriceFailed": "Tahmin güncellemesi başarısız",
+        "pricingRepriceSuperseded": "Yeni fiyatlar alındı; en son yeniden hesaplamaya geçiliyor",
+        "pricingRepriceRunning": "Tahminler güncelleniyor {{processed}} / {{total}}; {{updated}} güncellendi",
+        "pricingRepriceCompleted": "Geçmiş tahminler güncellendi",
+        "pricingRepriceSaveBlocked": "Yeniden hesaplama sürüyor; bittikten sonra kaydedin"
       },
       "keys": {
         "policyTitle": "Model ilkesi",
@@ -3193,6 +3289,7 @@
         "maxRetryInterval": "Retry bekleme",
         "disableCooling": "Cooldown kapat",
         "saveOptions": "Seçenekleri kaydet",
+        "immediateSseResponse": "Anında SSE 200",
         "optionsSaved": "Yönlendirme seçenekleri kaydedildi"
       },
       "validation": {
@@ -3299,8 +3396,20 @@
       "previewSubtitle": "Kaydedilecek hesapları seçin",
       "scanSubtitle": "Hesaplar tek tek ayrıştırılıp kontrol ediliyor",
       "parseSubtitle": "Hesap dosyaları ayrıştırılıyor",
+      "importSubtitle": "Seçilen hesaplar kaydediliyor",
+      "finalizing": "İçe aktarma tamamlanıyor",
+      "finalizingSubtitle": "Hesap listesi ve ilgili ayarlar güncelleniyor",
+      "cancelImport": "İçe aktarmayı iptal et",
+      "importCancelledSummary": "İçe aktarma {{processed}}/{{total}} hesap işlendiğinde iptal edildi.",
+      "importChecked": "Kontrol edilen hesapları içe aktar",
+      "directImport": "Kontrol etmeden doğrudan içe aktar",
+      "importCheckedAndAddToApiService": "Kontrol edilen hesapları içe aktar ve API Hizmetine ekle",
+      "directImportAndAddToApiService": "Doğrudan içe aktar ve API Hizmetine ekle",
+      "viewAllTasks": "{{count}} görevin tümünü göster",
+      "collapseTasks": "Görevleri daralt",
       "cancelling": "İptal ediliyor...",
       "scanDone": "Tarama tamamlandı",
+      "scanCompleteReview": "Denetim tamamlandı, sonucu görüntüleyin",
       "parseDone": "Ayrıştırma tamamlandı",
       "scanning": "Taranıyor",
       "parsing": "Ayrıştırılıyor",
@@ -3309,7 +3418,7 @@
       "failed": "Başarısız",
       "quotaOk": "Hesap OK",
       "quotaFailed": "Hata",
-      "checkQuotaToggle": "Hesapları denetle",
+      "checkQuotaToggle": "İçe aktarmadan önce denetle",
       "preparing": "İçe aktarma hazırlanıyor...",
       "importSelected": "Seçili hesapları içe aktar",
       "noSelection": "Önce hesap seçin",
@@ -3332,7 +3441,17 @@
       "taskRunning": "{{current}} / {{total}} işleniyor",
       "taskPreview": "{{total}} önizleme hazır",
       "reopen": "Görevi aç",
-      "dismissTask": "Kapat"
+      "dismissTask": "Kapat",
+      "queueCount": "Kuyrukta {{count}} iş",
+      "queued": "Sıraya alındı",
+      "batchLabel": "Toplu {{index}}",
+      "runInBackground": "Arka plan",
+      "cancelQueued": "Sırayı iptal et",
+      "importing": "İthalat",
+      "checkAccounts": "Hesapları kontrol et",
+      "importAndAddToApiService": "İçe Aktarma + API",
+      "importAndAddToApiServiceSuccess": "İçe aktarıldı ve API hizmetine eklendi",
+      "addToApiServiceFailed": "İçe aktarıldı ancak API hizmetine ekleme işlemi başarısız oldu: {{error}}"
     },
     "autoRepairMode": {
       "label": "Otomatik onarım mantığı",
@@ -3379,6 +3498,71 @@
       "chipSearch": "Ara",
       "chipPlan": "Abonelik",
       "chipFolder": "Klasör"
+    },
+    "accessTokenImport": {
+      "nameRequired": "Hesap adı girin",
+      "tokenRequired": "Codex erişim jetonu girin",
+      "desc": "Access token hesabı kaydeder. Refresh/id yoksa personal_access_token yazar.",
+      "nameLabel": "Hesap adı",
+      "namePlaceholder": "Listedeki ad",
+      "tokenLabel": "Codex erişim jetonu",
+      "hideToken": "Gizle",
+      "showToken": "Göster",
+      "submit": "Jetonu içe aktar",
+      "success": "Access token hesabı içe aktarıldı: {{name}}"
+    },
+    "ssh": {
+      "tab": "SSH senkron",
+      "title": "Codex SSH senkronu",
+      "desc": "Uzak ana bilgisayarları kaydedin, bağlantıyı test edin ve auth.json gönderin. Seçiliyse hesap değişiminde otomatik senkron.",
+      "new": "Yeni",
+      "empty": "SSH ana bilgisayarı yok",
+      "test": "Sına",
+      "sync": "Senkron",
+      "saved": "SSH sunucusu kaydedildi",
+      "deleted": "Silindi",
+      "name": "Ad",
+      "host": "Ana bilgisayar",
+      "user": "Kullanıcı",
+      "port": "Bağlantı noktası",
+      "remoteDir": "Uzak Codex dizini",
+      "syncSwitch": "SSH açık",
+      "syncSwitchDesc": "Bir SSH ana bilgisayarını yapılandırmak için açın; Codex anahtarları mevcut hesabı uzaktan senkronize eder.",
+      "configure": "Kurmak",
+      "modalTitle": "SSH senkronizasyon kurulumu",
+      "modalHint": "Codex hesap anahtarlarının uzak kimlik doğrulamasını güncellemesi için otomatik senkronizasyonun etkin olduğu bir SSH ana bilgisayarı ekleyin ve seçin.",
+      "subtitle": "Seçilen ana bilgisayar, hesap geçişlerinden sonra geçerli Codex kimlik doğrulama paketini alır.",
+      "addServer": "Sunucu ekle",
+      "editServer": "Sunucuyu düzenle",
+      "username": "Kullanıcı adı",
+      "codexHome": "Uzaktan Kodeks dizini",
+      "authMethod": "Kimlik doğrulama yöntemi",
+      "agentAuth": "SSH Temsilcisi",
+      "privateKeyAuth": "Özel anahtar",
+      "privateKeyPath": "Anahtar yolu",
+      "syncOnSwitch": "Geçişten sonra senkronizasyon",
+      "emptyTitle": "SSH sunucusu yok",
+      "emptyBody": "Soldaki bir ana bilgisayarı doldurun ve bunu bir anahtar senkronizasyon hedefi olarak kaydedin.",
+      "selected": "Seçildi",
+      "select": "Seçme",
+      "testConnection": "Dene",
+      "syncNow": "Şimdi senkronize et",
+      "connectionOk": "Bağlı",
+      "syncVerified": "SSH senkronizasyonu doğrulandı",
+      "syncFailed": "SSH senkronizasyonu başarısız oldu",
+      "syncedAs": "Senkronize {{email}} · {{time}}",
+      "neverSynced": "Henüz senkronize edilmedi",
+      "latestVerified": "Son SSH senkronizasyonu doğrulandı",
+      "syncSwitchActive": "Açık · {{name}} ({{user}}@{{host}})",
+      "footerHint": "Kaydetme işleminden sonra anahtar açılır; Otomatik senkronizasyonu durdurmak için istediğiniz zaman kapatın.",
+      "formLead": "Uzak ana bilgisayar ayrıntıları",
+      "namePlaceholder": "örneğin Ev NAS'ı",
+      "syncOnSwitchHint": "Kaydedip seçtikten sonra Codex anahtarları kimlik doğrulamasını bu ana bilgisayara iletir",
+      "addAndSave": "Ekle ve kaydet",
+      "serverList": "Sunucular",
+      "serverListLead": "Senkronizasyon hedefi seçin",
+      "serverCount": "{{count}} sunucu",
+      "autoSyncBadge": "Otomatik"
     }
   },
   "githubCopilot": {
@@ -3595,8 +3779,8 @@
     "inputPercent": "Yüzde girin",
     "inputCredits": "Kredi girin",
     "windsurf": {
-      "title": "Windsurf Ayarları",
-      "appPath": "Windsurf Yolu"
+      "title": "Devin Ayarları",
+      "appPath": "Devin Yolu"
     },
     "windsurfRefreshInterval": "Kotayı otomatik yenile",
     "kiro": {
@@ -3609,19 +3793,14 @@
       "appPath": "Cursor Yolu"
     },
     "cursorRefreshInterval": "Kota otomatik yenileme",
-    "gemini": {
-      "title": "Gemini Cli Ayarları",
-      "appPath": "Gemini Cli Yolu",
-      "syncWsl": "WSL Yapılandırmasını Eşitle",
-      "syncWslDesc": "Hesap değiştirirken WSL içindeki .gemini yapılandırmasını otomatik olarak üzerine yaz"
-    },
-    "geminiRefreshInterval": "Kota Otomatik Yenileme",
     "grok": {
       "title": "Grok CLI Ayarları",
       "appPath": "Grok CLI Yolu",
       "cliPath": "CLI Yolu",
       "cliDetected": "Algılandı: {{version}} · {{path}}",
-      "cliMissing": "Grok CLI bulunamadı. Özel bir yol girin."
+      "cliMissing": "Grok CLI bulunamadı. Özel bir yol girin.",
+      "syncOfficialAuthOnSwitch": "Resmî oturumu eşitle",
+      "syncOfficialAuthOnSwitchDesc": "Açıldığında, varsayılan örnekte OAuth hesabı değiştirildiğinde resmî ~/.grok/auth.json dosyasına yazılır. Kapatıldığında ayrı bir GROK_HOME kullanılır. API anahtarları ve ek örnekler resmî oturumun üzerine yazmaz."
     },
     "grokRefreshInterval": "Kotayı Otomatik Yenile",
     "codebuddy": {
@@ -3705,21 +3884,21 @@
     }
   },
   "windsurf": {
-    "title": "Windsurf Hesap Yönetimi",
+    "title": "Devin Hesap Yönetimi",
     "instances": {
       "unsupported": {
-        "desc": "Windsurf çoklu örnek şu anda yalnızca macOS'ta kullanılabilir."
+        "desc": "Devin çoklu örnek şu anda yalnızca macOS'ta kullanılabilir."
       }
     },
     "empty": {
       "description": "\"Hesap ekle\"ye tıklayın"
     },
     "addModal": {
-      "title": "Windsurf hesabı ekle",
+      "title": "Devin hesabı ekle",
       "password": "E-posta girişi"
     },
     "password": {
-      "desc": "API anahtarını ve hesap verilerini otomatik almak için Windsurf hesabınızın e-postası ve şifresiyle giriş yapın.",
+      "desc": "API anahtarını ve hesap verilerini otomatik almak için Devin hesabınızın e-postası ve şifresiyle giriş yapın.",
       "emailPlaceholder": "E-posta adresi",
       "passwordPlaceholder": "Şifre",
       "empty": "E-posta ve şifre girin",
@@ -3766,14 +3945,14 @@
       "batchFailureMore": "{{count}} tane daha başarısız"
     },
     "oauth": {
-      "desc": "Aşağıdaki düğmeye tıklayın ve tarayıcıda Windsurf yetkilendirmesini tamamlayın."
+      "desc": "Aşağıdaki düğmeye tıklayın ve tarayıcıda Devin yetkilendirmesini tamamlayın."
     },
     "token": {
-      "desc": "Windsurf erişim belirtecini veya dışa aktarılan JSON verisini yapıştırın."
+      "desc": "Devin erişim belirtecini veya dışa aktarılan JSON verisini yapıştırın."
     },
     "import": {
-      "localDesc": "Yerelde oturum açılmış oturumlardan Windsurf hesaplarını içe aktar.",
-      "localClient": "Yerel Windsurf'ten içe aktar"
+      "localDesc": "Yerelde oturum açılmış oturumlardan Devin hesaplarını içe aktar.",
+      "localClient": "Yerel Devin'ten içe aktar"
     },
     "credits": {
       "title": "Planı",
@@ -3797,15 +3976,15 @@
       "autoRecharge": "Otomatik yükleme",
       "remaining": "{{value}} kaldı"
     },
-    "injectToVSCode": "Windsurf'a geç",
-    "injectSuccess": "Geçiş tamamlandı. Windsurf başlatılıyor.",
-    "injectRequireClose": "Geçiş yapmadan önce lütfen Windsurf'ü kapatın.",
+    "injectToVSCode": "Devin'a geç",
+    "injectSuccess": "Geçiş tamamlandı. Devin başlatılıyor.",
+    "injectRequireClose": "Geçiş yapmadan önce lütfen Devin'ü kapatın.",
     "flowNotice": {
-      "title": "Windsurf hesap kılavuzu (genişletmek/daraltmak için tıklayın)",
-      "desc": "Hesap değiştirme, Windsurf yerel kimlik doğrulama deposunun okunmasını ve şifre çözme/geri yazma için sistem kimlik bilgisi hizmetinin kullanılmasını gerektirir; veriler yalnızca yerelde işlenir.",
-      "inject": "Tek tıkla geçiş: Bu araç Windsurf'un yerel şifreleme materyalini (DPAPI/Keychain/Secret Service) okur, state.vscdb içindeki kimlik doğrulama oturumunu çözer, Windsurf belirtecini değiştirir ve yeniden şifreler — tüm işlem cihazınızda yerel olarak yapılır.",
-      "reason": "İzin kapsamı: Windsurf kimlik doğrulama veritabanını (state.vscdb) okumak ve şifre çözme/geri yazma için sistem şifreleme yeteneklerini (Windows DPAPI / macOS Keychain / Linux Secret Service) çağırmak.",
-      "storage": "Okuma kapsamı: yalnızca Windsurf oturum açma oturumu ile ilgili veriler işlenir; tüm işlemler yerel olarak yürütülür."
+      "title": "Devin hesap kılavuzu (genişletmek/daraltmak için tıklayın)",
+      "desc": "Hesap değiştirme, Devin yerel kimlik doğrulama deposunun okunmasını ve şifre çözme/geri yazma için sistem kimlik bilgisi hizmetinin kullanılmasını gerektirir; veriler yalnızca yerelde işlenir.",
+      "inject": "Tek tıkla geçiş: Bu araç Devin'un yerel şifreleme materyalini (DPAPI/Keychain/Secret Service) okur, state.vscdb içindeki kimlik doğrulama oturumunu çözer, Devin belirtecini değiştirir ve yeniden şifreler — tüm işlem cihazınızda yerel olarak yapılır.",
+      "reason": "İzin kapsamı: Devin kimlik doğrulama veritabanını (state.vscdb) okumak ve şifre çözme/geri yazma için sistem şifreleme yeteneklerini (Windows DPAPI / macOS Keychain / Linux Secret Service) çağırmak.",
+      "storage": "Okuma kapsamı: yalnızca Devin oturum açma oturumu ile ilgili veriler işlenir; tüm işlemler yerel olarak yürütülür."
     }
   },
   "kiro": {
@@ -3983,7 +4162,7 @@
       "goSettings": "Ayarlara git",
       "goVerification": "Wakeup doğrulamasına git",
       "goWakeup": "Wakeup görevlerine git",
-      "goWindsurf": "Windsurf sayfasına git",
+      "goWindsurf": "Devin sayfasına git",
       "openLayout": "Platform düzenini aç"
     },
     "antigravity": {
@@ -4100,11 +4279,11 @@
     "navTitle": "Kullanım Kılavuzu",
     "providers": {
       "cautions": {
-        "0": "Codex / GitHub Copilot / Windsurf / Kiro içinde riskli veya toplu işlemden önce veri yedeği alın.",
-        "1": "Codex / GitHub Copilot / Windsurf / Kiro çalıştırmadan önce filtre ve hedef kapsamını doğrulayın."
+        "0": "Codex / GitHub Copilot / Devin / Kiro içinde riskli veya toplu işlemden önce veri yedeği alın.",
+        "1": "Codex / GitHub Copilot / Devin / Kiro çalıştırmadan önce filtre ve hedef kapsamını doğrulayın."
       },
       "keywords": {
-        "0": "Codex / GitHub Copilot / Windsurf / Kiro platformları",
+        "0": "Codex / GitHub Copilot / Devin / Kiro platformları",
         "1": "rehber",
         "2": "akış",
         "3": "hesap",
@@ -4112,17 +4291,17 @@
         "5": "sorun giderme"
       },
       "outcomes": {
-        "0": "Codex / GitHub Copilot / Windsurf / Kiro ile nelerin çözüldüğünü anlayın.",
-        "1": "Codex / GitHub Copilot / Windsurf / Kiro içinde önerilen akışı kullanarak hataları azaltın.",
-        "2": "Ölçeklemeden önce Codex / GitHub Copilot / Windsurf / Kiro içinde bir başarılı çalıştırma doğrulayın."
+        "0": "Codex / GitHub Copilot / Devin / Kiro ile nelerin çözüldüğünü anlayın.",
+        "1": "Codex / GitHub Copilot / Devin / Kiro içinde önerilen akışı kullanarak hataları azaltın.",
+        "2": "Ölçeklemeden önce Codex / GitHub Copilot / Devin / Kiro içinde bir başarılı çalıştırma doğrulayın."
       },
       "steps": {
-        "0": "Codex / GitHub Copilot / Windsurf / Kiro sayfasını açın.",
-        "1": "Codex / GitHub Copilot / Windsurf / Kiro için temel kurulum ve gerekli bağları tamamlayın.",
-        "2": "Beklenen sonucu doğrulamak için Codex / GitHub Copilot / Windsurf / Kiro içinde bir manuel işlem çalıştırın."
+        "0": "Codex / GitHub Copilot / Devin / Kiro sayfasını açın.",
+        "1": "Codex / GitHub Copilot / Devin / Kiro için temel kurulum ve gerekli bağları tamamlayın.",
+        "2": "Beklenen sonucu doğrulamak için Codex / GitHub Copilot / Devin / Kiro içinde bir manuel işlem çalıştırın."
       },
-      "summary": "Bu bölüm, günlük akışta Codex / GitHub Copilot / Windsurf / Kiro kullanımını açıklar.",
-      "title": "Codex / GitHub Copilot / Windsurf / Kiro platformları"
+      "summary": "Bu bölüm, günlük akışta Codex / GitHub Copilot / Devin / Kiro kullanımını açıklar.",
+      "title": "Codex / GitHub Copilot / Devin / Kiro platformları"
     },
     "quickStart": {
       "cautions": {
@@ -4203,99 +4382,6 @@
       },
       "summary": "Bu bölüm, günlük akışta Wakeup görevleri ve doğrulama kullanımını açıklar.",
       "title": "Wakeup görevleri ve doğrulama"
-    }
-  },
-  "gemini": {
-    "injectToGemini": "Gemini Cli'ye geç",
-    "title": "Gemini Cli Hesap Yönetimi",
-    "empty": {
-      "description": "Gemini Cli hesaplarınızı yönetmeye başlamak için \"Hesap Ekle\"ye tıklayın"
-    },
-    "addModal": {
-      "title": "Gemini Cli Hesabı Ekle"
-    },
-    "oauth": {
-      "desc": "Aşağıdaki düğmeye tıklayın ve tarayıcınızda Gemini Cli OAuth yetkilendirmesini tamamlayın."
-    },
-    "token": {
-      "desc": "Gemini Cli Erişim Simgenizi (JWT) veya dışa aktarılan JSON verilerinizi yapıştırın.",
-      "formatHint": "Zorunlu alanlar ve örnekler (genişletmek için tıklayın)",
-      "formatRequired": "Tek jeton: JWT'yi doğrudan yapıştırın; toplu içe aktarma: JSON dizi biçimini kullanın",
-      "singleExample": "Tek örnek (JWT)",
-      "batchExample": "Toplu örnek (JSON)"
-    },
-    "import": {
-      "localDesc": "Gemini Cli hesap verilerini yerel Gemini Cli yapılandırma dizininden (~/.gemini) veya bir JSON dosyasından içe aktarın.",
-      "localClient": "Yerel Gemini Cli'den içe aktar"
-    },
-    "flowNotice": {
-      "title": "Gemini Cli hesap kılavuzu (genişletmek/daraltmak için tıklayın)",
-      "desc": "Yerel Gemini Cli yapılandırmasından içe aktararak, bir JWT jetonu yapıştırarak veya OAuth aracılığıyla oturum açarak Gemini Cli hesaplarını yönetin.",
-      "reason": "İzin kapsamı: hesap içe aktarma ve yerel kimlik bilgileri ekleme (hesap değiştirme) için varsayılan ~/.gemini veya örnek yolu (GEMINI_CLI_HOME/.gemini) altında oauth_creds.json, google_accounts.json ve settings.json okuyun ve yazın.",
-      "storage": "Ağ kapsamı: OAuth ve yenileme, resmi Google/Gemini API'lerini (oauth2.googleapis.com ve googleapis.com gibi) çağırır. Yalnızca gerekli kimlik doğrulama/kota alanları gönderilir; yerel hesap dosyaları üçüncü taraf sunuculara yüklenmez."
-    },
-    "updated": {
-      "label": "{{relative}} önce güncellendi"
-    },
-    "quota": {
-      "pro": "PRO",
-      "flash": "FLASH",
-      "left": "{{value}}% kaldı",
-      "resetsIn": "{{relative}}'da sıfırlanır",
-      "resetsSoon": "Yakında sıfırlanacak",
-      "resetsUnknown": "Sıfırlama zamanı bilinmiyor",
-      "onDemand": "Talep üzerine",
-      "gemini5h": "5h",
-      "geminiWeekly": "Weekly",
-      "claude5h": "5h",
-      "claudeWeekly": "Weekly"
-    },
-    "instances": {
-      "unsupported": "Gemini Cli çoklu örnek yönetimi henüz desteklenmiyor.",
-      "unsupportedDescPlatform": "Gemini Cli çoklu örneği yalnızca macOS, Windows ve Linux'ta desteklenir.",
-      "launchDialogTitle": "Örneği Başlat",
-      "launchHint": "Komutu kopyalayın ve manuel olarak çalıştırın veya doğrudan terminalde çalıştırın.",
-      "runInTerminal": "Terminalde Çalıştır",
-      "workingDir": "Çalışma Dizini",
-      "workingDirPlaceholder": "Geçerli yol varsayılan",
-      "workingDirDesc": "Başlatıldığında önce bu dizine geçiş yapacaktır",
-      "pickWorkingDir": "Çalışma Dizini Seç"
-    },
-    "switch": {
-      "success": "Hesap başarıyla değiştirildi"
-    },
-    "projectConfig": {
-      "button": "GCP projesini ayarla",
-      "title": "GCP projesini ayarla",
-      "selectLabel": "Proje seç",
-      "loading": "Proje listesi yükleniyor...",
-      "auto": "Otomatik seç (elle belirtme)",
-      "empty": "Kullanılabilir proje bulunamadı. Bu hesabın GCP projelerine erişimi olduğundan emin olun.",
-      "hint": "Kaydettikten sonra bu proje kota isteklerinde öncelikli olur ve başlatma komutunda GOOGLE_CLOUD_PROJECT olarak eklenir.",
-      "current": "Proje: {{projectId}}",
-      "saved": "Proje kaydedildi: {{projectId}}",
-      "cleared": "Otomatik proje çözümlemeye geri dönüldü",
-      "savedWithRefreshError": "Proje kaydedildi ancak kota yenileme başarısız oldu: {{error}}"
-    },
-    "identity": {
-      "authMethod": "Kimlik doğrulama yöntemi",
-      "tier": "Paket",
-      "signedInWithGoogle": "Google ile oturum açıldı",
-      "signedInWithGoogleEmail": "Google ile oturum açıldı ({{email}})"
-    },
-    "quotaTable": {
-      "model": "Model adı",
-      "leftOfTotal": "Kalan / Toplam",
-      "usage": "Kullanılan",
-      "usageResets": "Kullanım sıfırlanır",
-      "usedPercent": "{{value}}%​",
-      "remainingOfTotal": "{{remaining}} / {{total}}​",
-      "resetAtWithRelative": "{{absolute}} ({{relative}})​"
-    },
-    "tierText": {
-      "pro": "Google One AI Pro içindeki Gemini Code Assist",
-      "ultra": "Google AI Ultra içindeki Gemini Code Assist",
-      "free": "Ücretsiz Gemini Code Assist"
     }
   },
   "codebuddy": {
@@ -4396,6 +4482,12 @@
     },
     "quota": {
       "usedOfTotal": "{{used}} / {{total}}​"
+    },
+    "sessions": {
+      "title": "Yerel oturum dosyaları",
+      "desc": "Yerel oturum dosyaları — Yerel tarama ve konumu açma.",
+      "empty": "Oturum dosyası yok",
+      "open": "Konumu aç"
     }
   },
   "qoder": {
@@ -5073,8 +5165,8 @@
     "search": "Grok CLI hesaplarını ara...",
     "flowNotice": {
       "title": "Grok CLI Hesap Yönetimi",
-      "desc": "Cockpit, varsayılan hesabı gerçekten değiştirmek ve yalıtılmış örnekleri bağlamak için hesapları resmi Grok CLI kimlik bilgisi biçiminde yönetir.",
-      "permission": "Yerel kapsam: Varsayılan ~/.grok/auth.json dosyasını okur ve Cockpit'in yerel verilerinde ayrı Grok hesap ve GROK_HOME dizinlerini yönetir.",
+      "desc": "Varsayılan olarak ayrı GROK_HOME dizinleri kullanılır. Eşitleme açıkken varsayılan örnekteki OAuth değişikliği ~/.grok/auth.json dosyasına yazılır; ek örnekler yalıtılmış kalır.",
+      "permission": "Yerel kapsam: ~/.grok/auth.json içe aktarma için okunabilir ve yalnızca eşitleme açıkken varsayılan örnekte OAuth değişiminde yazılır. API anahtarları resmî oturumun üzerine yazmaz.",
       "network": "Ağ kapsamı: OAuth yetkilendirmesi, kimlik bilgisi yenileme ve hesap kullanım sorguları. Kimlik bilgileri Cockpit hizmetlerine yüklenmez."
     },
     "empty": "Henüz Grok CLI hesabı yok",
@@ -5115,7 +5207,8 @@
       "installHint": "Aşağıdaki resmî komutu terminalde çalıştırın, kurulum tamamlandıktan sonra Yenile'ye tıklayın.",
       "selectWorkingDir": "Grok CLI çalışma dizinini seç",
       "workingDirAccountHint": "Çalışma dizini bu hesaba bağlıdır ve sonraki başlatmada geri yüklenir.",
-      "launchCommandPlaceholder": "Başlatma komutunu oluşturmak için dizin seçin veya onaylayın"
+      "launchCommandPlaceholder": "Başlatma komutunu oluşturmak için dizin seçin veya onaylayın",
+      "reauthLaunchHint": "Hesap kimlik doğrulamasının süresi doldu. Yeniden yetkilendirin; aşağıdaki başlatma komutu hala kullanılabilir."
     },
     "switch": {
       "success": "Hesap değiştirildi"
@@ -5398,5 +5491,23 @@
       "supports1mLabel": "1M desteğini bildir",
       "supports1mShort": "1M bağlam"
     }
+  },
+  "openrouter": {
+    "title": "OpenRouter",
+    "desc": "OpenRouter API anahtarları, kullanım ve modelleri yönetin.",
+    "tabKeys": "Anahtar ve kullanım",
+    "tabModels": "Modeller",
+    "modelsLoaded": "{{count}} model yüklendi",
+    "noUsageYet": "Kullanım henüz yenilenmedi",
+    "loadModels": "Modelleri yükle",
+    "searchModels": "Model ara",
+    "freeOnly": "Yalnızca ücretsiz",
+    "noModels": "Model yok — key ekleyip yükleyin.",
+    "free": "Ücretsiz",
+    "noCtx": "Bağlam uzunluğu yok"
+  },
+  "opencode": {
+    "title": "OpenCode",
+    "desc": "OpenCode Go/Zen anahtarlarını yönetin ve kademeye göre süzün."
   }
 }

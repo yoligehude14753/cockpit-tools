@@ -11,6 +11,7 @@ export type CodexLocalAccessImageGenerationStatus =
 
 export type CodexLocalAccessRoutingStrategy =
   | "auto"
+  | "random"
   | "single_account"
   | "quota_high_first"
   | "quota_low_first"
@@ -44,9 +45,19 @@ export interface CodexLocalAccessModelAlias {
 
 export interface CodexLocalAccessModelPricing {
   modelId: string;
+  longContextThresholdTokens?: number | null;
   inputUsdPerMillion: number;
   outputUsdPerMillion: number;
   cachedInputUsdPerMillion?: number | null;
+  standardLongInputUsdPerMillion?: number | null;
+  standardLongOutputUsdPerMillion?: number | null;
+  standardLongCachedInputUsdPerMillion?: number | null;
+  priorityInputUsdPerMillion?: number | null;
+  priorityOutputUsdPerMillion?: number | null;
+  priorityCachedInputUsdPerMillion?: number | null;
+  priorityLongInputUsdPerMillion?: number | null;
+  priorityLongOutputUsdPerMillion?: number | null;
+  priorityLongCachedInputUsdPerMillion?: number | null;
 }
 
 export interface CodexLocalAccessApiKey {
@@ -115,6 +126,7 @@ export interface CodexLocalAccessCollection {
   modelPricingVersion: number;
   modelPricings: CodexLocalAccessModelPricing[];
   debugLogs: boolean;
+  immediateSseResponse: boolean;
   excludedModels: string[];
   sessionAffinity: boolean;
   sessionAffinityTtlMs: number;
@@ -193,6 +205,7 @@ export interface CodexLocalAccessUsageEvent {
   modelId: string;
   gatewayMode?: CodexLocalAccessGatewayMode | null;
   requestKind: CodexLocalAccessRequestKind;
+  serviceTier?: string | null;
   success: boolean;
   httpStatus?: number | null;
   errorCategory: string;

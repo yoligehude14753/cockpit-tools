@@ -26,6 +26,7 @@ export interface CodexAccount {
   api_provider_id?: string;
   api_provider_name?: string;
   api_model_catalog?: string[];
+  api_sync_model_catalog_to_codex?: boolean;
   api_wire_api?: CodexProviderWireApi | null;
   api_supports_websockets?: boolean;
   api_supports_vision?: boolean;
@@ -321,6 +322,8 @@ export interface CodexSessionLocation {
 
 export interface CodexSessionRecord {
   sessionId: string;
+  /** conversation | external | subagent */
+  sessionKind?: string;
   title: string;
   cwd: string;
   updatedAt?: number | null;
@@ -711,6 +714,8 @@ export function getCodexAdditionalQuotaWindows(
       limitName,
       meteredFeature,
     );
+    // Spark and other model-specific windows stay in this list so the UI switch
+    // (`showAdditionalQuota` / additional:* keys) remains the sole hide control.
     const allowed = toBoolValue(rateLimit.allowed);
     const limitReached = toBoolValue(rateLimit.limit_reached);
     const result: CodexAdditionalQuotaWindow[] = [];
@@ -793,6 +798,7 @@ export function getCodexPlanDisplayName(planType?: string): string {
   if (upper.includes("ENTERPRISE")) return "ENTERPRISE";
   if (upper.includes("PLUS")) return "PLUS";
   if (upper.includes("PRO")) return "PRO";
+  if (upper.includes("API")) return "API";
   return upper;
 }
 
@@ -847,6 +853,9 @@ function getCodexPlanBadgeLabel(account: CodexAccount): string {
   if (isCodexNewApiAccount(account)) {
     return account.plan_type?.trim() || "Cockpit Api";
   }
+  if (isCodexApiKeyAccount(account)) {
+    return "API";
+  }
   const baseLabel = getCodexPlanDisplayName(account.plan_type);
   if (normalizeCodexPlanKey(account.plan_type) !== "pro") {
     return baseLabel;
@@ -893,9 +902,24 @@ export interface CodexPlanBadgePresentation {
 export function getCodexPlanBadgePresentation(
   account: CodexAccount,
 ): CodexPlanBadgePresentation {
+  // Label stays the raw plan presentation (no i18n mapping). Style class is chrome only.
   return {
     label: getCodexPlanBadgeLabel(account),
     className: getCodexPlanBadgeClass(account),
+  };
+}
+
+export function getCodexPlanBadgePresentationWithStyle(
+  account: CodexAccount,
+  styleClassName?: string,
+): CodexPlanBadgePresentation {
+  const base = getCodexPlanBadgePresentation(account);
+  if (!styleClassName) {
+    return base;
+  }
+  return {
+    label: base.label,
+    className: `${base.className} ${styleClassName}`.trim(),
   };
 }
 

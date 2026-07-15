@@ -343,25 +343,38 @@ pub fn run() {
                     modules::windsurf_oauth::restore_pending_oauth_listener();
                     modules::kiro_oauth::restore_pending_oauth_listener();
                     modules::trae_oauth::restore_pending_oauth_listener();
-                    modules::gemini_oauth::restore_pending_oauth_state();
                     modules::zed_oauth::restore_pending_oauth_listener();
                 });
             }
 
             modules::provider_token_keeper::ensure_started(app.handle().clone());
-            modules::wakeup_scheduler::restore_state_from_disk();
-            modules::wakeup_scheduler::ensure_started(app.handle().clone());
-            modules::codex_wakeup_scheduler::ensure_started(app.handle().clone());
-            modules::codex_wakeup_scheduler::trigger_startup_tasks_if_needed(app.handle().clone());
+            modules::auto_local_import::ensure_started(app.handle().clone());
+
+            // Wakeup restore/start and Deep Link registration/read can hit disk or OS
+            // APIs — never block setup (window + skeleton tray first).
+            {
+                let app_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    modules::wakeup_scheduler::restore_state_from_disk();
+                    modules::wakeup_scheduler::ensure_started(app_handle.clone());
+                    modules::codex_wakeup_scheduler::ensure_started(app_handle.clone());
+                    modules::codex_wakeup_scheduler::trigger_startup_tasks_if_needed(app_handle);
+                });
+            }
 
             #[cfg(target_os = "macos")]
             apply_macos_activation_policy(&app.handle());
 
             #[cfg(any(windows, target_os = "linux"))]
-            if let Err(err) = app.deep_link().register_all() {
-                logger::log_warn(&format!("[DeepLink] register_all 失败: {}", err));
-            } else {
-                logger::log_info("[DeepLink] register_all 已完成");
+            {
+                let app_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    if let Err(err) = app_handle.deep_link().register_all() {
+                        logger::log_warn(&format!("[DeepLink] register_all 失败: {}", err));
+                    } else {
+                        logger::log_info("[DeepLink] register_all 已完成");
+                    }
+                });
             }
 
             {
@@ -388,32 +401,38 @@ pub fn run() {
                 });
             }
 
-            match app.deep_link().get_current() {
-                Ok(Some(urls)) => {
-                    let args: Vec<String> = urls.iter().map(|url| url.to_string()).collect();
-                    logger::log_info(&format!(
-                        "[DeepLink] 启动时 get_current 命中: url_count={}, urls={:?}",
-                        args.len(),
-                        summarize_deep_link_args(&args)
-                    ));
-                    let zcode_oauth_handled = handle_zcode_oauth_deep_links(&args);
-                    let handled = zcode_oauth_handled
-                        || modules::external_import::handle_external_import_args(
-                            &app.handle(),
-                            &args,
-                            "deep-link-current",
-                        );
-                    logger::log_info(&format!(
-                        "[DeepLink] get_current 外部导入处理结果: handled={}",
-                        handled
-                    ));
-                }
-                Ok(None) => {
-                    logger::log_info("[DeepLink] 启动时 get_current: empty");
-                }
-                Err(err) => {
-                    logger::log_warn(&format!("[DeepLink] get_current 失败: {}", err));
-                }
+            {
+                let app_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    match app_handle.deep_link().get_current() {
+                        Ok(Some(urls)) => {
+                            let args: Vec<String> =
+                                urls.iter().map(|url| url.to_string()).collect();
+                            logger::log_info(&format!(
+                                "[DeepLink] 启动时 get_current 命中: url_count={}, urls={:?}",
+                                args.len(),
+                                summarize_deep_link_args(&args)
+                            ));
+                            let zcode_oauth_handled = handle_zcode_oauth_deep_links(&args);
+                            let handled = zcode_oauth_handled
+                                || modules::external_import::handle_external_import_args(
+                                    &app_handle,
+                                    &args,
+                                    "deep-link-current",
+                                );
+                            logger::log_info(&format!(
+                                "[DeepLink] get_current 外部导入处理结果: handled={}",
+                                handled
+                            ));
+                        }
+                        Ok(None) => {
+                            logger::log_info("[DeepLink] 启动时 get_current: empty");
+                        }
+                        Err(err) => {
+                            logger::log_warn(&format!("[DeepLink] get_current 失败: {}", err));
+                        }
+                    }
+                });
             }
 
             // 创建骨架托盘（无账号文件 I/O，秒出）
@@ -476,10 +495,21 @@ pub fn run() {
                 match config.close_behavior {
                     CloseWindowBehavior::Minimize => {
                         api.prevent_close();
-                        let _ = window.hide();
-                        info!("[Window] 窗口已最小化到托盘");
+                        // Full #686 behavior: destroy main WebView, keep tray process alive.
+                        if let Err(err) =
+                            modules::floating_card_window::destroy_main_window_to_tray(window)
+                        {
+                            modules::logger::log_warn(&format!(
+                                "[Window] 销毁主窗口 WebView 失败，回退为隐藏: {}",
+                                err
+                            ));
+                            let _ = window.hide();
+                            modules::process_memory::trim_idle_process_memory();
+                        }
+                        info!("[Window] 窗口已关闭到托盘");
                     }
                     CloseWindowBehavior::Quit => {
+                        modules::floating_card_window::request_app_exit();
                         info!("[Window] 用户选择退出应用");
                         window.app_handle().exit(0);
                     }
@@ -574,6 +604,7 @@ pub fn run() {
             commands::claude_instance::claude_execute_instance_launch_command,
             // System Commands
             commands::system::open_data_folder,
+            commands::system::open_local_path,
             commands::system::save_text_file,
             commands::system::get_downloads_dir,
             commands::system::get_auto_backup_settings,
@@ -603,6 +634,15 @@ pub fn run() {
             commands::system::get_general_config,
             commands::system::get_available_terminals,
             commands::system::patch_general_config,
+            commands::system::scan_auto_local_import,
+            commands::system::codex_ssh_list_servers,
+            commands::system::codex_ssh_upsert_server,
+            commands::system::codex_ssh_delete_server,
+            commands::system::codex_ssh_select_server,
+            commands::system::codex_ssh_test_connection,
+            commands::system::codex_ssh_sync_current,
+            commands::system::codex_managed_lb_provider_id,
+            commands::system::codebuddy_list_local_session_files,
             commands::system::save_refresh_interval_config,
             commands::system::save_tray_platform_layout,
             commands::system::set_app_path,
@@ -616,6 +656,7 @@ pub fn run() {
             commands::system::get_antigravity_installed_version_info,
             commands::system::set_wakeup_override,
             commands::system::handle_window_close,
+            commands::system::main_window_take_pending_navigation,
             commands::system::show_floating_card_window,
             commands::system::show_instance_floating_card_window,
             commands::system::get_floating_card_context,
@@ -704,6 +745,7 @@ pub fn run() {
             commands::codex::pause_codex_batch_delete,
             commands::codex::retry_failed_codex_batch_delete,
             commands::codex::clear_codex_batch_delete,
+            commands::codex::import_codex_access_token_account,
             commands::codex::import_codex_from_local,
             commands::codex::import_codex_from_json,
             commands::codex::export_codex_accounts,
@@ -714,6 +756,7 @@ pub fn run() {
             commands::codex::get_codex_batch_import_preview,
             commands::codex::confirm_codex_batch_import,
             commands::codex::refresh_codex_quota,
+            commands::codex::refresh_codex_quotas_batch,
             commands::codex::get_codex_reset_credits,
             commands::codex::consume_codex_reset_credit,
             commands::codex::refresh_codex_subscription_info,
@@ -753,6 +796,7 @@ pub fn run() {
             commands::codex::save_codex_model_providers,
             commands::codex::codex_test_model_provider_connection,
             commands::codex::codex_model_provider_chat_test_batch,
+            commands::codex::codex_cancel_model_provider_chat_test,
             commands::codex::codex_list_model_provider_models,
             commands::codex::codex_query_model_provider_usage,
             commands::codex::codex_local_access_get_state,
@@ -869,6 +913,13 @@ pub fn run() {
             commands::codebuddy::update_codebuddy_account_tags,
             commands::codebuddy::get_codebuddy_accounts_index_path,
             commands::codebuddy::inject_codebuddy_to_vscode,
+            commands::codebuddy_session::codebuddy_list_sessions,
+            commands::ssh_server::list_ssh_servers,
+            commands::ssh_server::upsert_ssh_server,
+            commands::ssh_server::delete_ssh_server,
+            commands::ssh_server::select_ssh_server,
+            commands::ssh_server::test_ssh_server_connection,
+            commands::ssh_server::sync_current_codex_account_to_ssh_server,
             // CodeBuddy CN Commands
             commands::codebuddy_cn::list_codebuddy_cn_accounts,
             commands::codebuddy_cn::delete_codebuddy_cn_account,
@@ -1056,23 +1107,6 @@ pub fn run() {
             commands::cursor::cursor_oauth_login_complete,
             commands::cursor::cursor_oauth_login_cancel,
             commands::cursor::inject_cursor_account,
-            // Gemini Commands
-            commands::gemini::list_gemini_accounts,
-            commands::gemini::delete_gemini_account,
-            commands::gemini::delete_gemini_accounts,
-            commands::gemini::import_gemini_from_json,
-            commands::gemini::import_gemini_from_local,
-            commands::gemini::export_gemini_accounts,
-            commands::gemini::refresh_gemini_token,
-            commands::gemini::refresh_all_gemini_tokens,
-            commands::gemini::gemini_oauth_login_start,
-            commands::gemini::gemini_oauth_login_complete,
-            commands::gemini::gemini_oauth_submit_callback_url,
-            commands::gemini::gemini_oauth_login_cancel,
-            commands::gemini::add_gemini_account_with_token,
-            commands::gemini::update_gemini_account_tags,
-            commands::gemini::get_gemini_accounts_index_path,
-            commands::gemini::inject_gemini_account,
             // Grok Commands
             commands::grok::grok_get_cli_status,
             commands::grok::grok_execute_cli_install_command,
@@ -1107,18 +1141,6 @@ pub fn run() {
             commands::grok_instance::grok_open_instance_window,
             commands::grok_instance::grok_get_instance_launch_command,
             commands::grok_instance::grok_execute_instance_launch_command,
-            // Gemini Instance Commands
-            commands::gemini_instance::gemini_get_instance_defaults,
-            commands::gemini_instance::gemini_list_instances,
-            commands::gemini_instance::gemini_create_instance,
-            commands::gemini_instance::gemini_update_instance,
-            commands::gemini_instance::gemini_delete_instance,
-            commands::gemini_instance::gemini_start_instance,
-            commands::gemini_instance::gemini_stop_instance,
-            commands::gemini_instance::gemini_open_instance_window,
-            commands::gemini_instance::gemini_close_all_instances,
-            commands::gemini_instance::gemini_get_instance_launch_command,
-            commands::gemini_instance::gemini_execute_instance_launch_command,
             // Cursor Instance Commands
             commands::cursor_instance::cursor_get_instance_defaults,
             commands::cursor_instance::cursor_list_instances,
@@ -1172,6 +1194,7 @@ pub fn run() {
             commands::codex_instance::codex_preview_session_import,
             commands::codex_instance::codex_import_sessions,
             commands::codex_instance::codex_open_session_location,
+            commands::codex_instance::codex_open_session_rollout,
             commands::codex_instance::codex_create_instance,
             commands::codex_instance::codex_update_instance,
             commands::codex_instance::codex_delete_instance,
@@ -1206,7 +1229,18 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         match &event {
-            RunEvent::ExitRequested { .. } | RunEvent::Exit => {
+            RunEvent::ExitRequested { api, .. } => {
+                if modules::floating_card_window::should_keep_alive_after_main_window_destroyed() {
+                    api.prevent_exit();
+                    modules::logger::log_info("[Window] 主窗口已销毁，应用继续在托盘运行");
+                } else {
+                    tauri::async_runtime::spawn(async {
+                        modules::codex_local_access::shutdown_local_access_gateway_for_app_exit()
+                            .await;
+                    });
+                }
+            }
+            RunEvent::Exit => {
                 tauri::async_runtime::spawn(async {
                     modules::codex_local_access::shutdown_local_access_gateway_for_app_exit().await;
                 });

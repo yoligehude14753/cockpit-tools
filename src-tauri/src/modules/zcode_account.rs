@@ -153,12 +153,32 @@ fn save_index(index: &ZcodeAccountIndex) -> Result<(), String> {
 pub fn load_account(account_id: &str) -> Option<ZcodeAccount> {
     let path = account_path(account_id).ok()?;
     let content = fs::read_to_string(&path).ok()?;
-    atomic_write::parse_json_with_auto_restore(&path, &content).ok()
+    match crate::modules::secure_account_storage::deserialize_account_file::<ZcodeAccount>(&path, &content) {
+        Ok((account, needs_rotation)) => {
+            if needs_rotation {
+                let account_for_rewrite = account.clone();
+                crate::modules::deferred_account_rewrite::schedule_account_rewrite_if_unchanged(
+                    "zcode",
+                    account_for_rewrite.id.clone(),
+                    path.clone(),
+                    content.as_bytes(),
+                    move || {
+                        crate::modules::secure_account_storage::serialize_account_file(
+                            "zcode",
+                            &account_for_rewrite,
+                        )
+                    },
+                );
+            }
+            Some(account)
+        }
+        Err(_) => None,
+    }
 }
 
 fn save_account_file(account: &ZcodeAccount) -> Result<(), String> {
-    let content = serde_json::to_string_pretty(account)
-        .map_err(|error| format!("序列化 ZCode 账号失败: {}", error))?;
+    let content =
+        crate::modules::secure_account_storage::serialize_account_file("zcode", account)?;
     atomic_write::write_string_atomic(&account_path(&account.id)?, &content)
         .map_err(|error| format!("保存 ZCode 账号失败: {}", error))
 }
@@ -273,7 +293,8 @@ pub fn remove_accounts(account_ids: &[String]) -> Result<(), String> {
     for id in account_ids {
         let path = account_path(id)?;
         if path.exists() {
-            fs::remove_file(path).map_err(|error| format!("删除 ZCode 账号失败: {}", error))?;
+            crate::modules::atomic_write::remove_file_locked(&path)
+                .map_err(|error| format!("删除 ZCode 账号失败: {}", error))?;
         }
     }
     Ok(())

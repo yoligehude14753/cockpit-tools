@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -89,12 +91,15 @@ type manifest struct {
 	ExcludedModels     []string            `json:"excludedModels"`
 	RoutingStrategy    string              `json:"routingStrategy"`
 	CustomRoutingRules []customRoutingRule `json:"customRoutingRules"`
+	ImmediateSSEResponse bool              `json:"immediateSseResponse"`
 	DebugLogs          *bool               `json:"debugLogs,omitempty"`
 
 	apiKeyByValue     map[string]*apiKeySpec
 	accountByID       map[string]*accountSpec
 	accountByAuthID   map[string]*accountSpec
 	accountByAPIKey   map[string]*accountSpec
+	accountByChatGPT  map[string]*accountSpec
+	accountByEmail    map[string]*accountSpec
 	aliasToSource     map[string]string
 	originalIndexByID map[string]int
 }
@@ -221,6 +226,9 @@ type accountSpec struct {
 	ID                   string            `json:"id"`
 	Email                string            `json:"email"`
 	AuthID               string            `json:"authId,omitempty"`
+	AuthKind             string            `json:"authKind,omitempty"`
+	AccessTokenOnly      bool              `json:"accessTokenOnly,omitempty"`
+	ChatGPTAccountID     string            `json:"chatgptAccountId,omitempty"`
 	UpstreamAPIKey       string            `json:"upstreamApiKey,omitempty"`
 	PlanRank             *int              `json:"planRank,omitempty"`
 	RemainingQuota       *int              `json:"remainingQuota,omitempty"`
@@ -283,6 +291,7 @@ type usagePayload struct {
 	APIKeyID      string       `json:"apiKeyId,omitempty"`
 	APIKeyLabel   string       `json:"apiKeyLabel,omitempty"`
 	RequestKind   string       `json:"requestKind,omitempty"`
+	ServiceTier   string       `json:"serviceTier,omitempty"`
 	Success       bool         `json:"success"`
 	Status        int          `json:"status,omitempty"`
 	ErrorCategory string       `json:"errorCategory,omitempty"`
@@ -422,6 +431,17 @@ func (t *requestUsageTracker) recordSelectedAccount(requestID string, account *a
 		AuthID:       strings.TrimSpace(authID),
 	}
 	t.mu.Unlock()
+}
+
+func normalizedUsageServiceTier(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "priority":
+		return "priority"
+	case "", "default", "standard":
+		return ""
+	default:
+		return ""
+	}
 }
 
 func (t *requestUsageTracker) finalize(requestID string, input usageFinalizeInput) (usagePayload, bool) {
@@ -575,6 +595,8 @@ func loadManifest(path string) (*manifest, error) {
 	m.accountByID = make(map[string]*accountSpec)
 	m.accountByAuthID = make(map[string]*accountSpec)
 	m.accountByAPIKey = make(map[string]*accountSpec)
+	m.accountByChatGPT = make(map[string]*accountSpec)
+	m.accountByEmail = make(map[string]*accountSpec)
 	m.originalIndexByID = make(map[string]int)
 	for i := range m.Accounts {
 		account := &m.Accounts[i]
@@ -582,15 +604,32 @@ func loadManifest(path string) (*manifest, error) {
 		if account.ID == "" {
 			continue
 		}
+		account.Email = strings.TrimSpace(account.Email)
+		account.AuthKind = strings.ToLower(strings.TrimSpace(account.AuthKind))
+		account.ChatGPTAccountID = strings.TrimSpace(account.ChatGPTAccountID)
 		m.accountByID[account.ID] = account
 		m.originalIndexByID[account.ID] = i
 		if authID := strings.TrimSpace(account.AuthID); authID != "" {
 			account.AuthID = authID
 			m.accountByAuthID[strings.ToLower(authID)] = account
+			if base := filepath.Base(authID); base != authID {
+				m.accountByAuthID[strings.ToLower(base)] = account
+			}
 		}
 		if key := strings.TrimSpace(account.UpstreamAPIKey); key != "" {
 			account.UpstreamAPIKey = key
 			m.accountByAPIKey[key] = account
+		}
+		if account.ChatGPTAccountID != "" {
+			m.accountByChatGPT[strings.ToLower(account.ChatGPTAccountID)] = account
+		}
+		if account.Email != "" {
+			key := strings.ToLower(account.Email)
+			if existing, exists := m.accountByEmail[key]; exists && existing != account {
+				m.accountByEmail[key] = nil
+			} else {
+				m.accountByEmail[key] = account
+			}
 		}
 	}
 	m.aliasToSource = make(map[string]string)
@@ -2105,6 +2144,13 @@ func (s *cockpitSelector) orderAuths(auths []*coreauth.Auth, start int) []*corea
 		return auths
 	}
 	strategy := strings.TrimSpace(strings.ToLower(s.manifest.RoutingStrategy))
+	if strategy == "random" {
+		out := append([]*coreauth.Auth(nil), auths...)
+		rand.Shuffle(len(out), func(i, j int) {
+			out[i], out[j] = out[j], out[i]
+		})
+		return out
+	}
 	if strategy == "custom" {
 		return s.orderCustom(auths, start)
 	}
@@ -2407,6 +2453,7 @@ func (p *usagePlugin) HandleUsage(ctx context.Context, record coreusage.Record) 
 		APIKeyID:      stringFromAPIKey(spec, "id"),
 		APIKeyLabel:   stringFromAPIKey(spec, "label"),
 		RequestKind:   requestKind,
+		ServiceTier:   normalizedUsageServiceTier(record.ServiceTier),
 		Success:       success,
 		Status:        status,
 		ErrorCategory: errorCategory(status, record.Fail.Body, success),
@@ -2734,6 +2781,10 @@ func newSidecarRuntime(ctx context.Context, configPath string, cfg *config.Confi
 		cancel()
 		return nil, err
 	}
+	if err := registerManifestCodexTokenAuths(runtimeCtx, service, cfg, m, manager); err != nil {
+		cancel()
+		return nil, err
+	}
 	for _, auth := range manager.List() {
 		if auth == nil || !strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") {
 			continue
@@ -2773,6 +2824,187 @@ func registerConfigCodexAPIKeyAuths(ctx context.Context, service *cliproxy.Servi
 		linkManifestAccountForAuth(m, registered)
 	}
 	return nil
+}
+
+func registerManifestCodexTokenAuths(
+	ctx context.Context,
+	service *cliproxy.Service,
+	cfg *config.Config,
+	m *manifest,
+	manager *coreauth.Manager,
+) error {
+	if service == nil || cfg == nil || m == nil {
+		return nil
+	}
+	for i := range m.Accounts {
+		account := &m.Accounts[i]
+		authID := strings.TrimSpace(account.AuthID)
+		if authID == "" || manifestAccountAuthKind(account) == "api_key" {
+			continue
+		}
+		path := authID
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(cfg.AuthDir, path)
+		}
+		auth, err := readManifestCodexTokenAuth(account, cfg.AuthDir, path)
+		if err != nil {
+			return err
+		}
+		registered, err := service.UpsertRuntimeAuth(coreauth.WithSkipPersist(ctx), auth)
+		if err != nil {
+			return fmt.Errorf("register codex token auth %s: %w", auth.ID, err)
+		}
+		linkManifestAccountForAuth(m, registered)
+		registerManifestModelsForAuth(manager, m, registered)
+	}
+	return nil
+}
+
+func readManifestCodexTokenAuth(account *accountSpec, authDir, path string) (*coreauth.Auth, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read codex token auth file %s: %w", path, err)
+	}
+	metadata := make(map[string]any)
+	if err = json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("parse codex token auth file %s: %w", path, err)
+	}
+	provider := strings.TrimSpace(metadataString(metadata, "type"))
+	if provider == "" {
+		provider = "codex"
+	}
+	if !strings.EqualFold(provider, "codex") {
+		return nil, fmt.Errorf("codex token auth file %s has unsupported provider %q", path, provider)
+	}
+	accessToken := firstMetadataString(
+		metadata,
+		"personal_access_token",
+		"at_token",
+		"access_token",
+	)
+	if accessToken == "" {
+		return nil, fmt.Errorf("codex token auth file %s is missing access_token", path)
+	}
+	metadata["access_token"] = accessToken
+	if strings.TrimSpace(metadataString(metadata, "token_type")) == "" {
+		metadata["token_type"] = "Bearer"
+	}
+	if account != nil &&
+		(account.AccessTokenOnly || manifestAccountAuthKind(account) == "access_token") {
+		if strings.TrimSpace(metadataString(metadata, "auth_mode")) == "" {
+			metadata["auth_mode"] = "personal_access_token"
+		}
+		if strings.TrimSpace(metadataString(metadata, "openai_auth_mode")) == "" {
+			metadata["openai_auth_mode"] = "personal_access_token"
+		}
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("stat codex token auth file %s: %w", path, err)
+	}
+	id := manifestAuthFileID(authDir, path)
+	label := ""
+	if account != nil {
+		label = strings.TrimSpace(account.Email)
+	}
+	if label == "" {
+		label = firstMetadataString(metadata, "email", "label")
+	}
+	disabled, _ := metadata["disabled"].(bool)
+	status := coreauth.StatusActive
+	if disabled {
+		status = coreauth.StatusDisabled
+	}
+	auth := &coreauth.Auth{
+		ID:       id,
+		Provider: "codex",
+		FileName: id,
+		Label:    label,
+		Status:   status,
+		Disabled: disabled,
+		Attributes: map[string]string{
+			"path":      path,
+			"auth_kind": manifestAccountAuthKind(account),
+		},
+		Metadata:        metadata,
+		CreatedAt:       info.ModTime(),
+		UpdatedAt:       info.ModTime(),
+		LastRefreshedAt: time.Time{},
+	}
+	if account != nil {
+		auth.Attributes["account_id"] = strings.TrimSpace(account.ID)
+		if strings.TrimSpace(account.Email) != "" {
+			auth.Attributes["email"] = strings.TrimSpace(account.Email)
+		}
+		if strings.TrimSpace(account.ChatGPTAccountID) != "" {
+			auth.Attributes["chatgpt_account_id"] = strings.TrimSpace(account.ChatGPTAccountID)
+		}
+	}
+	if email := firstMetadataString(metadata, "email"); email != "" {
+		auth.Attributes["email"] = email
+	}
+	if proxyURL := firstMetadataString(metadata, "proxy_url", "proxy-url"); proxyURL != "" {
+		auth.ProxyURL = proxyURL
+	}
+	coreauth.ApplyCustomHeadersFromMetadata(auth)
+	return auth, nil
+}
+
+func manifestAccountAuthKind(account *accountSpec) string {
+	if account == nil {
+		return ""
+	}
+	if kind := strings.ToLower(strings.TrimSpace(account.AuthKind)); kind != "" {
+		switch kind {
+		case "api-key", "apikey", "api key":
+			return "api_key"
+		case "access-token", "accesstoken", "access token",
+			"personal_access_token", "pat", "at":
+			return "access_token"
+		default:
+			return kind
+		}
+	}
+	if strings.TrimSpace(account.UpstreamAPIKey) != "" {
+		return "api_key"
+	}
+	if account.AccessTokenOnly {
+		return "access_token"
+	}
+	return "oauth"
+}
+
+func manifestAuthFileID(authDir, path string) string {
+	id := path
+	if strings.TrimSpace(authDir) != "" {
+		if rel, err := filepath.Rel(authDir, path); err == nil && strings.TrimSpace(rel) != "" {
+			id = rel
+		}
+	}
+	if runtime.GOOS == "windows" {
+		id = strings.ToLower(id)
+	}
+	return id
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	if raw, ok := metadata[key].(string); ok {
+		return strings.TrimSpace(raw)
+	}
+	return ""
+}
+
+func firstMetadataString(metadata map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value := metadataString(metadata, key); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (r *sidecarRuntime) Execute(ctx context.Context, providers []string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
@@ -2830,16 +3062,84 @@ func linkManifestAccountForAuth(m *manifest, auth *coreauth.Auth) {
 	if m.accountByAuthID == nil {
 		m.accountByAuthID = make(map[string]*accountSpec)
 	}
-	if _, exists := m.accountByAuthID[strings.ToLower(auth.ID)]; exists {
+	authID := strings.ToLower(strings.TrimSpace(auth.ID))
+	if _, exists := m.accountByAuthID[authID]; exists {
 		return
 	}
+	if account := findManifestAccountForAuth(m, auth); account != nil {
+		m.accountByAuthID[authID] = account
+		if base := strings.ToLower(filepath.Base(strings.TrimSpace(auth.ID))); base != "" && base != authID {
+			m.accountByAuthID[base] = account
+		}
+		return
+	}
+}
+
+func findManifestAccountForAuth(m *manifest, auth *coreauth.Auth) *accountSpec {
+	if m == nil || auth == nil {
+		return nil
+	}
+	for _, candidate := range []string{
+		strings.TrimSpace(auth.ID),
+		filepath.Base(strings.TrimSpace(auth.ID)),
+		strings.TrimSpace(auth.FileName),
+		filepath.Base(strings.TrimSpace(auth.FileName)),
+	} {
+		if candidate == "." || candidate == "" {
+			continue
+		}
+		if account := m.accountByAuthID[strings.ToLower(candidate)]; account != nil {
+			return account
+		}
+	}
 	if auth.Attributes != nil {
+		if path := strings.TrimSpace(auth.Attributes["path"]); path != "" {
+			if account := m.accountByAuthID[strings.ToLower(path)]; account != nil {
+				return account
+			}
+			if account := m.accountByAuthID[strings.ToLower(filepath.Base(path))]; account != nil {
+				return account
+			}
+		}
 		if key := strings.TrimSpace(auth.Attributes["api_key"]); key != "" {
 			if account := m.accountByAPIKey[key]; account != nil {
-				m.accountByAuthID[strings.ToLower(auth.ID)] = account
+				return account
+			}
+		}
+		if accountID := strings.TrimSpace(auth.Attributes["account_id"]); accountID != "" {
+			if account := m.accountByID[accountID]; account != nil {
+				return account
+			}
+		}
+		if chatGPTID := strings.TrimSpace(auth.Attributes["chatgpt_account_id"]); chatGPTID != "" {
+			if account := m.accountByChatGPT[strings.ToLower(chatGPTID)]; account != nil {
+				return account
+			}
+		}
+		if email := strings.TrimSpace(auth.Attributes["email"]); email != "" {
+			if account := m.accountByEmail[strings.ToLower(email)]; account != nil {
+				return account
 			}
 		}
 	}
+	if auth.Metadata != nil {
+		for _, key := range []string{"account_id", "chatgpt_account_id"} {
+			if value := metadataString(auth.Metadata, key); value != "" {
+				if account := m.accountByChatGPT[strings.ToLower(value)]; account != nil {
+					return account
+				}
+				if account := m.accountByID[value]; account != nil {
+					return account
+				}
+			}
+		}
+		if email := metadataString(auth.Metadata, "email"); email != "" {
+			if account := m.accountByEmail[strings.ToLower(email)]; account != nil {
+				return account
+			}
+		}
+	}
+	return nil
 }
 
 func registerManifestModelsForAuth(manager *coreauth.Manager, m *manifest, auth *coreauth.Auth) {
@@ -2979,6 +3279,9 @@ func (s *relayServer) router() *gin.Engine {
 	router.GET("/v1/models", s.handleModels)
 	router.POST("/v1/responses", s.handleResponses)
 	router.POST("/v1/responses/compact", s.handleResponsesCompact)
+	// Compatibility: some clients set chat-completions base and still append /v1/responses.
+	router.POST("/v1/chat/completions/v1/responses", s.handleResponses)
+	router.POST("/v1/chat/completions/v1/responses/compact", s.handleResponsesCompact)
 	router.POST("/v1/chat/completions", s.handleChatCompletions)
 	router.POST(anthropicMessagesPath, s.handleAnthropicMessages)
 	router.POST(anthropicCountTokensPath, s.handleAnthropicCountTokens)
@@ -4372,6 +4675,20 @@ func (s *relayServer) handleStream(c *gin.Context, body []byte, model string, so
 	req, opts := buildExecutorRequest(c, body, model, sourceFormat, alt, true)
 	startedAt := time.Now()
 	timeouts := s.streamTimeoutsForRequest(c.Request, body, model)
+	immediateSSE := s.manifest != nil && s.manifest.ImmediateSSEResponse
+	var immediateFlusher http.Flusher
+	if immediateSSE {
+		flusher, ok := c.Writer.(http.Flusher)
+		if !ok {
+			writeAPIError(c, http.StatusInternalServerError, "streaming not supported", "streaming_not_supported")
+			return
+		}
+		setEventStreamHeaders(c.Writer.Header())
+		c.Status(http.StatusOK)
+		_, _ = c.Writer.Write([]byte(": accepted\n\n"))
+		flusher.Flush()
+		immediateFlusher = flusher
+	}
 	s.emitExecutorDiagnostic(c, "executor_started", model, "execute_stream", startedAt, "")
 	stopWaitLogger := s.startExecutorWaitLogger(c, model, "execute_stream", startedAt)
 	streamCtx, cancelStream := context.WithCancel(relayContext(c))
@@ -4380,12 +4697,22 @@ func (s *relayServer) handleStream(c *gin.Context, body []byte, model string, so
 	stopWaitLogger()
 	if err != nil {
 		s.emitExecutorDiagnostic(c, "executor_failed", model, "execute_stream", startedAt, err.Error())
+		if immediateSSE {
+			writeStreamTerminalError(c, err)
+			immediateFlusher.Flush()
+			return
+		}
 		s.writeExecutorError(c, err)
 		return
 	}
 	if result == nil || result.Chunks == nil {
 		s.emitExecutorDiagnostic(c, "executor_failed", model, "execute_stream", startedAt, "upstream stream is unavailable")
-		writeAPIError(c, http.StatusBadGateway, "upstream stream is unavailable", "bad_gateway")
+		if immediateSSE {
+			writeStreamTerminalError(c, relayStatusError{status: http.StatusBadGateway, message: "upstream stream is unavailable"})
+			immediateFlusher.Flush()
+		} else {
+			writeAPIError(c, http.StatusBadGateway, "upstream stream is unavailable", "bad_gateway")
+		}
 		return
 	}
 	s.emitExecutorDiagnostic(c, "stream_opened", model, "execute_stream", startedAt, "")
@@ -4395,9 +4722,11 @@ func (s *relayServer) handleStream(c *gin.Context, body []byte, model string, so
 		return
 	}
 
-	setEventStreamHeaders(c.Writer.Header())
-	writeUpstreamHeaders(c.Writer.Header(), result.Headers)
-	c.Status(http.StatusOK)
+	if !immediateSSE {
+		setEventStreamHeaders(c.Writer.Header())
+		writeUpstreamHeaders(c.Writer.Header(), result.Headers)
+		c.Status(http.StatusOK)
+	}
 
 	framer := newRelayStreamFramer(sourceFormat, requestPath(c.Request))
 	keepAlive := streamKeepAliveInterval(s.cfg)

@@ -1,5 +1,5 @@
 use crate::models::grok::{GrokAccountView, GrokOAuthStartResponse};
-use crate::modules::{grok_account, grok_oauth, logger};
+use crate::modules::{config, grok_account, grok_oauth, logger};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -353,27 +353,17 @@ pub async fn grok_oauth_login_complete(
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty());
-    let was_current_account = if let Some(account_id) = reauth_account_id {
-        match grok_account::current_account_id() {
-            Ok(current_account_id) => current_account_id.as_deref() == Some(account_id),
-            Err(error) => {
-                logger::log_warn(&format!(
-                    "[Grok OAuth] 重新授权前对账默认账号失败: {}",
-                    error
-                ));
-                false
-            }
-        }
-    } else {
-        false
-    };
     let account = if let Some(account_id) = reauth_account_id {
         grok_account::upsert_oauth_for_reauth(payload, account_id)?
     } else {
         grok_account::upsert_oauth(payload)?
     };
-    if was_current_account {
-        grok_account::inject_to_default(&account.id)?;
+    // 每账号独立 home：登录/重授权后刷新该账号 profile，不写官方默认 ~/.grok。
+    if let Err(error) = grok_account::prepare_account_home(&account.id) {
+        logger::log_warn(&format!(
+            "[Grok OAuth] 准备独立 GROK_HOME 失败: account_id={}, error={}",
+            account.id, error
+        ));
     }
     let view = match grok_account::refresh_account(&account.id).await {
         Ok(view) => view,
@@ -430,9 +420,16 @@ pub async fn refresh_all_grok_accounts(app: AppHandle) -> Result<i32, String> {
 
 #[tauri::command]
 pub fn switch_grok_account(app: AppHandle, account_id: String) -> Result<String, String> {
-    let email = grok_account::inject_to_default(&account_id)?;
+    let sync_official = config::get_user_config().grok_sync_official_auth_on_switch;
+    let message = if sync_official {
+        let email = grok_account::inject_to_default(&account_id)?;
+        format!("已同步官方登录: {}", email)
+    } else {
+        let (email, home) = grok_account::prepare_account_home(&account_id)?;
+        format!("已准备独立目录: {} ({})", email, home.display())
+    };
     let _ = crate::modules::tray::update_tray_menu(&app);
-    Ok(format!("切换完成: {}", email))
+    Ok(message)
 }
 
 #[tauri::command]

@@ -2,6 +2,8 @@
   "common": {
     "confirm": "Confirm",
     "cancel": "Cancel",
+    "cancelling": "Cancelling...",
+    "cancelled": "Cancelled",
     "save": "Save",
     "saving": "Saving...",
     "delete": "Delete",
@@ -289,8 +291,7 @@
     "zed": "Zed",
     "codebuddy": "CodeBuddy",
     "githubCopilot": "GitHub Copilot",
-    "windsurf": "Windsurf",
-    "gemini": "Gemini Cli",
+    "windsurf": "Devin",
     "dashboard": "Dashboard",
     "morePlatforms": "More Platforms",
     "collapseSidebar": "Collapse sidebar",
@@ -318,7 +319,9 @@
     "switchClassicLayoutDontAskAgain": "Don't show this prompt again",
     "switchClassicLayoutConfirm": "Switch now",
     "2faManager": "2FA",
-    "claude": "Claude"
+    "claude": "Claude",
+    "openrouter": "OpenRouter",
+    "opencode": "OpenCode"
   },
   "sponsors": {
     "pageTitle": "Sponsors",
@@ -939,7 +942,7 @@
       "theme": "Theme",
       "themeDesc": "Switch between dark and light mode",
       "defaultTerminal": "Default Terminal",
-      "defaultTerminalDesc": "The terminal used when opening Gemini CLI",
+      "defaultTerminalDesc": "The terminal used when opening CLI",
       "terminalSystem": "System Default",
       "sideNavLayout": "Sidebar Layout",
       "sideNavLayoutDesc": "Switch between original and classic sidebar layouts",
@@ -1036,10 +1039,10 @@
       "githubCopilotSettingsTitle": "GitHub Copilot Settings",
       "ghcpAutoRefresh": "GitHub Copilot Auto Refresh Quota",
       "ghcpAutoRefreshDesc": "Background update frequency",
-      "windsurfSettingsTitle": "Windsurf Settings",
-      "windsurfAutoRefresh": "Windsurf Auto Refresh Quota",
+      "windsurfSettingsTitle": "Devin Settings",
+      "windsurfAutoRefresh": "Devin Auto Refresh Quota",
       "windsurfAutoRefreshDesc": "Background update frequency",
-      "windsurfAppPath": "Windsurf App Path",
+      "windsurfAppPath": "Devin App Path",
       "windsurfAppPathDesc": "Leave empty to use default path",
       "windsurfAppPathPlaceholder": "Default path",
       "windsurfPathSelect": "Select",
@@ -1164,7 +1167,35 @@
       "antigravityLaunchOnSwitch": "Launch Antigravity on switch",
       "antigravityLaunchOnSwitchDesc": "When off, switching only writes the default Antigravity account data and will not close, launch, or restart the app.",
       "tokenKeeper": "Auth keep-alive",
-      "tokenKeeperDesc": "Refresh account tokens in small batches only when authorization is close to expiry, reducing background request pressure for large account sets."
+      "tokenKeeperDesc": "Refresh account tokens in small batches only when authorization is close to expiry, reducing background request pressure for large account sets.",
+      "autoImportFromLocal": "Auto-import local accounts",
+      "autoImportFromLocalDesc": "When enabled, Cockpit Tools immediately scans local client logins and imports them, then keeps importing when the official client switches accounts. The system keychain may prompt once; choose Always Allow.",
+      "reducedMotion": "Reduce motion",
+      "reducedMotionDesc": "Cut page fades, modal transitions, shadows, blur, and smooth scrolling; keep essential loading feedback",
+      "autoImportFromLocalScanning": "Scanning local accounts… you can turn this off anytime",
+      "autoImportFromLocalScanDone": "Scan complete: found {{scanned}} local login(s), imported {{imported}}",
+      "autoImportFromLocalScanEmpty": "Scan complete: no importable local logins found",
+      "autoImportFromLocalScanPartial": "Scan complete: import failed for some platforms; import manually from account pages",
+      "autoImportFromLocalScanFailed": "Scan failed: {{error}}",
+      "autoImportFromLocalScanCancelled": "Turned off; in-progress scan results will be ignored",
+      "startupPage": "Startup page",
+      "startupPageDesc": "Page opened on cold start. Choose “Remember last” to restore the previous page.",
+      "startupPageLast": "Remember last",
+      "startupPageCodexApi": "Codex API service",
+      "hermesAuthOverwrite": "Sync Hermes on Codex switch",
+      "hermesAuthOverwriteDesc": "OAuth only: write openai-codex credentials to ~/.hermes/auth.json after switch (off by default)",
+      "themeColor": "Color pack",
+      "themeColorDesc": "Layer a color pack on light/dark (Nord, Tokyo Night, …)",
+      "themeColorDefault": "Default",
+      "themeColorNord": "Nord",
+      "themeColorTokyoNight": "Tokyo Night",
+      "themeColorCatppuccin": "Catppuccin",
+      "themeColorGruvbox": "Gruvbox",
+      "themeColorEverforest": "Everforest",
+      "externalNetwork": "Allow external network",
+      "externalNetworkDesc": "When off, blocks WebDAV, OpenRouter usage refresh, remote announcements, and auto update checks (local features keep working).",
+      "webdavAllowedDomains": "WebDAV domain allowlist",
+      "webdavAllowedDomainsDesc": "Comma-separated; empty = no limit. Host must match when set"
     },
     "network": {
       "apiTitle": "Antigravity Cockpit API",
@@ -1229,13 +1260,27 @@
       "releaseHistoryLoading": "Loading release notes...",
       "releaseHistoryEmpty": "No release notes yet",
       "releaseHistoryLoadFailed": "Failed to load: {{error}}",
+      "releaseHistorySectionHighlights": "Highlights",
       "releaseHistorySectionAdded": "Added",
       "releaseHistorySectionChanged": "Changed",
       "releaseHistorySectionFixed": "Fixed",
       "releaseHistorySectionRemoved": "Removed",
       "downloadThisVersion": "Download"
     },
-    "saveSettings": "Save Settings"
+    "saveSettings": "Save Settings",
+    "keysVault": {
+      "title": "OpenRouter / OpenCode keys",
+      "desc": "Store API keys locally in app data (plaintext). Refresh OpenRouter usage when external network is on. Not a full platform.",
+      "openRouter": "OpenRouter",
+      "openCode": "OpenCode Go / Zen",
+      "label": "Label",
+      "empty": "No keys yet",
+      "added": "Added",
+      "deleted": "Deleted",
+      "refreshed": "Usage refreshed",
+      "usage": "Usage",
+      "tierOther": "Other"
+    }
   },
   "appPath": {
     "missing": {
@@ -1244,7 +1289,7 @@
       "codexLaunchHint": "When turned off, account switching and login overwrite still run, but Codex App will no longer be launched and this path prompt will not appear again.",
       "action": "Set now",
       "claudeMultiInstanceRequiresExe": "Claude multi-instance profiles require the real Claude.exe path. Microsoft Store targets are only for the default desktop profile.",
-      "scanApps": "Scan apps",
+      "scanApps": "Detect running app",
       "scanRoots": "Scan range",
       "scanRootsPlaceholder": "Optional, choose a folder or drive root; leave blank to scan WindowsApps by drive and include Start menu apps.",
       "windowsApp": "Microsoft Store",
@@ -1948,7 +1993,8 @@
       "title": "Add Codex Account",
       "oauth": "OAuth Authorization",
       "token": "API Key",
-      "local": "Local Import"
+      "local": "Local Import",
+      "accessToken": "Access token"
     },
     "oauth": {
       "desc": "Click the button below and complete OpenAI authorization in your browser",
@@ -1970,12 +2016,12 @@
       "reauthEmailLabel": "Reauth account"
     },
     "token": {
-      "desc": "Paste session JSON, auth.json, account JSON, Sub2API JSON, accessToken, or refresh_token.",
-      "placeholder": "Example: paste session JSON, accessToken, Sub2API export JSON, or {\"accessToken\":\"eyJ...\"}",
+      "desc": "Paste auth.json, account JSON, Sub2API JSON, accessToken, personal access token at-…, or refresh_token.",
+      "placeholder": "Example: session JSON, accessToken, at-… PAT, Sub2API JSON, or {\"personal_access_token\":\"at-...\"}",
       "formatSummary": "Required fields and examples",
-      "formatRequired": "Supports session JSON, full tokens (id_token + access_token), Sub2API export JSON, accessToken only, or refresh_token only. refresh_token-only import exchanges it online for full credentials first.",
+      "formatRequired": "Supports session JSON, full tokens (id_token + access_token), Sub2API export JSON, accessToken only, personal access tokens (at-… / personal_access_token), or refresh_token only. refresh_token-only imports exchange online first; at-… without refresh is stored as personal_access_token.",
       "formatSingleLabel": "Full tokens",
-      "formatRefreshOnlyLabel": "session / accessToken / refresh_token example",
+      "formatRefreshOnlyLabel": "session / accessToken / at- / refresh_token examples",
       "formatBatchLabel": "Batch example"
     },
     "exportFormat": {
@@ -2227,6 +2273,7 @@
         "planHighFirst": "High Plan First",
         "planLowFirst": "Low Plan First",
         "expirySoonFirst": "Expiry Soon First",
+        "random": "Random",
         "custom": "Custom"
       },
       "requestKind": {
@@ -2286,7 +2333,7 @@
       },
       "customRoutingEdit": "Edit Custom Routing",
       "customRoutingTitle": "Custom Routing",
-      "customRoutingDesc": "Set priority, weight, and backup roles to control account selection and load distribution.",
+      "customRoutingDesc": "Set priority and weight to control account selection order and load distribution.",
       "customRoutingBackupTitle": "Backup Account",
       "customRoutingBackupDesc": "Used only when all regular accounts are unavailable. New requests switch back when a regular account recovers.",
       "customRoutingBackupShort": "Backup",
@@ -2352,6 +2399,20 @@
       "showApiKey": "Show API Key",
       "hideApiKey": "Hide API Key",
       "apiKeyHiddenHint": "API Key hidden. Click to show.",
+      "modelCatalog": {
+        "label": "Model List",
+        "fetch": "Fetch from Provider",
+        "fetching": "Fetching...",
+        "count": "{{count}} models",
+        "placeholder": "Enter one model ID per line, or separate IDs with commas.",
+        "editHint": "Fetched models are added to this draft only. Review and edit them before saving.",
+        "syncToggle": "Sync Provider Models to Codex",
+        "syncDescription": "After saving, use this list to generate the Cockpit-managed Codex model catalog. Custom catalogs are not overwritten.",
+        "fetchCredentialsRequired": "Enter the API Key and Base URL first.",
+        "fetchEmpty": "The provider returned no models. The current list was kept.",
+        "fetchFailed": "Failed to fetch provider models: {{error}}",
+        "syncRequiresModels": "Fetch or enter at least one model before syncing to Codex."
+      },
       "actions": {
         "addAndSwitch": "Add and Switch"
       },
@@ -2748,7 +2809,10 @@
         "help": "Enable only when the provider explicitly supports Responses over WebSocket; confirm the transport in Codex or proxy service logs.",
         "enabled": "Enabled",
         "disabled": "Disabled"
-      }
+      },
+      "renameApiKeyPrompt": "Rename API key",
+      "renameApiKeySuccess": "API key renamed",
+      "renameApiKeyFailed": "Failed to rename API key: {{error}}"
     },
     "quickSwitch": {
       "action": "Quick Switch Provider",
@@ -2829,7 +2893,12 @@
     },
     "list": {
       "showCodeReviewQuota": "Show Code Review quota",
-      "showAdditionalQuota": "Show model-specific quota"
+      "showAdditionalQuota": "Show model-specific quota",
+      "planBadgeStyle": "Plan badge style",
+      "planBadgeStyleDefault": "Default",
+      "planBadgeStyleOutline": "Outline",
+      "planBadgeStyleSoft": "Soft",
+      "planBadgeStyleMono": "Mono"
     },
     "time": {
       "today": "Today {{time}}",
@@ -3100,7 +3169,8 @@
         "clearSelectedSessions": "Deselect All",
         "expand": "Expand",
         "collapse": "Collapse",
-        "trash": "Trash"
+        "trash": "Trash",
+        "openRollout": "Open session file"
       },
       "confirm": {
         "title": "Move to Trash",
@@ -3302,7 +3372,15 @@
         "removeItem": "Remove",
         "emptyFilteredTitle": "No sessions match",
         "emptyFilteredDesc": "Adjust search, source, or selection state and try again."
-      }
+      },
+      "kindFilter": "Session type",
+      "kind": {
+        "conversation": "Chats",
+        "external": "External",
+        "subagent": "Subagent",
+        "all": "All types"
+      },
+      "pickInstancePrompt": "This session exists on multiple instances. Enter instance ID:"
     },
     "groups": {
       "addToGroup": "Add to Group"
@@ -3391,15 +3469,33 @@
         "pricingOutput": "Output",
         "pricingSource": "Source",
         "pricingActions": "Actions",
-        "pricingCachePlaceholder": "Same as input",
+        "pricingCachePlaceholder": "-",
         "pricingCustom": "Custom",
         "pricingPreset": "Preset",
         "pricingUnset": "Unset",
         "pricingReset": "Reset",
         "pricingSaved": "Pricing saved",
-        "pricingInvalid": "Prices must be numbers greater than or equal to 0",
+        "pricingInvalid": "Prices must be numbers ≥ 0, and the token threshold must be a positive integer",
         "pricingReprice": "Reprice History",
-        "pricingRepriced": "Historical estimates were recalculated with current prices"
+        "pricingRepriced": "Historical estimates were recalculated with current prices",
+        "pricingLongThreshold": "Long-context threshold (tokens)",
+        "pricingStandard": "Standard",
+        "pricingStandardLong": "Standard (long)",
+        "pricingPriority": "Priority",
+        "pricingOfficialMissing": "-",
+        "pricingStandardLongInput": "Standard (long) input",
+        "pricingStandardLongCache": "Standard (long) cached input",
+        "pricingStandardLongOutput": "Standard (long) output",
+        "pricingPriorityInput": "Priority input",
+        "pricingPriorityCache": "Priority cached input",
+        "pricingPriorityOutput": "Priority output",
+        "pricingRepriceDone": "Historical estimates updated; {{updated}} rows changed",
+        "pricingRepriceFailedWithMessage": "Failed to update historical estimates: {{message}}",
+        "pricingRepriceFailed": "Failed to update historical estimates",
+        "pricingRepriceSuperseded": "New pricing received; switching to the latest reprice job",
+        "pricingRepriceRunning": "Updating historical estimates {{processed}} / {{total}}; {{updated}} updated",
+        "pricingRepriceCompleted": "Historical estimates updated",
+        "pricingRepriceSaveBlocked": "Historical estimate update in progress; save after it finishes"
       },
       "keys": {
         "policyTitle": "Account Pool & Model Policy",
@@ -3439,6 +3535,7 @@
         "maxRetryInterval": "Retry Wait",
         "disableCooling": "Disable Cooldown",
         "saveOptions": "Save Options",
+        "immediateSseResponse": "Immediate SSE 200",
         "optionsSaved": "Routing options saved"
       },
       "timeouts": {
@@ -3533,8 +3630,20 @@
       "previewSubtitle": "Select accounts to save",
       "scanSubtitle": "Scanning and checking accounts one by one",
       "parseSubtitle": "Parsing account files",
+      "importSubtitle": "Saving selected accounts",
+      "finalizing": "Finishing import",
+      "finalizingSubtitle": "Updating the account list and related settings",
+      "cancelImport": "Cancel import",
+      "importCancelledSummary": "Import cancelled after processing {{processed}}/{{total}} accounts.",
+      "importChecked": "Import checked accounts",
+      "directImport": "Import directly without checks",
+      "importCheckedAndAddToApiService": "Import checked accounts and add to API Service",
+      "directImportAndAddToApiService": "Import directly and add to API Service",
+      "viewAllTasks": "View all {{count}} tasks",
+      "collapseTasks": "Collapse tasks",
       "cancelling": "Cancelling...",
       "scanDone": "Scan complete",
+      "scanCompleteReview": "Scan complete — review results",
       "parseDone": "Parse complete",
       "scanning": "Scanning",
       "parsing": "Parsing",
@@ -3543,7 +3652,7 @@
       "failed": "Failed",
       "quotaOk": "Account OK",
       "quotaFailed": "Exception",
-      "checkQuotaToggle": "Check accounts",
+      "checkQuotaToggle": "Check before import",
       "preparing": "Preparing import task...",
       "importSelected": "Import selected accounts",
       "noSelection": "Select accounts to import first",
@@ -3566,7 +3675,17 @@
       "taskRunning": "Processing {{current}} / {{total}}",
       "taskPreview": "{{total}} preview item(s) ready",
       "reopen": "View task",
-      "dismissTask": "Dismiss"
+      "dismissTask": "Dismiss",
+      "queueCount": "{{count}} jobs in queue",
+      "queued": "Queued",
+      "batchLabel": "Batch {{index}}",
+      "runInBackground": "Background",
+      "cancelQueued": "Cancel queue",
+      "importing": "Importing",
+      "checkAccounts": "Check accounts",
+      "importAndAddToApiService": "Import + API",
+      "importAndAddToApiServiceSuccess": "Imported and added to API service",
+      "addToApiServiceFailed": "Imported, but adding to API service failed: {{error}}"
     },
     "autoRepairMode": {
       "label": "Auto Repair Logic",
@@ -3601,6 +3720,71 @@
       "chipSearch": "Search",
       "chipPlan": "Plan",
       "chipFolder": "Folder"
+    },
+    "accessTokenImport": {
+      "nameRequired": "Enter an account name",
+      "tokenRequired": "Enter a Codex access token",
+      "desc": "Save a named access-token account. Without refresh/id, auth uses the personal_access_token shape.",
+      "nameLabel": "Account name",
+      "namePlaceholder": "Display name in the list",
+      "tokenLabel": "Codex access token",
+      "hideToken": "Hide",
+      "showToken": "Show",
+      "submit": "Import access token",
+      "success": "Access-token account imported: {{name}}"
+    },
+    "ssh": {
+      "syncSwitch": "SSH on switch",
+      "syncSwitchDesc": "Turn on to configure an SSH host; Codex switches sync the current account remotely.",
+      "configure": "Setup",
+      "modalTitle": "SSH sync setup",
+      "modalHint": "Add and select an SSH host with auto-sync enabled so Codex account switches update the remote auth.",
+      "title": "SSH servers",
+      "subtitle": "The selected host receives the current Codex auth bundle after account switches.",
+      "addServer": "Add server",
+      "editServer": "Edit server",
+      "name": "Name",
+      "host": "Host",
+      "port": "Port",
+      "username": "Username",
+      "codexHome": "Remote Codex dir",
+      "authMethod": "Auth method",
+      "agentAuth": "SSH Agent",
+      "privateKeyAuth": "Private key",
+      "privateKeyPath": "Key path",
+      "syncOnSwitch": "Sync after switch",
+      "emptyTitle": "No SSH servers",
+      "emptyBody": "Fill in a host on the left and save it as a switch sync target.",
+      "selected": "Selected",
+      "select": "Select",
+      "testConnection": "Test",
+      "syncNow": "Sync now",
+      "connectionOk": "Connected",
+      "syncVerified": "SSH sync verified",
+      "syncFailed": "SSH sync failed",
+      "syncedAs": "Synced {{email}} · {{time}}",
+      "neverSynced": "Not synced yet",
+      "latestVerified": "Last SSH sync verified",
+      "tab": "SSH sync",
+      "desc": "Save remote hosts, test connection, and sync auth. Auto-syncs after switch when a host is selected.",
+      "new": "New",
+      "empty": "No SSH hosts",
+      "test": "Test",
+      "sync": "Sync",
+      "saved": "SSH server saved",
+      "deleted": "Deleted",
+      "user": "User",
+      "remoteDir": "Remote Codex dir",
+      "syncSwitchActive": "On · {{name}} ({{user}}@{{host}})",
+      "footerHint": "The switch turns on after save; turn it off anytime to stop auto sync.",
+      "formLead": "Remote host details",
+      "namePlaceholder": "e.g. Home NAS",
+      "syncOnSwitchHint": "After save & select, Codex switches push auth to this host",
+      "addAndSave": "Add & save",
+      "serverList": "Servers",
+      "serverListLead": "Pick sync target",
+      "serverCount": "{{count}}",
+      "autoSyncBadge": "Auto"
     }
   },
   "codebuddy": {
@@ -3701,7 +3885,13 @@
     "oauthSuccessCloseNowLabel": "Close WebView",
     "oauthSuccessCloseLaterLabel": "Later",
     "oauthSuccessCloseNowStatus": "✅ Account added. Closing window...",
-    "oauthSuccessCloseLaterStatus": "✅ Account added. This WebView stays open."
+    "oauthSuccessCloseLaterStatus": "✅ Account added. This WebView stays open.",
+    "sessions": {
+      "title": "Local session files",
+      "desc": "Scan local CodeBuddy data paths for session JSON/JSONL files and open their location.",
+      "empty": "No session files found",
+      "open": "Open location"
+    }
   },
   "githubCopilot": {
     "title": "GitHub Copilot Account",
@@ -3922,8 +4112,8 @@
     "inputPercent": "Enter percentage",
     "inputCredits": "Enter credits",
     "windsurf": {
-      "title": "Windsurf Settings",
-      "appPath": "Windsurf Path"
+      "title": "Devin Settings",
+      "appPath": "Devin Path"
     },
     "windsurfRefreshInterval": "Quota Auto Refresh",
     "kiro": {
@@ -3940,19 +4130,14 @@
       "title": "CodeBuddy Settings",
       "appPath": "CodeBuddy Path"
     },
-    "gemini": {
-      "title": "Gemini Cli Settings",
-      "appPath": "Gemini Cli Path",
-      "syncWsl": "Sync WSL Configuration",
-      "syncWslDesc": "Automatically overwrite the .gemini configuration in WSL when switching accounts"
-    },
-    "geminiRefreshInterval": "Quota Auto Refresh",
     "grok": {
       "title": "Grok CLI Settings",
       "appPath": "Grok CLI Path",
       "cliPath": "CLI Path",
       "cliDetected": "Detected {{version}} · {{path}}",
-      "cliMissing": "Grok CLI not found. Enter a custom path."
+      "cliMissing": "Grok CLI not found. Enter a custom path.",
+      "syncOfficialAuthOnSwitch": "Sync official login on switch",
+      "syncOfficialAuthOnSwitchDesc": "When enabled, switching the default instance to an OAuth account writes the official ~/.grok/auth.json. When disabled, a separate GROK_HOME is used. API keys and additional instances never overwrite the official login."
     },
     "grokRefreshInterval": "Quota Auto Refresh",
     "error": {
@@ -4027,24 +4212,24 @@
     }
   },
   "windsurf": {
-    "title": "Windsurf Account",
+    "title": "Devin Account",
     "instances": {
       "unsupported": {
-        "desc": "Windsurf multi-instance is available only on macOS."
+        "desc": "Devin multi-instance is available only on macOS."
       }
     },
     "empty": {
-      "description": "Click \"Add Account\" to start managing your Windsurf accounts"
+      "description": "Click \"Add Account\" to start managing your Devin accounts"
     },
     "addModal": {
-      "title": "Add Windsurf Account",
+      "title": "Add Devin Account",
       "password": "Email Login"
     },
     "oauth": {
-      "desc": "Click the button below and complete Windsurf authorization in your browser."
+      "desc": "Click the button below and complete Devin authorization in your browser."
     },
     "password": {
-      "desc": "Sign in with your Windsurf email and password to fetch the API key and account data automatically.",
+      "desc": "Sign in with your Devin email and password to fetch the API key and account data automatically.",
       "emailPlaceholder": "Email address",
       "passwordPlaceholder": "Password",
       "empty": "Enter your email and password",
@@ -4091,11 +4276,11 @@
       "batchFailureMore": "{{count}} more failed"
     },
     "token": {
-      "desc": "Paste your Windsurf access token or exported JSON data."
+      "desc": "Paste your Devin access token or exported JSON data."
     },
     "import": {
-      "localDesc": "Import Windsurf account data from a JSON file.",
-      "localClient": "Import from local Windsurf"
+      "localDesc": "Import Devin account data from a JSON file.",
+      "localClient": "Import from local Devin"
     },
     "credits": {
       "title": "Plan",
@@ -4119,15 +4304,15 @@
       "autoRecharge": "Auto recharge",
       "remaining": "{{value}} remaining"
     },
-    "injectToVSCode": "Switch to Windsurf",
-    "injectSuccess": "Switch completed. Windsurf is launching.",
-    "injectRequireClose": "Please close Windsurf before switching.",
+    "injectToVSCode": "Switch to Devin",
+    "injectSuccess": "Switch completed. Devin is launching.",
+    "injectRequireClose": "Please close Devin before switching.",
     "flowNotice": {
-      "title": "Windsurf account guide (click to expand/collapse)",
-      "desc": "Switching accounts requires reading Windsurf local auth storage and, with client-compatible rules, using system credential/encryption capabilities for decrypt/write-back. Data is processed locally only.",
-      "inject": "One-click switching: This tool reads local Windsurf encryption material (DPAPI/Keychain/Secret Service), processes the auth session in state.vscdb, writes back the Windsurf token, and keeps everything local on your machine.",
-      "reason": "Permission scope: read Windsurf auth database (state.vscdb) and use system encryption capabilities (Windows DPAPI / macOS Keychain / Linux Secret Service) to decrypt and write back auth-session data.",
-      "storage": "Data scope: only Windsurf auth-session related entries are read/updated; all processes run locally."
+      "title": "Devin account guide (click to expand/collapse)",
+      "desc": "Switching accounts requires reading Devin local auth storage and, with client-compatible rules, using system credential/encryption capabilities for decrypt/write-back. Data is processed locally only.",
+      "inject": "One-click switching: This tool reads local Devin encryption material (DPAPI/Keychain/Secret Service), processes the auth session in state.vscdb, writes back the Devin token, and keeps everything local on your machine.",
+      "reason": "Permission scope: read Devin auth database (state.vscdb) and use system encryption capabilities (Windows DPAPI / macOS Keychain / Linux Secret Service) to decrypt and write back auth-session data.",
+      "storage": "Data scope: only Devin auth-session related entries are read/updated; all processes run locally."
     }
   },
   "kiro": {
@@ -4229,99 +4414,6 @@
       "storage": "Network scope: when refreshing quota, the JWT is sent to cursor.com official APIs to fetch usage, user info, and subscription data. No data is sent to any third-party server."
     }
   },
-  "gemini": {
-    "injectToGemini": "Switch to Gemini Cli",
-    "identity": {
-      "authMethod": "Auth Method",
-      "tier": "Tier",
-      "signedInWithGoogle": "Signed in with Google",
-      "signedInWithGoogleEmail": "Signed in with Google ({{email}})"
-    },
-    "updated": {
-      "label": "Updated {{relative}} ago"
-    },
-    "quota": {
-      "gemini5h": "5h",
-      "geminiWeekly": "Weekly",
-      "claude5h": "5h",
-      "claudeWeekly": "Weekly",
-      "pro": "Pro",
-      "flash": "Flash",
-      "left": "{{value}}% left",
-      "resetsIn": "Resets in {{relative}}",
-      "resetsSoon": "Resets soon",
-      "resetsUnknown": "Reset time unknown",
-      "onDemand": "On-Demand"
-    },
-    "quotaTable": {
-      "model": "Model",
-      "leftOfTotal": "Left / Total",
-      "usage": "Used",
-      "usageResets": "Usage resets",
-      "usedPercent": "{{value}}%",
-      "remainingOfTotal": "{{remaining}} / {{total}}",
-      "resetAtWithRelative": "{{absolute}} ({{relative}})"
-    },
-    "tierText": {
-      "pro": "Gemini Code Assist in Google One AI Pro",
-      "ultra": "Gemini Code Assist in Google AI Ultra",
-      "free": "Gemini Code Assist"
-    },
-    "title": "Gemini Cli Account",
-    "instances": {
-      "unsupported": "Gemini Cli multi-instance management is not supported yet.",
-      "unsupportedDescPlatform": "Gemini Cli multi-instance is supported on macOS, Windows, and Linux only.",
-      "launchDialogTitle": "Launch Instance",
-      "launchHint": "Copy the command and run manually, or execute it directly in terminal.",
-      "runInTerminal": "Run in Terminal",
-      "workingDir": "Working Directory",
-      "workingDirPlaceholder": "Default to current path",
-      "workingDirDesc": "Will switch to this directory first upon startup",
-      "pickWorkingDir": "Select Working Directory"
-    },
-    "switch": {
-      "success": "Account switched successfully"
-    },
-    "empty": {
-      "description": "Click \"Add Account\" to start managing your Gemini Cli accounts"
-    },
-    "addModal": {
-      "title": "Add Gemini Cli Account"
-    },
-    "oauth": {
-      "desc": "Click the button below and complete Gemini Cli OAuth authorization in your browser."
-    },
-    "token": {
-      "desc": "Paste your Gemini Cli Access Token (JWT) or exported JSON data.",
-      "formatHint": "Required fields & examples (click to expand)",
-      "formatRequired": "Single token: paste JWT directly; batch import: use JSON array format",
-      "singleExample": "Single example (JWT)",
-      "batchExample": "Batch example (JSON)"
-    },
-    "import": {
-      "localDesc": "Import Gemini Cli account data from local Gemini Cli config directory (~/.gemini) or a JSON file.",
-      "localClient": "Import from local Gemini Cli"
-    },
-    "projectConfig": {
-      "button": "Set GCP Project",
-      "title": "Set GCP Project",
-      "selectLabel": "Select project",
-      "loading": "Loading project list...",
-      "auto": "Auto-select (do not specify manually)",
-      "empty": "No available project found. Ensure this account has access to GCP projects.",
-      "hint": "After saving, this project is preferred for quota requests and injected as GOOGLE_CLOUD_PROJECT in launch commands.",
-      "current": "Project: {{projectId}}",
-      "saved": "Project saved: {{projectId}}",
-      "cleared": "Switched back to automatic project resolution",
-      "savedWithRefreshError": "Project saved, but quota refresh failed: {{error}}"
-    },
-    "flowNotice": {
-      "title": "Gemini Cli account guide (click to expand/collapse)",
-      "desc": "Manage Gemini Cli accounts by importing from local Gemini Cli config, pasting a JWT token, or signing in via OAuth.",
-      "reason": "Permission scope: read and write oauth_creds.json, google_accounts.json, and settings.json under default ~/.gemini or instance path (GEMINI_CLI_HOME/.gemini) for account import and local credential injection (account switching).",
-      "storage": "Network scope: OAuth and refresh call official Google/Gemini APIs (such as oauth2.googleapis.com and googleapis.com). Only required auth/quota fields are sent; local account files are not uploaded to third-party servers."
-    }
-  },
   "breakout": {
     "gameOver": "Game Over",
     "gameOverRank": "Local Rank #{{rank}}",
@@ -4398,7 +4490,7 @@
       "goSettings": "Go to Settings",
       "goVerification": "Go to Wakeup Verification",
       "goWakeup": "Go to Wakeup Tasks",
-      "goWindsurf": "Go to Windsurf",
+      "goWindsurf": "Go to Devin",
       "openLayout": "Open Platform Layout"
     },
     "antigravity": {
@@ -4519,7 +4611,7 @@
         "1": "Some platforms or capabilities are system-limited. Follow on-page prompts."
       },
       "keywords": {
-        "0": "Codex / GitHub Copilot / Windsurf / Kiro platforms",
+        "0": "Codex / GitHub Copilot / Devin / Kiro platforms",
         "1": "github copilot",
         "2": "windsurf",
         "3": "kiro",
@@ -4528,7 +4620,7 @@
       },
       "outcomes": {
         "0": "Codex: account switching + quota refresh.",
-        "1": "GitHub Copilot/Windsurf/Kiro: support injection into VS Code chain.",
+        "1": "GitHub Copilot/Devin/Kiro: support injection into VS Code chain.",
         "2": "Each platform supports independent filtering, grouping, import, and export."
       },
       "steps": {
@@ -4537,7 +4629,7 @@
         "2": "Execute \"Switch/Inject\" and verify in client that it takes effect."
       },
       "summary": "The four platform pages share the same structure: account overview + multi-instance, with OAuth, Token/JSON import and switching.",
-      "title": "Codex / GitHub Copilot / Windsurf / Kiro Platforms"
+      "title": "Codex / GitHub Copilot / Devin / Kiro Platforms"
     },
     "quickStart": {
       "cautions": {
@@ -5096,8 +5188,8 @@
     "search": "Search Grok CLI accounts...",
     "flowNotice": {
       "title": "Grok CLI account guide",
-      "desc": "Cockpit manages accounts in the official Grok CLI credential format for real default-client switching and isolated instance binding.",
-      "permission": "Local scope: reads the default ~/.grok/auth.json and manages separate Grok account and GROK_HOME directories in Cockpit's local data.",
+      "desc": "Separate GROK_HOME directories are used by default. With official-login sync enabled, OAuth switches for the default instance write the official ~/.grok/auth.json; additional instances stay isolated.",
+      "permission": "Local scope: the default ~/.grok/auth.json can be read for import and is written only when the switch is enabled for a default-instance OAuth switch. API keys never overwrite the official login.",
       "network": "Network scope: OAuth authorization, credential refresh, and account usage queries. Credentials are not uploaded to Cockpit services."
     },
     "empty": "No Grok CLI accounts yet",
@@ -5138,7 +5230,8 @@
       "installHint": "Run the official command below in a terminal, then refresh after installation.",
       "selectWorkingDir": "Select Grok CLI working directory",
       "workingDirAccountHint": "Working directory is bound to this account and will be restored on next launch.",
-      "launchCommandPlaceholder": "Choose or confirm a working directory to generate the launch command"
+      "launchCommandPlaceholder": "Choose or confirm a working directory to generate the launch command",
+      "reauthLaunchHint": "Account auth expired. Re-authorize; the launch command below is still available."
     },
     "switch": {
       "success": "Account switched"
@@ -5421,5 +5514,23 @@
       "supports1mLabel": "Declare 1M",
       "supports1mShort": "1M"
     }
+  },
+  "openrouter": {
+    "title": "OpenRouter",
+    "desc": "Manage OpenRouter API keys, usage, and browse available models.",
+    "tabKeys": "Keys & usage",
+    "tabModels": "Models",
+    "modelsLoaded": "Loaded {{count}} models",
+    "noUsageYet": "Usage not refreshed yet",
+    "loadModels": "Load models",
+    "searchModels": "Search models",
+    "freeOnly": "Free only",
+    "noModels": "No models yet — add a key and load",
+    "free": "Free",
+    "noCtx": "No context length"
+  },
+  "opencode": {
+    "title": "OpenCode",
+    "desc": "Manage OpenCode Go/Zen API keys and filter by tier. Keys stay in local app data."
   }
 }
