@@ -273,6 +273,75 @@ func TestCockpitSelectorPickSkipsBoundOAuthAtEitherQuotaReserve(t *testing.T) {
 	}
 }
 
+func TestCockpitSelectorPrefersAccountWithFewerImageJobs(t *testing.T) {
+	busyAccount := &accountSpec{ID: "busy", AuthID: "busy.json"}
+	idleAccount := &accountSpec{ID: "idle", AuthID: "idle.json"}
+	tracker := newRequestUsageTracker()
+	if !tracker.tryReserveImageJob("existing-image", "busy.json") {
+		t.Fatal("expected initial busy image reservation")
+	}
+	if tracker.tryReserveImageJob("competing-image", "busy.json") {
+		t.Fatal("expected busy image auth to reject a second concurrent reservation")
+	}
+	selector := &cockpitSelector{
+		manifest: &manifest{accountByAuthID: map[string]*accountSpec{
+			"busy.json": busyAccount,
+			"idle.json": idleAccount,
+		}},
+		tracker: tracker,
+	}
+	ctx := internallogging.WithRequestID(context.Background(), "new-image")
+	ctx = context.WithValue(ctx, requestKindContextKey, "image_generation")
+
+	selected, err := selector.Pick(
+		ctx,
+		"codex",
+		"gpt-5.4-mini",
+		cliproxyexecutor.Options{},
+		[]*coreauth.Auth{{ID: "busy.json"}, {ID: "idle.json"}},
+	)
+	if err != nil {
+		t.Fatalf("Pick: %v", err)
+	}
+	if selected == nil || selected.ID != "idle.json" {
+		t.Fatalf("expected idle auth, got %#v", selected)
+	}
+	if got := tracker.imageInFlightCount("idle.json"); got != 1 {
+		t.Fatalf("idle auth in-flight count = %d, want 1", got)
+	}
+
+	changed := tracker.imageJobChangeSignal()
+	tracker.releaseImageJobs("new-image")
+	select {
+	case <-changed:
+	default:
+		t.Fatal("expected image slot release notification")
+	}
+	if got := tracker.imageInFlightCount("idle.json"); got != 0 {
+		t.Fatalf("idle auth in-flight count after release = %d, want 0", got)
+	}
+}
+
+func TestImageRequestSelectorBypassesSessionAffinityFallback(t *testing.T) {
+	imageAuth := &coreauth.Auth{ID: "image.json"}
+	affinityAuth := &coreauth.Auth{ID: "affinity.json"}
+	imageFallback := &countingSelector{auth: imageAuth}
+	affinityFallback := &countingSelector{auth: affinityAuth}
+	selector := &imageRequestSelector{
+		imageFallback: imageFallback,
+		fallback:      affinityFallback,
+	}
+	ctx := context.WithValue(context.Background(), requestKindContextKey, "image_generation")
+
+	selected, err := selector.Pick(ctx, "codex", "gpt-5.4-mini", cliproxyexecutor.Options{}, []*coreauth.Auth{imageAuth, affinityAuth})
+	if err != nil {
+		t.Fatalf("Pick: %v", err)
+	}
+	if selected != imageAuth || imageFallback.count != 1 || affinityFallback.count != 0 {
+		t.Fatalf("image request should use image fallback, selected=%#v image=%d affinity=%d", selected, imageFallback.count, affinityFallback.count)
+	}
+}
+
 func TestCockpitSelectorPickIgnoresExplicitlyMissingQuotaWindow(t *testing.T) {
 	hourlyThreshold := 10
 	weeklyThreshold := 20

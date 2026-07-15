@@ -299,13 +299,94 @@ type requestUsageTracker struct {
 	mu               sync.Mutex
 	records          map[string][]usagePayload
 	selectedAccounts map[string]selectedAccountRecord
+	imageJobs        map[string]map[string]struct{}
+	imageInFlight    map[string]int
+	imageJobsChanged chan struct{}
 }
 
 func newRequestUsageTracker() *requestUsageTracker {
 	return &requestUsageTracker{
 		records:          make(map[string][]usagePayload),
 		selectedAccounts: make(map[string]selectedAccountRecord),
+		imageJobs:        make(map[string]map[string]struct{}),
+		imageInFlight:    make(map[string]int),
+		imageJobsChanged: make(chan struct{}),
 	}
+}
+
+func (t *requestUsageTracker) imageInFlightCount(authID string) int {
+	if t == nil {
+		return 0
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.imageInFlight[strings.TrimSpace(authID)]
+}
+
+func (t *requestUsageTracker) tryReserveImageJob(requestID, authID string) bool {
+	if t == nil {
+		return true
+	}
+	requestID = strings.TrimSpace(requestID)
+	authID = strings.TrimSpace(authID)
+	if requestID == "" || authID == "" {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	jobs := t.imageJobs[requestID]
+	if jobs == nil {
+		jobs = make(map[string]struct{})
+		t.imageJobs[requestID] = jobs
+	}
+	if _, alreadyReserved := jobs[authID]; alreadyReserved {
+		return true
+	}
+	if t.imageInFlight[authID] > 0 {
+		return false
+	}
+	jobs[authID] = struct{}{}
+	t.imageInFlight[authID]++
+	return true
+}
+
+func (t *requestUsageTracker) imageJobChangeSignal() <-chan struct{} {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	changed := t.imageJobsChanged
+	t.mu.Unlock()
+	return changed
+}
+
+func (t *requestUsageTracker) notifyImageJobChangeLocked() {
+	if t == nil || t.imageJobsChanged == nil {
+		return
+	}
+	close(t.imageJobsChanged)
+	t.imageJobsChanged = make(chan struct{})
+}
+
+func (t *requestUsageTracker) releaseImageJobs(requestID string) {
+	if t == nil {
+		return
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for authID := range t.imageJobs[requestID] {
+		if t.imageInFlight[authID] <= 1 {
+			delete(t.imageInFlight, authID)
+		} else {
+			t.imageInFlight[authID]--
+		}
+	}
+	delete(t.imageJobs, requestID)
+	t.notifyImageJobChangeLocked()
 }
 
 func (t *requestUsageTracker) record(payload usagePayload) {
@@ -829,6 +910,7 @@ func (p *requestPolicy) emitRequestCompleted(c *gin.Context, requestID string, s
 	if p.tracker == nil || !shouldEmitRequestDiagnostic(c.Request) {
 		return
 	}
+	p.tracker.releaseImageJobs(requestID)
 	if payload, ok := p.tracker.finalize(requestID, usageFinalizeInput{
 		spec:          spec,
 		requestKind:   requestKind,
@@ -1497,6 +1579,7 @@ type cockpitSelector struct {
 	manifest *manifest
 	emitter  *eventEmitter
 	quota    *quotaReserveStateStore
+	tracker  *requestUsageTracker
 	mu       sync.Mutex
 	cursor   int
 }
@@ -1505,6 +1588,28 @@ type recordingSelector struct {
 	inner    coreauth.Selector
 	manifest *manifest
 	tracker  *requestUsageTracker
+}
+
+type imageRequestSelector struct {
+	imageFallback coreauth.Selector
+	fallback      coreauth.Selector
+}
+
+func (s *imageRequestSelector) Pick(ctx context.Context, provider, model string, opts cliproxyexecutor.Options, auths []*coreauth.Auth) (*coreauth.Auth, error) {
+	requestKind, _ := ctx.Value(requestKindContextKey).(string)
+	if isImageRequestKind(requestKind) && s.imageFallback != nil {
+		return s.imageFallback.Pick(ctx, provider, model, opts, auths)
+	}
+	if s.fallback == nil {
+		return nil, fmt.Errorf("image request selector fallback is not initialized")
+	}
+	return s.fallback.Pick(ctx, provider, model, opts, auths)
+}
+
+func (s *imageRequestSelector) Stop() {
+	if stoppable, ok := s.fallback.(coreauth.StoppableSelector); ok {
+		stoppable.Stop()
+	}
 }
 
 func (s *recordingSelector) Pick(ctx context.Context, provider, model string, opts cliproxyexecutor.Options, auths []*coreauth.Auth) (*coreauth.Auth, error) {
@@ -1771,13 +1876,59 @@ func (s *cockpitSelector) Pick(ctx context.Context, provider, model string, opts
 	s.cursor++
 	s.mu.Unlock()
 
+	requestKind, _ := ctx.Value(requestKindContextKey).(string)
 	ordered := s.orderAuths(available, start)
+	if isImageRequestKind(requestKind) {
+		ordered = s.orderImageAuths(available, start)
+	}
 	if len(ordered) == 0 {
 		return nil, noAuthAvailableError(quotaReserveReasons)
+	}
+	if isImageRequestKind(requestKind) && s.tracker != nil {
+		requestID := internallogging.GetRequestID(ctx)
+		for {
+			changed := s.tracker.imageJobChangeSignal()
+			for _, candidate := range s.orderImageAuths(available, start) {
+				if s.tracker.tryReserveImageJob(requestID, candidate.ID) {
+					s.emitAuthSelected(ctx, candidate, provider, model, len(auths), len(available))
+					return candidate, nil
+				}
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-changed:
+			}
+		}
 	}
 	selected := ordered[0]
 	s.emitAuthSelected(ctx, selected, provider, model, len(auths), len(available))
 	return selected, nil
+}
+
+func isImageRequestKind(requestKind string) bool {
+	switch strings.TrimSpace(requestKind) {
+	case "image_generation", "image_edit":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *cockpitSelector) orderImageAuths(auths []*coreauth.Auth, start int) []*coreauth.Auth {
+	if len(auths) <= 1 || s == nil || s.tracker == nil {
+		return s.orderAuths(auths, start)
+	}
+	out := append([]*coreauth.Auth(nil), auths...)
+	sort.SliceStable(out, func(i, j int) bool {
+		leftJobs := s.tracker.imageInFlightCount(out[i].ID)
+		rightJobs := s.tracker.imageInFlightCount(out[j].ID)
+		if leftJobs != rightJobs {
+			return leftJobs < rightJobs
+		}
+		return s.rotatedIndex(s.accountForAuth(out[i]), start) < s.rotatedIndex(s.accountForAuth(out[j]), start)
+	})
+	return out
 }
 
 func quotaReserveBlockReason(account *accountSpec, now time.Time) string {
@@ -2463,14 +2614,16 @@ func buildCoreAuthSelector(cfg *config.Config, selector coreauth.Selector, m *ma
 		selector = &coreauth.RoundRobinSelector{}
 	}
 	if cfg != nil && cfg.Routing.SessionAffinity {
+		imageFallback := selector
 		ttl := time.Hour
 		if parsed, err := time.ParseDuration(strings.TrimSpace(cfg.Routing.SessionAffinityTTL)); err == nil && parsed > 0 {
 			ttl = parsed
 		}
-		selector = coreauth.NewSessionAffinitySelectorWithConfig(coreauth.SessionAffinityConfig{
+		affinitySelector := coreauth.NewSessionAffinitySelectorWithConfig(coreauth.SessionAffinityConfig{
 			Fallback: selector,
 			TTL:      ttl,
 		})
+		selector = &imageRequestSelector{imageFallback: imageFallback, fallback: affinitySelector}
 	}
 	if m != nil {
 		selector = &backupAccountSelector{manifest: m, fallback: selector}
@@ -3447,19 +3600,41 @@ func (s *relayServer) handleImagesRelayRequest(c *gin.Context, imageReq imageRel
 	req, opts := buildExecutorRequest(c, imageReq.body, model, sdktranslator.FormatOpenAIResponse, "", true)
 	startedAt := time.Now()
 	timeouts := s.streamTimeoutsForRequest(c.Request, imageReq.body, defaultImagesToolModel)
+	immediateSSE := imageReq.stream && s.manifest != nil && s.manifest.ImmediateSSEResponse
+	var immediateFlusher http.Flusher
+	if immediateSSE {
+		flusher, ok := c.Writer.(http.Flusher)
+		if !ok {
+			writeAPIError(c, http.StatusInternalServerError, "streaming not supported", "streaming_not_supported")
+			return
+		}
+		setEventStreamHeaders(c.Writer.Header())
+		c.Status(http.StatusOK)
+		_, _ = c.Writer.Write([]byte(": accepted\n\n"))
+		flusher.Flush()
+		immediateFlusher = flusher
+	}
 	streamCtx, cancelStream := context.WithCancel(relayContext(c))
 	defer cancelStream()
 	result, err := s.executeStreamWithOpenTimeout(c, streamCtx, []string{"codex"}, req, opts, model, startedAt, timeouts.open)
 	if err != nil {
+		if immediateSSE {
+			writeImagesStreamError(c, immediateFlusher, err)
+			return
+		}
 		s.writeExecutorError(c, err)
 		return
 	}
 	if result == nil || result.Chunks == nil {
+		if immediateSSE {
+			writeImagesStreamError(c, immediateFlusher, relayStatusError{status: http.StatusBadGateway, message: "upstream stream is unavailable"})
+			return
+		}
 		writeAPIError(c, http.StatusBadGateway, "upstream stream is unavailable", "bad_gateway")
 		return
 	}
 	if imageReq.stream {
-		s.forwardImagesStream(c, streamCtx, result, imageReq, timeouts.idle)
+		s.forwardImagesStream(c, streamCtx, result, imageReq, timeouts.idle, immediateSSE)
 		return
 	}
 	out, err := collectImagesResponse(streamCtx, result.Chunks, imageReq.responseFormat, timeouts.idle)
@@ -3471,15 +3646,17 @@ func (s *relayServer) handleImagesRelayRequest(c *gin.Context, imageReq imageRel
 	c.Data(http.StatusOK, "application/json", out)
 }
 
-func (s *relayServer) forwardImagesStream(c *gin.Context, ctx context.Context, result *cliproxyexecutor.StreamResult, imageReq imageRelayRequest, idleTimeout time.Duration) {
+func (s *relayServer) forwardImagesStream(c *gin.Context, ctx context.Context, result *cliproxyexecutor.StreamResult, imageReq imageRelayRequest, idleTimeout time.Duration, headersCommitted bool) {
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		writeAPIError(c, http.StatusInternalServerError, "streaming not supported", "streaming_not_supported")
 		return
 	}
-	setEventStreamHeaders(c.Writer.Header())
-	writeUpstreamHeaders(c.Writer.Header(), result.Headers)
-	c.Status(http.StatusOK)
+	if !headersCommitted {
+		setEventStreamHeaders(c.Writer.Header())
+		writeUpstreamHeaders(c.Writer.Header(), result.Headers)
+		c.Status(http.StatusOK)
+	}
 
 	writeEvent := func(eventName string, payload []byte) {
 		if strings.TrimSpace(eventName) != "" {
@@ -3489,15 +3666,7 @@ func (s *relayServer) forwardImagesStream(c *gin.Context, ctx context.Context, r
 		flusher.Flush()
 	}
 	writeErr := func(err error) {
-		status := statusCodeFromError(err)
-		payload, _ := json.Marshal(map[string]any{
-			"error": map[string]any{
-				"message": errorMessage(err),
-				"type":    "upstream_error",
-				"code":    status,
-			},
-		})
-		writeEvent("error", payload)
+		writeImagesStreamError(c, flusher, err)
 	}
 
 	acc := &imageSSEAccumulator{}
@@ -3543,6 +3712,21 @@ func (s *relayServer) forwardImagesStream(c *gin.Context, ctx context.Context, r
 			}
 		}
 	}
+}
+
+func writeImagesStreamError(c *gin.Context, flusher http.Flusher, err error) {
+	if c == nil || flusher == nil {
+		return
+	}
+	payload, _ := json.Marshal(map[string]any{
+		"error": map[string]any{
+			"message": errorMessage(err),
+			"type":    "upstream_error",
+			"code":    statusCodeFromError(err),
+		},
+	})
+	_, _ = fmt.Fprintf(c.Writer, "event: error\ndata: %s\n\n", string(payload))
+	flusher.Flush()
 }
 
 func forwardImageResponseFrame(frame []byte, imageReq imageRelayRequest, writeEvent func(string, []byte), writeErr func(error)) bool {
@@ -6452,7 +6636,7 @@ func main() {
 	usageTracker := newRequestUsageTracker()
 	policy := &requestPolicy{manifest: m, emitter: emitter, tracker: usageTracker}
 	hook := &authHook{manifest: m, emitter: emitter}
-	selector := &cockpitSelector{manifest: m, emitter: emitter, quota: quotaState}
+	selector := &cockpitSelector{manifest: m, emitter: emitter, quota: quotaState, tracker: usageTracker}
 	coreManager := buildCoreAuthManager(cfg, selector, hook, m, quotaState, usageTracker)
 
 	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
