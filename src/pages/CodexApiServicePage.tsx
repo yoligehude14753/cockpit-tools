@@ -88,6 +88,7 @@ import type {
 import { buildCodexAccountPresentation } from "../presentation/platformAccountPresentation";
 import {
   formatCodexQuotaPoolPercent,
+  formatCodexQuotaPoolWindowLabel,
   summarizeCodexQuotaPool,
 } from "../utils/codexQuotaPool";
 import { filterCodexLocalAccessAccountIds } from "../utils/codexLocalAccessAccounts";
@@ -3569,10 +3570,18 @@ export function CodexApiServicePage() {
                 ) : (
                   quotaPoolSummary.visiblePlans.map((item) => (
                     <span key={item.key}>
-                      {item.key} ({item.count}) · 5h{" "}
-                      {formatCodexQuotaPoolPercent(item.hourly)} ·{" "}
-                      {t("codex.localAccess.quotaPool.weeklyShort", "周")}{" "}
-                      {formatCodexQuotaPoolPercent(item.weekly)}
+                      {item.key} ({item.count})
+                      {item.windows.length > 0
+                        ? ` · ${item.windows
+                            .map(
+                              (window) =>
+                                `${formatCodexQuotaPoolWindowLabel(
+                                  window.label,
+                                  t("codex.localAccess.quotaPool.weeklyShort", "周"),
+                                )} ${formatCodexQuotaPoolPercent(window.percentage)}`,
+                            )
+                            .join(" · ")}`
+                        : ""}
                     </span>
                   ))
                 )}
