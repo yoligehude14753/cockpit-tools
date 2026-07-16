@@ -107,7 +107,10 @@ import {
   type CodexResetCredit,
   type CodexResetCreditsSnapshot,
 } from "../types/codex";
-import { filterCodexLocalAccessAccountIds } from "../utils/codexLocalAccessAccounts";
+import {
+  canAddCodexAccountToLocalAccess,
+  filterCodexLocalAccessAccountIds,
+} from "../utils/codexLocalAccessAccounts";
 import {
   extractCodexQuotaErrorCode,
   extractCodexQuotaErrorStatusCode,
@@ -1009,6 +1012,9 @@ export function CodexAccountsPage() {
     "panel" | "members"
   >("panel");
   const [localAccessSaving, setLocalAccessSaving] = useState(false);
+  const [addingLocalAccessAccountId, setAddingLocalAccessAccountId] = useState<
+    string | null
+  >(null);
   const [localAccessStarting, setLocalAccessStarting] = useState(false);
   const [syncImportedToApiService, setSyncImportedToApiService] = useState(
     readCodexImportSyncApiService,
@@ -8208,6 +8214,91 @@ export function CodexAccountsPage() {
     [localAccessCollection?.accountIds],
   );
 
+  const canDirectlyAddLocalAccessAccount = useCallback(
+    (account: CodexAccount) =>
+      localAccessState !== null &&
+      canAddCodexAccountToLocalAccess(
+        account,
+        localAccessAccountIdSet,
+        localAccessCollection?.restrictFreeAccounts ?? true,
+      ),
+    [
+      localAccessAccountIdSet,
+      localAccessCollection?.restrictFreeAccounts,
+      localAccessState,
+    ],
+  );
+
+  const handleAddLocalAccessAccount = useCallback(
+    async (accountId: string) => {
+      if (addingLocalAccessAccountId) return;
+      setAddingLocalAccessAccountId(accountId);
+      try {
+        const result =
+          await codexLocalAccessService.appendCodexLocalAccessAccounts([
+            accountId,
+          ]);
+        setLocalAccessState(result.state);
+        const accountAdded = Boolean(
+          result.state.collection?.accountIds.includes(accountId),
+        );
+        if (!accountAdded) {
+          throw new Error(
+            t(
+              "codex.localAccess.noEligibleAccountsSelected",
+              "所选账号不在当前环境中，或不符合 API 服务条件。请先在当前环境导入可用 Codex 账号后再添加。",
+            ),
+          );
+        }
+        await ensureLocalAccessEntryVisible();
+        window.dispatchEvent(new Event("codex-local-access-state-updated"));
+        setMessage({
+          text: t("codex.localAccess.saveSuccess", "API 服务集合已更新"),
+        });
+      } catch (error) {
+        console.error("Failed to add account to API service:", error);
+        setMessage({
+          text: t("messages.actionFailed", {
+            action: t("codex.localAccess.entryAction", "添加至 API 服务"),
+            error: String(error).replace(/^Error:\s*/, ""),
+          }),
+          tone: "error",
+        });
+      } finally {
+        setAddingLocalAccessAccountId(null);
+      }
+    },
+    [addingLocalAccessAccountId, ensureLocalAccessEntryVisible, setMessage, t],
+  );
+
+  const renderAddLocalAccessAccountButton = (
+    account: CodexAccount,
+    className: string,
+    iconSize = 14,
+  ) => {
+    if (!canDirectlyAddLocalAccessAccount(account)) return null;
+    const label = t(
+      "codex.localAccess.entryAction",
+      "添加至 API 服务",
+    );
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => void handleAddLocalAccessAccount(account.id)}
+        disabled={addingLocalAccessAccountId !== null}
+        title={label}
+        aria-label={label}
+      >
+        {addingLocalAccessAccountId === account.id ? (
+          <RefreshCw size={iconSize} className="loading-spinner" />
+        ) : (
+          <Link2 size={iconSize} />
+        )}
+      </button>
+    );
+  };
+
   const handleSaveLocalAccessAccounts = useCallback(
     async (
       accountIds: string[],
@@ -9813,6 +9904,11 @@ export function CodexAccountsPage() {
             )}
           </div>
           {renderAccountSpeedSelect(account, true)}
+          {renderAddLocalAccessAccountButton(
+            account,
+            "codex-compact-api-service-btn",
+            13,
+          )}
           {!isApiKeyAccount && (
             <button
               className={`codex-compact-note-btn ${hasCodexAccountNoteDetails(account) ? "has-note" : ""}`}
@@ -10246,6 +10342,10 @@ export function CodexAccountsPage() {
                     <Terminal size={14} />
                   )}
                 </button>
+                {renderAddLocalAccessAccountButton(
+                  account,
+                  "card-action-btn",
+                )}
                 {isNewApiAccount && (
                   <button
                     className="card-action-btn"
@@ -11575,6 +11675,7 @@ export function CodexAccountsPage() {
                   <Terminal size={14} />
                 )}
               </button>
+              {renderAddLocalAccessAccountButton(account, "action-btn")}
               {isNewApiAccount && (
                 <button
                   className="action-btn"

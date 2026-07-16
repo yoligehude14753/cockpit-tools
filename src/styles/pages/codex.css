@@ -4325,7 +4325,8 @@
   transition: all 0.15s ease;
 }
 
-.codex-accounts-page .codex-compact-note-btn {
+.codex-accounts-page .codex-compact-note-btn,
+.codex-accounts-page .codex-compact-api-service-btn {
   width: 22px;
   height: 22px;
   border-radius: var(--radius-md);
@@ -4341,10 +4342,16 @@
 }
 
 .codex-accounts-page .codex-compact-note-btn:hover,
-.codex-accounts-page .codex-compact-note-btn.has-note {
+.codex-accounts-page .codex-compact-note-btn.has-note,
+.codex-accounts-page .codex-compact-api-service-btn:hover:not(:disabled) {
   color: var(--primary);
   border-color: rgba(37, 99, 235, 0.22);
   background: rgba(37, 99, 235, 0.08);
+}
+
+.codex-accounts-page .codex-compact-api-service-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .codex-accounts-page .codex-compact-switch-btn:hover:not(:disabled) {
