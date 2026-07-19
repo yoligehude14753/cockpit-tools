@@ -1,0 +1,53 @@
+name: Codex Patched macOS Build
+
+"on":
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos-universal:
+    name: Build macOS universal
+    runs-on: macos-latest
+    steps:
+      - name: Checkout patch ref
+        uses: actions/checkout@v4
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Go setup
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: sidecars/cockpit-cliproxy/go.mod
+          cache-dependency-path: sidecars/cockpit-cliproxy/go.sum
+
+      - name: Node.js setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Sync versions
+        run: npm run sync-version
+
+      - name: Build unsigned universal app
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx tauri build --ci --config src-tauri/tauri.ci.conf.json --target universal-apple-darwin
+
+      - name: Upload app and dmg bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-patched-macos-universal-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            target/universal-apple-darwin/release/bundle/**/*.app
+            target/universal-apple-darwin/release/bundle/**/*.dmg
