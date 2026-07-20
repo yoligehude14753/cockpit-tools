@@ -10,6 +10,7 @@ pub mod codebuddy_instance;
 pub mod codebuddy_session;
 pub mod codex;
 pub mod codex_instance;
+pub mod codex_web_profile;
 pub mod cursor;
 pub mod cursor_instance;
 pub mod data_transfer;

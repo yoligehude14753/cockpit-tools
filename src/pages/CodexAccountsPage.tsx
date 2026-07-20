@@ -1237,6 +1237,12 @@ export function CodexAccountsPage() {
   const [cliLaunchingAccountId, setCliLaunchingAccountId] = useState<
     string | null
   >(null);
+  const [codexWebProfileBusyAccountId, setCodexWebProfileBusyAccountId] =
+    useState<string | null>(null);
+  const [codexWebProfileStatusByAccountId, setCodexWebProfileStatusByAccountId] =
+    useState<Record<string, codexService.CodexWebProfileStatus>>({});
+  const [codexVerificationMailboxBusy, setCodexVerificationMailboxBusy] =
+    useState(false);
   const [cockpitApiPanelAccountId, setCockpitApiPanelAccountId] = useState<
     string | null
   >(null);
@@ -5032,6 +5038,57 @@ export function CodexAccountsPage() {
       t,
     ],
   );
+
+  const handleOpenCodexWebProfile = useCallback(
+    async (account: CodexAccount) => {
+      if (codexWebProfileBusyAccountId) return;
+      setMessage(null);
+      setCodexWebProfileBusyAccountId(account.id);
+      try {
+        const status = await codexService.openCodexWebProfile(account.id);
+        setCodexWebProfileStatusByAccountId((previous) => ({
+          ...previous,
+          [account.id]: status,
+        }));
+        setMessage({
+          text: t(
+            "codex.webProfile.openSuccess",
+            "已打开该账号的网页版会话 Profile；网页登录完成后会保留此会话。",
+          ),
+        });
+      } catch (error) {
+        setMessage({
+          text: `${t("codex.webProfile.openFailed", "打开网页版会话失败")}: ${String(error).replace(/^Error:\s*/, "")}`,
+          tone: "error",
+        });
+      } finally {
+        setCodexWebProfileBusyAccountId(null);
+      }
+    },
+    [codexWebProfileBusyAccountId, setMessage, t],
+  );
+
+  const handleOpenCodexVerificationMailbox = useCallback(async () => {
+    if (codexVerificationMailboxBusy) return;
+    setMessage(null);
+    setCodexVerificationMailboxBusy(true);
+    try {
+      await codexService.openCodexVerificationMailbox();
+      setMessage({
+        text: t(
+          "codex.webProfile.mailboxOpenSuccess",
+          "已打开验证邮箱页面；验证码请在页面中查看。",
+        ),
+      });
+    } catch (error) {
+      setMessage({
+        text: `${t("codex.webProfile.mailboxOpenFailed", "打开验证邮箱失败")}: ${String(error).replace(/^Error:\s*/, "")}`,
+        tone: "error",
+      });
+    } finally {
+      setCodexVerificationMailboxBusy(false);
+    }
+  }, [codexVerificationMailboxBusy, setMessage, t]);
 
   const handleSwitch = async (accountId: string) => {
     try {
@@ -9960,6 +10017,43 @@ export function CodexAccountsPage() {
 
   // ─── Render helpers ──────────────────────────────────────────────────
 
+  const renderCodexWebProfileButton = useCallback(
+    (account: CodexAccount, className: string): ReactElement | null => {
+      if (isCodexApiKeyAccount(account)) return null;
+      const isBusy = codexWebProfileBusyAccountId === account.id;
+      const status = codexWebProfileStatusByAccountId[account.id];
+      const label = t(
+        "codex.webProfile.open",
+        "打开网页版会话 Profile",
+      );
+      const title = status?.state === "inUse"
+        ? t("codex.webProfile.inUse", "网页版会话 Profile 正在使用")
+        : label;
+      return (
+        <button
+          type="button"
+          className={`${className}${status?.state === "inUse" ? " active" : ""}`}
+          onClick={() => void handleOpenCodexWebProfile(account)}
+          disabled={Boolean(codexWebProfileBusyAccountId)}
+          title={title}
+          aria-label={label}
+        >
+          {isBusy ? (
+            <RefreshCw size={14} className="loading-spinner" />
+          ) : (
+            <Globe size={14} />
+          )}
+        </button>
+      );
+    },
+    [
+      codexWebProfileBusyAccountId,
+      codexWebProfileStatusByAccountId,
+      handleOpenCodexWebProfile,
+      t,
+    ],
+  );
+
   const renderCompactRows = (
     items: typeof filteredAccounts,
     groupKey?: string,
@@ -10047,6 +10141,7 @@ export function CodexAccountsPage() {
             "codex-compact-api-service-btn",
             13,
           )}
+          {renderCodexWebProfileButton(account, "codex-compact-note-btn")}
           {!isApiKeyAccount && (
             <button
               className={`codex-compact-note-btn ${hasCodexAccountNoteDetails(account) ? "has-note" : ""}`}
@@ -10497,6 +10592,7 @@ export function CodexAccountsPage() {
                     <Terminal size={14} />
                   )}
                 </button>
+                {renderCodexWebProfileButton(account, "card-action-btn")}
                 {isNewApiAccount && (
                   <button
                     className="card-action-btn"
@@ -11860,6 +11956,7 @@ export function CodexAccountsPage() {
                   <Terminal size={14} />
                 )}
               </button>
+              {renderCodexWebProfileButton(account, "action-btn")}
               {renderAddLocalAccessAccountButton(account, "action-btn")}
               {isNewApiAccount && (
                 <button
@@ -13631,6 +13728,19 @@ export function CodexAccountsPage() {
                   size={14}
                   className={refreshingAll ? "loading-spinner" : ""}
                 />
+              </button>
+              <button
+                className="btn btn-secondary icon-only"
+                onClick={() => void handleOpenCodexVerificationMailbox()}
+                disabled={codexVerificationMailboxBusy}
+                title={t("codex.webProfile.openMailbox", "打开验证邮箱")}
+                aria-label={t("codex.webProfile.openMailbox", "打开验证邮箱")}
+              >
+                {codexVerificationMailboxBusy ? (
+                  <RefreshCw size={14} className="loading-spinner" />
+                ) : (
+                  <ExternalLink size={14} />
+                )}
               </button>
               <button
                 className="btn btn-secondary icon-only"

@@ -848,6 +848,9 @@ pub fn run() {
             commands::codex::codex_local_access_test,
             commands::codex::codex_local_access_chat_test,
             commands::codex::codex_local_access_chat_test_stream,
+            commands::codex_web_profile::get_codex_web_profile_status,
+            commands::codex_web_profile::open_codex_web_profile,
+            commands::codex_web_profile::open_codex_verification_mailbox,
             // GitHub Copilot Commands
             commands::github_copilot::list_github_copilot_accounts,
             commands::github_copilot::delete_github_copilot_account,

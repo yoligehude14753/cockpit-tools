@@ -17,6 +17,17 @@ export interface CodexOAuthLoginStartResponse {
   authUrl: string;
 }
 
+export type CodexWebProfileState = "notCreated" | "created" | "inUse";
+
+export interface CodexWebProfileStatus {
+  state: CodexWebProfileState;
+  accountKey: string;
+  displayLabel: string;
+  profilePath: string;
+  createdAt: number | null;
+  lastOpenedAt: number | null;
+}
+
 /** 列出所有 Codex 账号 */
 export async function listCodexAccounts(): Promise<CodexAccount[]> {
   return await invoke('list_codex_accounts');
@@ -102,6 +113,18 @@ export async function switchCodexAccount(
       elapsedMs: Math.round(performance.now() - startedAt),
     });
   }
+}
+
+/** 打开账号对应的独立 Chrome 网页会话 Profile，不修改原生 Codex 登录状态。 */
+export async function openCodexWebProfile(
+  accountId: string,
+): Promise<CodexWebProfileStatus> {
+  return await invoke("open_codex_web_profile", { accountId });
+}
+
+/** 打开用于接收登录验证码的邮箱页面。 */
+export async function openCodexVerificationMailbox(): Promise<void> {
+  return await invoke("open_codex_verification_mailbox");
 }
 
 /** 删除 Codex 账号 */
