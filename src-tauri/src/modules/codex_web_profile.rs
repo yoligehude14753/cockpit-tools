@@ -224,13 +224,11 @@ fn profile_in_use(profile_dir: &Path) -> Result<bool, String> {
         .canonicalize()
         .map_err(|error| format!("解析 Firefox Profile 路径失败: {error}"))?;
     let mut system = System::new();
-    system
-        .refresh_processes_specifics(
-            ProcessesToUpdate::All,
-            true,
-            ProcessRefreshKind::nothing().with_cmd(UpdateKind::OnlyIfNotSet),
-        )
-        .map_err(|error| format!("查询 Firefox 进程失败: {error}"))?;
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_cmd(UpdateKind::OnlyIfNotSet),
+    );
 
     let processes = system
         .processes()
