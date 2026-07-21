@@ -1,9 +1,10 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Command;
 
 const PROFILE_ROOT_NAME: &str = "codex_web_profiles";
 const PROFILE_MAPPING_FILE: &str = "codex_web_profiles.json";
@@ -209,111 +210,122 @@ fn record_for(
         .cloned()
 }
 
-fn profile_in_use_from_ps_output(
-    output: std::io::Result<Output>,
-    expected: &str,
-) -> Result<bool, String> {
-    let output = output.map_err(|error| format!("查询 Chrome 进程失败: {error}"))?;
-    if !output.status.success() {
-        return Err(format!(
-            "查询 Chrome 进程失败，退出码 {:?}",
-            output.status.code()
-        ));
-    }
-    let stdout = String::from_utf8(output.stdout)
-        .map_err(|error| format!("读取 Chrome 进程信息失败: {error}"))?;
-    Ok(stdout.lines().any(|line| {
-        let lower = line.to_ascii_lowercase();
-        let is_chrome = lower.contains("google chrome") || lower.contains("chromium");
-        is_chrome && command_line_has_user_data_dir(line, expected)
-    }))
+#[derive(Debug, Clone)]
+struct ProcessSnapshot {
+    name: OsString,
+    exe: Option<PathBuf>,
+    cmd: Vec<OsString>,
 }
 
 fn profile_in_use(profile_dir: &Path) -> Result<bool, String> {
-    let expected = profile_dir.to_string_lossy().to_string();
-    #[cfg(target_os = "macos")]
-    {
-        let output = Command::new("ps").args(["-axo", "command="]).output();
-        return profile_in_use_from_ps_output(output, &expected);
-    }
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
-    #[cfg(not(target_os = "macos"))]
-    {
-        use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
-        let mut system = System::new();
-        system
-            .refresh_processes_specifics(
-                ProcessesToUpdate::All,
-                true,
-                ProcessRefreshKind::nothing().with_cmd(UpdateKind::OnlyIfNotSet),
-            )
-            .map_err(|error| format!("查询 Chrome 进程失败: {error}"))?;
-        Ok(system.processes().values().any(|process| {
-            let command = process
-                .cmd()
-                .iter()
-                .map(|arg| arg.to_string_lossy())
-                .collect::<Vec<_>>()
-                .join(" ");
-            let lower = command.to_ascii_lowercase();
-            (lower.contains("chrome") || lower.contains("chromium"))
-                && command_line_has_user_data_dir(&command, &expected)
-        }))
-    }
+    let expected = profile_dir
+        .canonicalize()
+        .map_err(|error| format!("解析 Firefox Profile 路径失败: {error}"))?;
+    let mut system = System::new();
+    system
+        .refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing().with_cmd(UpdateKind::OnlyIfNotSet),
+        )
+        .map_err(|error| format!("查询 Firefox 进程失败: {error}"))?;
+
+    let processes = system
+        .processes()
+        .values()
+        .map(|process| ProcessSnapshot {
+            name: process.name().to_os_string(),
+            exe: process.exe().map(Path::to_path_buf),
+            cmd: process.cmd().to_vec(),
+        })
+        .collect();
+    profile_in_use_from_processes(Ok(processes), &expected)
 }
 
-fn command_line_has_user_data_dir(command_line: &str, expected: &str) -> bool {
-    let expected = Path::new(expected);
-    let args = command_line.split_whitespace().collect::<Vec<_>>();
-    args.windows(2).any(|pair| {
-        pair[0] == "--user-data-dir"
-            && normalize_path(pair[1]) == normalize_path(expected.to_string_lossy().as_ref())
-    }) || args.iter().any(|arg| {
-        arg.strip_prefix("--user-data-dir=")
-            .map(|value| {
-                normalize_path(value) == normalize_path(expected.to_string_lossy().as_ref())
-            })
-            .unwrap_or(false)
+fn profile_in_use_from_processes(
+    processes: Result<Vec<ProcessSnapshot>, String>,
+    expected: &Path,
+) -> Result<bool, String> {
+    let processes = processes?;
+    Ok(processes.iter().any(|process| {
+        is_firefox_process(&process.name, process.exe.as_deref(), &process.cmd)
+            && command_line_has_firefox_profile(&process.cmd, expected)
+    }))
+}
+
+fn is_firefox_process(name: &OsStr, exe: Option<&Path>, args: &[OsString]) -> bool {
+    let mut candidates = vec![name.to_string_lossy().to_ascii_lowercase()];
+    if let Some(exe_name) = exe.and_then(Path::file_name) {
+        candidates.push(exe_name.to_string_lossy().to_ascii_lowercase());
+    }
+    if let Some(command_name) = args.first().and_then(|arg| Path::new(arg).file_name()) {
+        candidates.push(command_name.to_string_lossy().to_ascii_lowercase());
+    }
+    candidates.iter().any(|candidate| {
+        matches!(
+            candidate.as_str(),
+            "firefox" | "firefox-bin" | "firefox.exe"
+        )
     })
 }
 
-fn normalize_path(value: &str) -> String {
-    Path::new(value)
+fn command_line_has_firefox_profile(args: &[OsString], expected: &Path) -> bool {
+    args.windows(2).any(|pair| {
+        pair[0] == OsStr::new("-profile")
+            && normalize_path(Path::new(&pair[1])) == normalize_path(expected)
+    })
+}
+
+fn normalize_path(value: &Path) -> String {
+    value
         .canonicalize()
-        .unwrap_or_else(|_| PathBuf::from(value))
+        .unwrap_or_else(|_| value.to_path_buf())
         .to_string_lossy()
         .trim_end_matches(std::path::MAIN_SEPARATOR)
         .to_ascii_lowercase()
 }
 
-fn launch_chrome(profile_dir: &Path) -> Result<(), String> {
-    let profile_dir = profile_dir.to_string_lossy().to_string();
-    let candidates: &[&str] = if cfg!(target_os = "macos") {
-        &[
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "/Applications/Chromium.app/Contents/MacOS/Chromium",
-        ]
-    } else if cfg!(target_os = "windows") {
-        &["chrome.exe", "chromium.exe"]
-    } else {
-        &[
-            "google-chrome",
-            "google-chrome-stable",
-            "chromium",
-            "chromium-browser",
-        ]
-    };
+fn firefox_candidates() -> Vec<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut candidates = vec![PathBuf::from(
+            "/Applications/Firefox.app/Contents/MacOS/firefox",
+        )];
+        if let Some(home) = dirs::home_dir() {
+            candidates.push(home.join("Applications/Firefox.app/Contents/MacOS/firefox"));
+        }
+        candidates
+    }
 
-    for candidate in candidates {
-        let path_candidate = Path::new(candidate);
-        if cfg!(target_os = "macos") && !path_candidate.is_file() {
+    #[cfg(target_os = "windows")]
+    {
+        vec![PathBuf::from("firefox.exe")]
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        vec![PathBuf::from("firefox"), PathBuf::from("firefox-esr")]
+    }
+}
+
+fn launch_firefox(profile_dir: &Path) -> Result<(), String> {
+    let profile_dir = profile_dir
+        .canonicalize()
+        .map_err(|error| format!("解析 Firefox Profile 路径失败: {error}"))?;
+    let profile_dir = profile_dir.to_string_lossy().to_string();
+
+    for candidate in firefox_candidates() {
+        if cfg!(target_os = "macos") && !candidate.is_file() {
             continue;
         }
-        let result = Command::new(candidate)
+        let result = Command::new(&candidate)
             .args([
-                "--user-data-dir",
+                "-profile",
                 &profile_dir,
-                "--new-window",
+                "-no-remote",
+                "-new-instance",
                 CODEX_WEB_URL,
             ])
             .spawn();
@@ -322,7 +334,7 @@ fn launch_chrome(profile_dir: &Path) -> Result<(), String> {
         }
     }
 
-    Err("未找到可用的 Chrome/Chromium。请安装 Google Chrome 后重试".to_string())
+    Err("未找到可用的 Firefox 官方版。请安装 Firefox 后重试".to_string())
 }
 
 pub fn get_status(app_data_dir: &Path, account_id: &str) -> Result<CodexWebProfileStatus, String> {
@@ -367,7 +379,9 @@ pub fn open_profile(
     let mut mapping = load_mapping(app_data_dir)?;
     let profile_dir = ensure_profile_dir(app_data_dir, &account_key)?;
     if profile_in_use(&profile_dir)? {
-        return Err("该 Web Profile 正在使用，请先在对应 Chrome 窗口中操作".to_string());
+        return Err(
+            "该 Firefox 网页会话 Profile 正在使用，请先在对应 Firefox 窗口中操作".to_string(),
+        );
     }
 
     let now = Utc::now().timestamp();
@@ -378,7 +392,7 @@ pub fn open_profile(
         created_at: now,
         last_opened_at: None,
     });
-    launch_chrome(&profile_dir)?;
+    launch_firefox(&profile_dir)?;
     let mut updated = record;
     updated.last_opened_at = Some(now);
     mapping
@@ -422,13 +436,36 @@ mod tests {
     #[test]
     fn command_line_matching_requires_exact_profile_path() {
         let path = "/tmp/cockpit-profile";
-        assert!(command_line_has_user_data_dir(
-            "Google Chrome --user-data-dir=/tmp/cockpit-profile --new-window",
-            path
+        let args = |items: &[&str]| {
+            items
+                .iter()
+                .map(|item| OsString::from(item))
+                .collect::<Vec<_>>()
+        };
+        assert!(command_line_has_firefox_profile(
+            &args(&[
+                "/Applications/Firefox.app/Contents/MacOS/firefox",
+                "-profile",
+                path,
+                "-no-remote",
+            ]),
+            Path::new(path),
         ));
-        assert!(!command_line_has_user_data_dir(
-            "Google Chrome --user-data-dir=/tmp/cockpit-profile-other",
-            path
+        assert!(!command_line_has_firefox_profile(
+            &args(&[
+                "/Applications/Firefox.app/Contents/MacOS/firefox",
+                "-profile",
+                "/tmp/cockpit-profile-other",
+            ]),
+            Path::new(path),
+        ));
+        assert!(command_line_has_firefox_profile(
+            &args(&[
+                "/Applications/Firefox.app/Contents/MacOS/firefox",
+                "-profile",
+                "/tmp/cockpit profile",
+            ]),
+            Path::new("/tmp/cockpit profile"),
         ));
     }
 
@@ -457,13 +494,38 @@ mod tests {
 
     #[test]
     fn process_query_error_fails_closed() {
-        let result = profile_in_use_from_ps_output(
-            Err(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
-                "test failure",
-            )),
-            "/tmp/cockpit-profile",
+        let result = profile_in_use_from_processes(
+            Err("test failure".to_string()),
+            Path::new("/tmp/cockpit-profile"),
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn process_detection_requires_firefox_binary() {
+        let expected = Path::new("/tmp/cockpit-profile");
+        let firefox = ProcessSnapshot {
+            name: OsString::from("firefox"),
+            exe: Some(PathBuf::from(
+                "/Applications/Firefox.app/Contents/MacOS/firefox",
+            )),
+            cmd: [
+                "/Applications/Firefox.app/Contents/MacOS/firefox",
+                "-profile",
+                "/tmp/cockpit-profile",
+            ]
+            .into_iter()
+            .map(OsString::from)
+            .collect(),
+        };
+        let other_browser = ProcessSnapshot {
+            name: OsString::from("Other Browser"),
+            exe: Some(PathBuf::from(
+                "/Applications/Other Browser.app/Contents/MacOS/browser",
+            )),
+            cmd: firefox.cmd.clone(),
+        };
+        assert!(profile_in_use_from_processes(Ok(vec![firefox]), expected).unwrap());
+        assert!(!profile_in_use_from_processes(Ok(vec![other_browser]), expected).unwrap());
     }
 }

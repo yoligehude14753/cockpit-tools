@@ -115,7 +115,7 @@ export async function switchCodexAccount(
   }
 }
 
-/** 打开账号对应的独立 Chrome 网页会话 Profile，不修改原生 Codex 登录状态。 */
+/** 打开账号对应的独立 Firefox 网页会话 Profile，不修改原生 Codex 登录状态。 */
 export async function openCodexWebProfile(
   accountId: string,
 ): Promise<CodexWebProfileStatus> {

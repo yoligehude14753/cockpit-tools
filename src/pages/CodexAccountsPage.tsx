@@ -5053,7 +5053,7 @@ export function CodexAccountsPage() {
         setMessage({
           text: t(
             "codex.webProfile.openSuccess",
-            "已打开该账号的网页版会话 Profile；网页登录完成后会保留此会话。",
+            "已打开该账号的 Firefox 网页会话 Profile；首次请在 Firefox 中完成登录，登录状态会保留。",
           ),
         });
       } catch (error) {
@@ -10024,10 +10024,10 @@ export function CodexAccountsPage() {
       const status = codexWebProfileStatusByAccountId[account.id];
       const label = t(
         "codex.webProfile.open",
-        "打开网页版会话 Profile",
+        "打开 Firefox 网页会话 Profile",
       );
       const title = status?.state === "inUse"
-        ? t("codex.webProfile.inUse", "网页版会话 Profile 正在使用")
+        ? t("codex.webProfile.inUse", "Firefox 网页会话 Profile 正在使用")
         : label;
       return (
         <button
